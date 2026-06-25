@@ -1,0 +1,3 @@
+[submodule "CFmake"]
+	path = CFmake
+	url = https://github.com/Shuko83/CFmake.git
