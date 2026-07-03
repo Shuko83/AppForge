@@ -1,5 +1,7 @@
 #include "AfCore/Version.h"
 
+#include "JsonHelper.h"
+
 #include <cstring>
 
 using namespace appforge::core;
@@ -53,17 +55,19 @@ QString Version::toString() const
 	return QString("%1.%2.%3").arg(_major).arg(_minor).arg(_patch);
 }
 
-json Version::toJson() const
+QJsonObject Version::toJson() const
 {
-	return json{
+	NJson j{
 		{JsonKeys::MAJOR, _major},
 		{JsonKeys::MINOR, _minor},
 		{JsonKeys::PATCH, _patch}
 	};
+	return json_helper::fromByteArray(j);
 }
 
-void Version::fromJson(const json& j)
+void Version::fromJson(const QJsonObject& obj)
 {
+	NJson j = json_helper::toJson(obj);
 	_major = j.value(JsonKeys::MAJOR, 0);
 	_minor = j.value(JsonKeys::MINOR, 0);
 	_patch = j.value(JsonKeys::PATCH, 0);

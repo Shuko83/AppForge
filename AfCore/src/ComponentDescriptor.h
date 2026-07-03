@@ -107,13 +107,13 @@ namespace appforge::core {
          * @brief Sérialise le descriptor en JSON (format interne).
          * @return Objet JSON représentant ce descriptor.
          */
-        json toJson() const;
+        QJsonObject toJson() const;
         /**
          * @brief Désérialise à partir d'un objet JSON.
          * @param obj Objet JSON source.
          * @note Valide partiellement les champs et met à jour l'état interne.
          */
-        void fromJson(const json& obj) override;
+        void fromJson(const QJsonObject& obj) override;
 
         /**
          * @brief Valide la syntaxe d'un pluginId.

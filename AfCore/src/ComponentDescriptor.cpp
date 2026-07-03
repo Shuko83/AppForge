@@ -1,10 +1,14 @@
 #include "ComponentDescriptor.h"
 
+#include "JsonHelper.h"
+
+#include <nlohmann/json.hpp>
 
 #include <QJsonArray>
 #include <QRegularExpression>
 
 #include <cstring>
+
 using namespace appforge::core;
 
 namespace JsonKeys {
@@ -153,8 +157,9 @@ bool ComponentDescriptor::operator!=(const ComponentDescriptor& other) const
     return !(*this == other);
 }
 
-void ComponentDescriptor::fromJson(const json& j)
+void ComponentDescriptor::fromJson(const QJsonObject& obj)
 {
+	NJson j = json_helper::toJson(obj);
     _pluginId = QString::fromStdString(j.value("pluginId", ""));
     _componentId = QString::fromStdString(j.value("componentId", ""));
     _displayName = QString::fromStdString(j.value("displayName", ""));
@@ -189,16 +194,17 @@ bool ComponentDescriptor::isValidComponentId(const QString& componentId)
     return regex.match(componentId).hasMatch();
 }
 
-json ComponentDescriptor::toJson() const
+QJsonObject ComponentDescriptor::toJson() const
 {
-    return json{
+    NJson j{
             {JsonKeys::PLUGIN_ID, _pluginId.toStdString()},
             {JsonKeys::COMPONENT_ID, _componentId.toStdString()},
             {JsonKeys::DISPLAY_NAME, _displayName.toStdString()},
             {JsonKeys::DESCRIPTION, _description.toStdString()},
             {JsonKeys::VERSION, _version.toJson()},
             {JsonKeys::CATEGORY, _category.toStdString()},
-            {JsonKeys::TAGS, json::array()}
+            {JsonKeys::TAGS, NJson::array()}
     };
+	return json_helper::fromJson(j);
 
 }

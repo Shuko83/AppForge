@@ -79,12 +79,12 @@ namespace appforge::core {
          * @brief Sérialise l'objet en JSON.
          * @return Un objet `json` contenant les clés "major", "minor", "patch".
          */
-        json toJson() const override;
+        QJsonObject toJson() const override;
         /**
          * @brief Désérialise l'objet depuis JSON.
          * @param j Objet `json` attendu contenant "major", "minor", "patch".
          */
-        void fromJson(const json& j) override;
+        void fromJson(const QJsonObject& j) override;
 
     private:
         unsigned int _major = 0; /**< Composante majeure. */
