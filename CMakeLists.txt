@@ -16,5 +16,4 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(nlohmann_json)
 
-
 add_subdirectory(AfCore)

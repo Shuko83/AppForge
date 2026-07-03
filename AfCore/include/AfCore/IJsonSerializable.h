@@ -6,10 +6,6 @@
 
 #include <memory>
 
-namespace nlohmann {
-    class json;
-}
-
 namespace appforge::core {
 
 class AFCORE_EXPORT IJsonSerializable
