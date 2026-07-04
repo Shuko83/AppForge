@@ -1,0 +1,24 @@
+Checks: >
+  bugprone-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  modernize-*,
+  clang-analyzer-*,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers,
+  -fuchsia-*,
+  -llvm-*,
+  -google-*,
+  -zircon-*
+
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: 'src/|include/'
+
+FormatStyle: file
+
+CheckOptions:
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
