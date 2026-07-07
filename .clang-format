@@ -1,4 +1,3 @@
----
 Language: Cpp
 
 BasedOnStyle: LLVM
@@ -19,4 +18,3 @@ AllowShortIfStatementsOnASingleLine: Never
 SortIncludes: true
 
 Standard: Latest
-...
