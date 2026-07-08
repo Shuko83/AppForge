@@ -30,7 +30,7 @@ namespace appforge::core {
          * @brief Retourne la composante majeure.
          * @return valeur entière >= 0.
          */
-        unsigned int major() const;
+        [[nodiscard]] unsigned int major() const;
         /**
          * @brief Définit la composante majeure.
          * @param value Valeur entière >= 0.
@@ -41,7 +41,7 @@ namespace appforge::core {
          * @brief Retourne la composante mineure.
          * @return valeur entière >= 0.
          */
-        unsigned int minor() const;
+        [[nodiscard]] unsigned int minor() const;
         /**
          * @brief Définit la composante mineure.
          * @param value Valeur entière >= 0.
@@ -52,7 +52,7 @@ namespace appforge::core {
          * @brief Retourne la composante de correctif (patch).
          * @return valeur entière >= 0.
          */
-        unsigned int patch() const;
+        [[nodiscard]] unsigned int patch() const;
         /**
          * @brief Définit la composante de correctif (patch).
          * @param value Valeur entière >= 0.
@@ -63,7 +63,7 @@ namespace appforge::core {
          * @brief Convertit la version en chaîne au format "major.minor.patch".
          * @return QString contenant la représentation textuelle.
          */
-        QString toString() const;
+        [[nodiscard]] QString toString() const;
 
         /**
          * @brief Indique si la version est valide.
@@ -72,14 +72,14 @@ namespace appforge::core {
          * (Comportement exact dépend de l'implémentation.)
          * @return true si valide, false sinon.
          */
-        bool isValid() const;
+        [[nodiscard]] bool isValid() const;
 
         // ✅ JSON
         /**
          * @brief Sérialise l'objet en JSON.
          * @return Un objet `json` contenant les clés "major", "minor", "patch".
          */
-        json toJson() const override;
+        [[nodiscard]] json toJson() const override;
         /**
          * @brief Désérialise l'objet depuis JSON.
          * @param j Objet `json` attendu contenant "major", "minor", "patch".

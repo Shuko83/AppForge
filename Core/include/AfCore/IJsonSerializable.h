@@ -15,23 +15,23 @@ public:
     virtual ~IJsonSerializable() = default;
 
     // ✅ Serialize
-    virtual json toJson() const = 0;
+    [[nodiscard]] virtual json toJson() const = 0;
 
     // ✅ Deserialize into current instance
-    virtual void fromJson(const json& j) = 0;
+    virtual void fromJson(const json& json) = 0;
 
     // ✅ Static builder (templated)
-    template<typename T>
-    static std::unique_ptr<T> buildFromJson(const json& j)
+    template<typename T> static std::unique_ptr<T> buildFromJson(const json& json)
     {
         static_assert(std::is_base_of<IJsonSerializable, T>::value,
                       "T must inherit from IJsonSerializable");
 
         auto instance = std::make_unique<T>();
-        instance->fromJson(j);
+        instance->fromJson(json);
 
         return instance;
     }
 };
 
 }
+#endif
