@@ -1,6 +1,6 @@
 Language: Cpp
 
-BasedOnStyle: LLVM
+BasedOnStyle: Microsoft
 
 IndentWidth: 4
 TabWidth: 4
@@ -8,7 +8,7 @@ UseTab: Never
 
 ColumnLimit: 120
 
-BreakBeforeBraces: Attach
+BreakBeforeBraces: Allman
 
 PointerAlignment: Left
 

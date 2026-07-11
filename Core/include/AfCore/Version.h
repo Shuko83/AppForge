@@ -1,4 +1,5 @@
-#pragma once
+#if not defined(VERSION_H)
+#define VERSION_H
 
 #include "CoreConstants.h"
 #include "IJsonSerializable.h"
@@ -30,7 +31,7 @@ namespace appforge::core {
          * @brief Retourne la composante majeure.
          * @return valeur entière >= 0.
          */
-        unsigned int major() const;
+        [[nodiscard]] unsigned int major() const;
         /**
          * @brief Définit la composante majeure.
          * @param value Valeur entière >= 0.
@@ -41,7 +42,7 @@ namespace appforge::core {
          * @brief Retourne la composante mineure.
          * @return valeur entière >= 0.
          */
-        unsigned int minor() const;
+        [[nodiscard]] unsigned int minor() const;
         /**
          * @brief Définit la composante mineure.
          * @param value Valeur entière >= 0.
@@ -52,7 +53,7 @@ namespace appforge::core {
          * @brief Retourne la composante de correctif (patch).
          * @return valeur entière >= 0.
          */
-        unsigned int patch() const;
+        [[nodiscard]] unsigned int patch() const;
         /**
          * @brief Définit la composante de correctif (patch).
          * @param value Valeur entière >= 0.
@@ -63,7 +64,7 @@ namespace appforge::core {
          * @brief Convertit la version en chaîne au format "major.minor.patch".
          * @return QString contenant la représentation textuelle.
          */
-        QString toString() const;
+        [[nodiscard]] QString toString() const;
 
         /**
          * @brief Indique si la version est valide.
@@ -72,19 +73,19 @@ namespace appforge::core {
          * (Comportement exact dépend de l'implémentation.)
          * @return true si valide, false sinon.
          */
-        bool isValid() const;
+        [[nodiscard]] bool isValid() const;
 
         // ✅ JSON
         /**
          * @brief Sérialise l'objet en JSON.
          * @return Un objet `json` contenant les clés "major", "minor", "patch".
          */
-        json toJson() const override;
+        [[nodiscard]] json toJson() const override;
         /**
          * @brief Désérialise l'objet depuis JSON.
          * @param j Objet `json` attendu contenant "major", "minor", "patch".
          */
-        void fromJson(const json& j) override;
+        void fromJson(const json& json) override;
 
     private:
         unsigned int _major = 0; /**< Composante majeure. */
@@ -92,3 +93,4 @@ namespace appforge::core {
         unsigned int _patch = 0; /**< Composante de correctif (patch). */
     };
 }
+#endif

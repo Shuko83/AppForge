@@ -1,4 +1,5 @@
-#pragma once
+#if not defined(CORE_CONSTANTS_H)
+#define CORE_CONSTANTS_H
 
 #include <QtGlobal>
 
@@ -7,4 +8,6 @@
     #define CORE_EXPORT Q_DECL_EXPORT
 #else
     #define CORE_EXPORT Q_DECL_IMPORT
+#endif
+
 #endif
