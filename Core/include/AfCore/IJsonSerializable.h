@@ -1,4 +1,5 @@
-#pragma once
+#if not defined(I_JSON_SERIALIZABLE_H)
+#define I_JSON_SERIALIZABLE_H
 
 #include "CoreConstants.h"
 
