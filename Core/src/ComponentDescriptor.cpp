@@ -132,15 +132,6 @@ bool ComponentDescriptor::operator!=(const ComponentDescriptor& other) const
     return !(*this == other);
 }
 
-void ComponentDescriptor::fromJson(const json& j)
-{
-    _pluginId = QString::fromStdString(j.value("pluginId", ""));
-    _componentId = QString::fromStdString(j.value("componentId", ""));
-    _displayName = QString::fromStdString(j.value("displayName", ""));
-    _description = QString::fromStdString(j.value("description", ""));
-    _category = QString::fromStdString(j.value("category", ""));
-}
-
 bool ComponentDescriptor::isValidPluginId(const QString& pluginId)
 {
     static const QRegularExpression regex(
@@ -157,16 +148,4 @@ bool ComponentDescriptor::isValidComponentId(const QString& componentId)
     );
 
     return regex.match(componentId).hasMatch();
-}
-
-json ComponentDescriptor::toJson() const
-{
-    return json{
-            {JsonKeys::PLUGIN_ID, _pluginId.toStdString()},
-            {JsonKeys::COMPONENT_ID, _componentId.toStdString()},
-            {JsonKeys::DISPLAY_NAME, _displayName.toStdString()},
-            {JsonKeys::DESCRIPTION, _description.toStdString()},
-            {JsonKeys::CATEGORY, _category.toStdString()}
-    };
-
 }

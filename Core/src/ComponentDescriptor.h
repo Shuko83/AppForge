@@ -1,11 +1,12 @@
 #pragma once
 
 #include "AfCore/Version.h"
-#include "AfCore/IJsonSerializable.h"
+#include "AfCore/QtJsonConverters.h"
 
 #include <QString>
 #include <QStringList>
 
+#include <nlohmann/json.hpp>
 namespace appforge::core {
 
     /**
@@ -16,7 +17,7 @@ namespace appforge::core {
      * Elle fournit également des utilitaires de sérialisation JSON et des
      * validateurs d'identifiants.
      */
-    class ComponentDescriptor : public IJsonSerializable
+    class ComponentDescriptor
     {
     public:
         ComponentDescriptor() = default;
@@ -101,19 +102,6 @@ namespace appforge::core {
           */
         [[nodiscard]] bool sameIdentity(const ComponentDescriptor& other) const;
 
-        // Hérité via IJsonSerializable
-        /**
-         * @brief Sérialise le descriptor en JSON (format interne).
-         * @return Objet JSON représentant ce descriptor.
-         */
-        [[nodiscard]] json toJson() const override;
-        /**
-         * @brief Désérialise à partir d'un objet JSON.
-         * @param obj Objet JSON source.
-         * @note Valide partiellement les champs et met à jour l'état interne.
-         */
-        void fromJson(const json& obj) override;
-
         /**
          * @brief Valide la syntaxe d'un pluginId.
          * @param pluginId Identifiant à valider.
@@ -135,6 +123,7 @@ namespace appforge::core {
         bool operator!=(const ComponentDescriptor& other) const;
 
     private:
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ComponentDescriptor, _pluginId, _componentId, _version);
         QString _pluginId;
         QString _componentId;
 

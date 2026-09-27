@@ -52,19 +52,3 @@ QString Version::toString() const
 {
 	return QString("%1.%2.%3").arg(_major).arg(_minor).arg(_patch);
 }
-
-json Version::toJson() const
-{
-	return json{
-		{JsonKeys::MAJOR, _major},
-		{JsonKeys::MINOR, _minor},
-		{JsonKeys::PATCH, _patch}
-	};
-}
-
-void Version::fromJson(const json& j)
-{
-	_major = j.value(JsonKeys::MAJOR, 0);
-	_minor = j.value(JsonKeys::MINOR, 0);
-	_patch = j.value(JsonKeys::PATCH, 0);
-}

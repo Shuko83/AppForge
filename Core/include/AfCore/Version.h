@@ -2,9 +2,11 @@
 #define VERSION_H
 
 #include "CoreConstants.h"
-#include "IJsonSerializable.h"
+#include <nlohmann/json.hpp>
 
 #include <QString>
+
+#include <compare>
 
 namespace appforge::core {
 
@@ -15,7 +17,7 @@ namespace appforge::core {
      * de version, des utilitaires de validation et de conversion en chaîne,
      * ainsi que la sérialisation JSON via l'interface `IJsonSerializable`.
      */
-    class CORE_EXPORT Version : public IJsonSerializable
+    class CORE_EXPORT Version
     {
     public:
 
@@ -26,7 +28,7 @@ namespace appforge::core {
          * @param patch Numéro de correctif (patch).
          */
         explicit Version(unsigned int major = 0, unsigned int minor = 0 , unsigned int patch = 0);
-		~Version() override = default;
+		~Version() = default;
         /**
          * @brief Retourne la composante majeure.
          * @return valeur entière >= 0.
@@ -75,19 +77,11 @@ namespace appforge::core {
          */
         [[nodiscard]] bool isValid() const;
 
-        // ✅ JSON
-        /**
-         * @brief Sérialise l'objet en JSON.
-         * @return Un objet `json` contenant les clés "major", "minor", "patch".
-         */
-        [[nodiscard]] json toJson() const override;
-        /**
-         * @brief Désérialise l'objet depuis JSON.
-         * @param j Objet `json` attendu contenant "major", "minor", "patch".
-         */
-        void fromJson(const json& json) override;
+        [[nodiscard]] auto operator<=>(const Version& other) const = default;
 
     private:
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Version,_major,_minor,_patch)
+
         unsigned int _major = 0; /**< Composante majeure. */
         unsigned int _minor = 0; /**< Composante mineure. */
         unsigned int _patch = 0; /**< Composante de correctif (patch). */
