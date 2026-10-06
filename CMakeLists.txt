@@ -4,3 +4,7 @@ project(AppForge)
 
 include(${CMAKE_CURRENT_LIST_DIR}/CMakeUtils/CMakeUtils.cmake)
 
+find_package(Qt6 REQUIRED COMPONENTS Core)
+
+add_subdirectory(Core)
+
