@@ -1,0 +1,8 @@
+{
+    "id": "@APPFORGE_PLUGIN_ID@",
+    "name": "@APPFORGE_PLUGIN_NAME@",
+    "description": "@APPFORGE_PLUGIN_DESCRIPTION@",
+    "version": "@APPFORGE_PLUGIN_VERSION@",
+    "coreVersion": "@APPFORGE_PLUGIN_CORE_VERSION@",
+    "buildDate": "@APPFORGE_PLUGIN_BUILD_DATE@"
+}

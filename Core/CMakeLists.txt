@@ -6,3 +6,6 @@ cmu_add_shared_library(
     NAMESPACE AppForge
     LINK_LIBRARIES PUBLIC Qt6::Core
 )
+
+# appforge_add_plugin(): plugins built against this Core.
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/AppForgePlugin.cmake)
