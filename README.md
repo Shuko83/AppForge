@@ -74,6 +74,8 @@ qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate
 
 `scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. A loaded plugin stays loaded until the application exits.
 
+The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin declared with this single call, and `ExampleApp`, which lists and loads the plugins next to it: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+
 ---
 
 ## 📁 Project File
