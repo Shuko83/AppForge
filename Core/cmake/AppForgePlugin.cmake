@@ -51,9 +51,11 @@ function(appforge_add_plugin)
         SUFFIX ".afplugin"
         LIBRARY_OUTPUT_DIRECTORY "${_output_dir}/plugins")
 
-    # Values of Template/plugin.json.in, a JSON string for the description.
+    # Values of the templates, a JSON string for the description.
     set(APPFORGE_PLUGIN_ID "${_id}")
     set(APPFORGE_PLUGIN_NAME "${ARG_NAME}")
+    # Same identifier as the <identifier>Info namespace of the <NAME>_info.h written by cmu_add_target.
+    string(MAKE_C_IDENTIFIER "${ARG_NAME}" APPFORGE_PLUGIN_IDENTIFIER)
     string(REPLACE "\\" "\\\\" APPFORGE_PLUGIN_DESCRIPTION "${ARG_DESCRIPTION}")
     string(REPLACE "\"" "\\\"" APPFORGE_PLUGIN_DESCRIPTION "${APPFORGE_PLUGIN_DESCRIPTION}")
     string(REPLACE "\n" "\\n" APPFORGE_PLUGIN_DESCRIPTION "${APPFORGE_PLUGIN_DESCRIPTION}")
@@ -66,39 +68,13 @@ function(appforge_add_plugin)
         set(APPFORGE_PLUGIN_VERSION "0.0.0")
     endif()
     get_property(APPFORGE_PLUGIN_CORE_VERSION GLOBAL PROPERTY APPFORGE_CORE_VERSION)
-    # Kept as is: AppForgePluginMetadata.cmake replaces it at build time.
-    set(APPFORGE_PLUGIN_BUILD_DATE "@APPFORGE_PLUGIN_BUILD_DATE@")
-    string(MAKE_C_IDENTIFIER "${ARG_NAME}" _identifier)
-    set(APPFORGE_PLUGIN_CLASS "${_identifier}Plugin")
 
     # Outside <target>_autogen, which the clean target deletes: these files are only written at configure time.
+    # moc embeds the JSON (Q_PLUGIN_METADATA) and AUTOMOC runs it again when the file changes.
     get_property(_cmake_dir GLOBAL PROPERTY APPFORGE_PLUGIN_CMAKE_DIR)
     set(_dir "${CMAKE_CURRENT_BINARY_DIR}/${ARG_NAME}_appforge")
-    set(_header "${_dir}/${ARG_NAME}_plugin.h")
-    set(_metadata "${_dir}/${ARG_NAME}_plugin.json")
-    configure_file("${_cmake_dir}/Template/plugin.h.in" "${_header}" @ONLY)
-    configure_file("${_cmake_dir}/Template/plugin.json.in" "${_metadata}.in" @ONLY)
-    target_sources(${ARG_NAME} PRIVATE "${_header}")
-    source_group("autogen\\appforge" FILES "${_header}")
-
-    # The metadata is dated when a source of the plugin changes; AUTOMOC tracks the file of Q_PLUGIN_METADATA,
-    # so moc embeds the new date and the plugin is relinked, and nothing is rebuilt otherwise.
-    get_target_property(_sources ${ARG_NAME} SOURCES)
-    # cmu_add_target only adds the sources of cmu_sources_dir to the target: watch its private headers as well.
-    if(DEFINED cmu_sources_dir AND DEFINED cmu_headers_extension)
-        get_filename_component(_sources_dir "${cmu_sources_dir}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-        foreach(_extension IN LISTS cmu_headers_extension)
-            file(GLOB_RECURSE _headers CONFIGURE_DEPENDS "${_sources_dir}/*.${_extension}")
-            list(APPEND _sources ${_headers})
-        endforeach()
-    endif()
-    set(_script "${_cmake_dir}/AppForgePluginMetadata.cmake")
-    add_custom_command(
-        OUTPUT "${_metadata}"
-        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${_metadata}.in" "-DOUTPUT=${_metadata}" -P "${_script}"
-        DEPENDS "${_metadata}.in" "${_script}" ${_sources}
-        COMMENT "AppForge: dating the metadata of ${ARG_NAME}"
-        VERBATIM)
-    # moc reads the metadata: it must be written first.
-    set_property(TARGET ${ARG_NAME} APPEND PROPERTY AUTOGEN_TARGET_DEPENDS "${_metadata}")
+    configure_file("${_cmake_dir}/Template/plugin.h.in" "${_dir}/${ARG_NAME}_plugin.h" @ONLY)
+    configure_file("${_cmake_dir}/Template/plugin.json.in" "${_dir}/${ARG_NAME}_plugin.json" @ONLY)
+    target_sources(${ARG_NAME} PRIVATE "${_dir}/${ARG_NAME}_plugin.h")
+    source_group("autogen\\appforge" FILES "${_dir}/${ARG_NAME}_plugin.h")
 endfunction()

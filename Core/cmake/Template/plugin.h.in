@@ -4,17 +4,24 @@
 
 #include <QObject>
 
+#include "@APPFORGE_PLUGIN_NAME@_info.h"
 #include "Plugin/IPlugin.h"
 
 namespace AppForge::Generated
 {
 
 // Root object of the plugin: moc embeds @APPFORGE_PLUGIN_NAME@_plugin.json, which PluginManager reads without loading it.
-class @APPFORGE_PLUGIN_CLASS@ final : public QObject, public IPlugin
+class @APPFORGE_PLUGIN_IDENTIFIER@Plugin final : public QObject, public IPlugin
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID APPFORGE_PLUGIN_IID FILE "@APPFORGE_PLUGIN_NAME@_plugin.json")
     Q_INTERFACES(AppForge::IPlugin)
+
+  public:
+    [[nodiscard]] std::string_view buildDate() const override
+    {
+        return ::@APPFORGE_PLUGIN_IDENTIFIER@Info::buildDate;
+    }
 };
 
 } // namespace AppForge::Generated

@@ -57,9 +57,8 @@ It accepts every keyword of `cmu_add_target` ([CMakeUtils](CMakeUtils/README.md)
 | `description` | `DESCRIPTION`, empty when not given                                          |
 | `version`     | `VERSION`, else `PROJECT_VERSION`, else `0.0.0`                              |
 | `coreVersion` | Version of `Core` the plugin is built against                                |
-| `buildDate`   | UTC date of the last build in which a source or header of the plugin changed |
 
-`APPFORGE_PLUGIN_ID` holds the id while the plugin compiles.
+Its build date (`__DATE__` and `__TIME__`) is read when it is loaded. `APPFORGE_PLUGIN_ID` holds the id while the plugin compiles.
 
 `AppForge::PluginManager` finds and loads the plugins:
 
@@ -67,9 +66,10 @@ It accepts every keyword of `cmu_add_target` ([CMakeUtils](CMakeUtils/README.md)
 AppForge::PluginManager plugins;
 for(const AppForge::PluginInfo& info : plugins.scan()) // <application dir>/plugins, nothing is loaded
 {
-    qInfo() << info.id << info.buildDate << info.description;
+    qInfo() << info.id << info.version << info.description;
 }
 plugins.load(QStringLiteral("Shuko83.AppForge.Network"));
+qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate;
 ```
 
 `scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. A loaded plugin stays loaded until the application exits.

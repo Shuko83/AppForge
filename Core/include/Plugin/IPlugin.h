@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtPlugin>
+#include <string_view>
 
 namespace AppForge
 {
@@ -10,6 +11,9 @@ class IPlugin
 {
   public:
     virtual ~IPlugin() = default;
+
+    // __DATE__ " " __TIME__ of the plugin, e.g. "Oct  6 2026 21:14:03".
+    [[nodiscard]] virtual std::string_view buildDate() const = 0;
 };
 
 } // namespace AppForge
