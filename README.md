@@ -137,6 +137,50 @@ greeter->stop();                                                // Ready
 
 Each step calls a hook the component can override (`onInitialize()`, `onStart()`, `onStop()`); `onInitialize()` and `onStart()` can refuse it by returning `false`. `stateChanged()` is emitted on every change.
 
+### Interfaces
+
+A component provides interfaces to other components, and consumes interfaces from them: a component provides a widget, another one shows it. An interface comes from elsewhere, neither from the provider nor from the consumer: a header both plugins use, which declares it once, outside any namespace, with a versioned id:
+
+```cpp
+// Interfaces/IWidget.h, in a library of interfaces
+class IWidget
+{
+  public:
+    virtual ~IWidget() = default;
+    virtual QWidget* widget() = 0;
+};
+
+APPFORGE_DECLARE_INTERFACE(IWidget, "Shuko83.AppForge.IWidget/1.0");
+```
+
+In its constructor, a component declares a member pointer for each interface it provides or consumes:
+
+```cpp
+Label::Label()
+{
+    provideInterface<IWidget>(m_widget);  // IWidget* m_widget, set by its plugin to its logic
+}
+
+Window::Window()
+{
+    consumeInterface<IWidget>(m_content); // IWidget* m_content, nullptr until it is bound
+}
+```
+
+Binding transfers the pointer: the member of the consumer takes the value the member of the provider has then.
+
+```cpp
+window->bindInterface<IWidget>(*label);                             // Or by id, without the header:
+window->bindInterface(QStringLiteral("Shuko83.AppForge.IWidget/1.0"), *label);
+window->unbindInterface(QStringLiteral("Shuko83.AppForge.IWidget/1.0")); // Back to nullptr
+```
+
+- A component provides or consumes each interface once; `providedInterfaces()` and `consumedInterfaces()` list their ids.
+- `bindInterface()` returns `false`, changing nothing, when the consumer does not consume the interface or the provider does not provide it; binding again replaces the provider.
+- The consumer is unbound when its provider is destroyed. `consumedInterfaceChanged()` is emitted on every bind and unbind, also while it runs, for its logic to follow.
+
+The [exemple](exemple/) folder holds `ExampleInterfaces`, the library declaring `IWidget`; `WidgetPlugin`, whose `Label` provides an `IWidget` showing its text and whose `Window` shows the `IWidget` it consumes in a window while it runs; and `WidgetApp`, which binds them.
+
 ---
 
 ## 🔨 Forge
