@@ -39,7 +39,7 @@ It enables developers to construct software systems by combining reusable buildi
 
 ## 🔌 Writing a Plugin
 
-A plugin is declared with `appforge_add_plugin`, available once `Core` is added. It needs no plugin class: CMake generates the rest.
+A plugin is declared with `appforge_add_plugin`, available once `Core` is added. CMake generates its root object and its metadata; the plugin only declares its class, which builds its components (see below).
 
 ```cmake
 appforge_add_plugin(
@@ -72,9 +72,70 @@ plugins.load(QStringLiteral("Shuko83.AppForge.Network"));
 qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate;
 ```
 
-`scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. A loaded plugin stays loaded until the application exits.
+`scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. Loading a plugin registers its components; a loaded plugin stays loaded until the application exits.
 
-The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin declared with this single call, and `ExampleApp`, which lists and loads the plugins next to it: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin providing the `Greeter` component, and `ExampleApp`, which loads the plugins next to it, lists their components and runs a `Greeter`: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+
+---
+
+## 🧩 Writing a Component
+
+A component belongs to a plugin. It derives from `AppForge::Component` and only exposes what it is, with `Q_PROPERTY`, signals and `Q_CLASSINFO`; it registers itself in the class of its plugin, which builds it. Its logic is in other classes, which the plugin instantiates when it builds it:
+
+```cpp
+// Greeter.h
+class Greeter : public AppForge::Component
+{
+    Q_OBJECT
+    Q_CLASSINFO("description", "Greets its recipient when it starts") // optional
+    Q_CLASSINFO("category", "Example")                                 // optional
+    Q_PROPERTY(QString recipient READ recipient WRITE setRecipient NOTIFY recipientChanged)
+    ...
+};
+
+// Greeter.cpp
+APPFORGE_REGISTER_COMPONENT(ExamplePlugin, Greeter);
+
+// ExamplePlugin.h: the class of the plugin, one per plugin
+class ExamplePlugin : public AppForge::Plugin
+{
+  public:
+    void build(Greeter& greeter); // One build() per component registered in the plugin
+};
+
+// ExamplePlugin.cpp
+APPFORGE_PLUGIN(ExamplePlugin);
+
+void ExamplePlugin::build(Greeter& greeter)
+{
+    new GreeterLogic(greeter); // A child of greeter: its logic, destroyed with it
+}
+```
+
+The plugin class is created when its plugin is loaded, after its components are registered in it. Registering a component in a class that does not derive from `AppForge::Plugin`, or has no public `build()` for it, does not compile; a plugin without `APPFORGE_PLUGIN` does not link.
+
+`AppForge::ComponentFactory::instance()` knows the components of the loaded plugins, read from their `QMetaObject` without instantiating them:
+
+| Info          | Value                                                                    |
+| ------------- | ------------------------------------------------------------------------ |
+| `id`          | `<plugin id>.<name>`, e.g. `Shuko83.AppForge.ExamplePlugin.Greeter`      |
+| `name`        | Class name, without its namespace                                        |
+| `description` | `Q_CLASSINFO("description", ...)`, empty when not given                  |
+| `category`    | `Q_CLASSINFO("category", ...)`, empty when not given                     |
+| `properties`  | Its `Q_PROPERTY`, including those of its base classes up to `Component`  |
+
+The factory is the only way to instantiate a component, which it has its plugin build: `new Greeter` does not compile, as a class deriving from `Component` stays abstract until its plugin builds it. A component therefore needs a default constructor and cannot be `final`; registering a class that is not a component, or lacks `Q_OBJECT`, does not compile either.
+
+```cpp
+std::unique_ptr<AppForge::Component> greeter =
+    AppForge::ComponentFactory::instance().create(QStringLiteral("Shuko83.AppForge.ExamplePlugin.Greeter"));
+greeter->setProperty("recipient", QStringLiteral("AppForge")); // Initializing: being configured
+greeter->initialize();                                          // Ready
+greeter->start();                                               // Running
+greeter->stop();                                                // Ready
+```
+
+Each step calls a hook the component can override (`onInitialize()`, `onStart()`, `onStop()`); `onInitialize()` and `onStart()` can refuse it by returning `false`. `stateChanged()` is emitted on every change.
 
 ---
 

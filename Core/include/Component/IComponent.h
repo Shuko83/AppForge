@@ -8,10 +8,9 @@ namespace AppForge
 
 enum class ComponentState : std::uint8_t
 {
-    Created,
-    Initialized,
+    Initializing, // Created by ComponentFactory: its properties can be set
+    Ready,        // Initialized
     Running,
-    Stopped,
 };
 
 // Contract every component fulfils; derive from Component rather than from this interface directly.
@@ -20,14 +19,15 @@ class IComponent
   public:
     virtual ~IComponent() = default;
 
-    [[nodiscard]] virtual QString name() const = 0;
+    // <plugin id>.<class name>, see ComponentInfo.
+    [[nodiscard]] virtual QString componentId() const = 0;
     [[nodiscard]] virtual ComponentState state() const = 0;
 
-    // Created -> Initialized
+    // Initializing -> Ready
     virtual bool initialize() = 0;
-    // Initialized or Stopped -> Running
+    // Ready -> Running
     virtual bool start() = 0;
-    // Running -> Stopped
+    // Running -> Ready
     virtual void stop() = 0;
 };
 

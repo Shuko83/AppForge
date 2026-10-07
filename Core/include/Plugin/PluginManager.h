@@ -35,8 +35,8 @@ class CORE_EXPORT PluginManager
     [[nodiscard]] QList<PluginInfo> plugins() const;
     [[nodiscard]] std::optional<PluginInfo> plugin(const QString& pluginId) const;
 
-    // Loads a scanned plugin and reads its build date; returns false, with errorString() set, when it is unknown or
-    // cannot be loaded.
+    // Loads a scanned plugin, reads its build date and registers its components in ComponentFactory::instance();
+    // returns false, with errorString() set, when it is unknown or cannot be loaded.
     bool load(const QString& pluginId);
     [[nodiscard]] bool isLoaded(const QString& pluginId) const;
     [[nodiscard]] QString errorString() const;

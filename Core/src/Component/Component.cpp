@@ -1,17 +1,15 @@
 #include "Component/Component.h"
 
-#include <utility>
-
 namespace AppForge
 {
 
-Component::Component(QString name, QObject* parent) : QObject(parent), m_name(std::move(name)) {}
+Component::Component() = default;
 
 Component::~Component() = default;
 
-QString Component::name() const
+QString Component::componentId() const
 {
-    return m_name;
+    return m_componentId;
 }
 
 ComponentState Component::state() const
@@ -21,17 +19,17 @@ ComponentState Component::state() const
 
 bool Component::initialize()
 {
-    if(m_state != ComponentState::Created || !onInitialize())
+    if(m_state != ComponentState::Initializing || !onInitialize())
     {
         return false;
     }
-    setState(ComponentState::Initialized);
+    setState(ComponentState::Ready);
     return true;
 }
 
 bool Component::start()
 {
-    if((m_state != ComponentState::Initialized && m_state != ComponentState::Stopped) || !onStart())
+    if(m_state != ComponentState::Ready || !onStart())
     {
         return false;
     }
@@ -46,7 +44,7 @@ void Component::stop()
         return;
     }
     onStop();
-    setState(ComponentState::Stopped);
+    setState(ComponentState::Ready);
 }
 
 bool Component::onInitialize()

@@ -1,5 +1,5 @@
-# A plugin needs nothing else: its root object and its metadata are generated.
-# Its sources go in src/, like for any cmu_add_target target.
+# Its root object and its metadata are generated.
+# Its class (APPFORGE_PLUGIN) and its components, each registered in it with APPFORGE_REGISTER_COMPONENT, are in src/.
 appforge_add_plugin(
     NAME ExamplePlugin
     DESCRIPTION "Example plugin: its metadata is read without loading it"
