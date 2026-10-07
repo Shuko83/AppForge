@@ -1,5 +1,7 @@
 #include "ComponentModel.h"
 
+#include <QMimeData>
+
 #include "Component/ComponentFactory.h"
 
 ComponentModel::ComponentModel(const AppForge::ComponentFactory& factory, QObject* parent)
@@ -66,6 +68,29 @@ QVariant ComponentModel::headerData(int section, Qt::Orientation orientation, in
     default:
         return {};
     }
+}
+
+Qt::ItemFlags ComponentModel::flags(const QModelIndex& index) const
+{
+    const Qt::ItemFlags flags = QAbstractTableModel::flags(index);
+    return index.isValid() ? flags | Qt::ItemIsDragEnabled : flags;
+}
+
+QStringList ComponentModel::mimeTypes() const
+{
+    return {MimeType};
+}
+
+QMimeData* ComponentModel::mimeData(const QModelIndexList& indexes) const
+{
+    // The view selects a single row, one index per column: they all hold the same id.
+    if(indexes.isEmpty())
+    {
+        return nullptr;
+    }
+    auto* data = new QMimeData;
+    data->setData(MimeType, indexes.first().data(IdRole).toString().toUtf8());
+    return data;
 }
 
 void ComponentModel::refresh()

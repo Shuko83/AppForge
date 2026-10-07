@@ -144,7 +144,8 @@ Each step calls a hook the component can override (`onInitialize()`, `onStart()`
 `Forge` is the application that assembles applications from the components of the plugins, live. For now, it lists:
 
 - the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state and a **Load** button; **Open plugin...** loads a plugin from anywhere on the disk;
-- the components of the loaded plugins, with a viewer of the selected one: what it is and its properties.
+- the components of the loaded plugins, with a viewer of the selected one: what it is and its properties;
+- between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected.
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 

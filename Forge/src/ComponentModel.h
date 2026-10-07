@@ -27,6 +27,8 @@ class ComponentModel : public QAbstractTableModel
 
     // The component id, in every column.
     static constexpr int IdRole = Qt::UserRole;
+    // Format of the component id, in UTF-8, in the data dragged from the model.
+    static constexpr QLatin1StringView MimeType{"application/x-appforge-component"};
 
     explicit ComponentModel(const AppForge::ComponentFactory& factory, QObject* parent = nullptr);
 
@@ -35,6 +37,11 @@ class ComponentModel : public QAbstractTableModel
     [[nodiscard]] QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
     [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation,
                                       int role = Qt::DisplayRole) const override;
+
+    // A component can be dragged, to be instantiated where it is dropped: see EditionScene.
+    [[nodiscard]] Qt::ItemFlags flags(const QModelIndex& index) const override;
+    [[nodiscard]] QStringList mimeTypes() const override;
+    [[nodiscard]] QMimeData* mimeData(const QModelIndexList& indexes) const override;
 
     // Reads the components of the factory again: inserts the ones registered since, e.g. by a plugin just loaded.
     void refresh();

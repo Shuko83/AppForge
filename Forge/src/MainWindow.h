@@ -3,16 +3,19 @@
 #include <QMainWindow>
 #include <QString>
 
+#include "Assembly.h"
 #include "Plugin/PluginManager.h"
 
 class ComponentModel;
 class ComponentViewer;
 class PluginModel;
 class PluginViewer;
+class QGraphicsView;
 class QTreeView;
 
 // Lists the plugins of <application directory>/plugins and the components of the loaded ones, each with a viewer of
-// the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk.
+// the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk. Between them, the edition
+// zone, where a component dropped from its list is instantiated.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -28,9 +31,11 @@ class MainWindow : public QMainWindow
     void openPlugin();
 
     AppForge::PluginManager m_plugins;
+    Assembly m_assembly;
     QString m_openDirectory; // Where openPlugin() starts browsing: the directory of the last plugin opened
     PluginModel* m_pluginModel = nullptr;
     QTreeView* m_pluginView = nullptr;
+    QGraphicsView* m_editionView = nullptr; // Shows an EditionScene of m_assembly
     PluginViewer* m_pluginViewer = nullptr;
     ComponentModel* m_componentModel = nullptr;
     ComponentViewer* m_componentViewer = nullptr;

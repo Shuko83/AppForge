@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGraphicsView>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -17,6 +18,7 @@
 #include "Component/ComponentFactory.h"
 #include "ComponentModel.h"
 #include "ComponentViewer.h"
+#include "EditionScene.h"
 #include "PluginModel.h"
 #include "PluginViewer.h"
 
@@ -55,7 +57,8 @@ QWidget* createPanel(const QString& title, QWidget* view, QWidget* viewer)
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_pluginModel(new PluginModel(m_plugins, this)),
+    : QMainWindow(parent), m_assembly(AppForge::ComponentFactory::instance()),
+      m_pluginModel(new PluginModel(m_plugins, this)),
       m_pluginViewer(new PluginViewer(m_plugins)),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
       m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance()))
@@ -83,22 +86,41 @@ MainWindow::MainWindow(QWidget* parent)
     pluginListLayout->addWidget(m_pluginView);
 
     QTreeView* componentView = createView(*m_componentModel);
+    componentView->setDragEnabled(true);
+    componentView->setDragDropMode(QAbstractItemView::DragOnly);
     connect(componentView->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
             [this](const QModelIndex& current)
             { m_componentViewer->setComponentId(current.data(ComponentModel::IdRole).toString()); });
 
+    m_editionView = new QGraphicsView(new EditionScene(m_assembly, AppForge::ComponentFactory::instance(), this));
+    m_editionView->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_editionView->setRenderHint(QPainter::Antialiasing);
+    m_editionView->setDragMode(QGraphicsView::RubberBandDrag);
+    m_editionView->setAcceptDrops(true);
+    auto* edition = new QGroupBox(tr("Application"));
+    auto* editionLayout = new QVBoxLayout(edition);
+    editionLayout->addWidget(m_editionView);
+
+    // The edition zone between the plugins and the components, next to the list a component is dragged from.
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->addWidget(createPanel(tr("Plugins"), pluginList, m_pluginViewer));
+    splitter->addWidget(edition);
     splitter->addWidget(createPanel(tr("Components"), componentView, m_componentViewer));
+    splitter->setStretchFactor(1, 1);
+    splitter->setSizes({320, 760, 360});
     setCentralWidget(splitter);
 
     statusBar()->addWidget(new QLabel(
         tr("Plugins of %1").arg(QDir::toNativeSeparators(AppForge::PluginManager::defaultDirectory()))));
     m_pluginView->setCurrentIndex(m_pluginModel->index(0, 0));
-    resize(1100, 700);
+    resize(1440, 800);
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // Its items refer to the components of m_assembly, destroyed after this body, before the children of the window.
+    delete m_editionView->scene();
+}
 
 void MainWindow::load(const QString& pluginId)
 {
