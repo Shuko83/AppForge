@@ -31,6 +31,10 @@ class CORE_EXPORT PluginManager
     // Reads the metadata of the plugins in directory without loading them, and returns the new ones.
     // Skips, with a warning, a file that is not a compatible AppForge plugin or whose id is already known.
     QList<PluginInfo> scan(const QString& directory = defaultDirectory());
+    // Reads the metadata of the plugin filePath, anywhere on the disk, without loading it, and returns it; returns it
+    // as well when it is already known. nullopt, with errorString() set, when it is not a compatible AppForge plugin
+    // or its id is provided by another file.
+    std::optional<PluginInfo> addFile(const QString& filePath);
 
     [[nodiscard]] QList<PluginInfo> plugins() const;
     [[nodiscard]] std::optional<PluginInfo> plugin(const QString& pluginId) const;
@@ -47,6 +51,11 @@ class CORE_EXPORT PluginManager
         PluginInfo info;
         std::unique_ptr<QPluginLoader> loader;
     };
+
+    // The entry of the plugin filePath, canonical; nullptr when it is not known.
+    [[nodiscard]] const Entry* findFile(const QString& filePath) const;
+    // Adds filePath, canonical and not known yet; nullopt, with error set, when it cannot be used.
+    std::optional<PluginInfo> addNewFile(const QString& filePath, QString& error);
 
     std::map<QString, Entry> m_entries; // By id
     QString m_errorString;

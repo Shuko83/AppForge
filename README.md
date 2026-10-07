@@ -72,7 +72,7 @@ plugins.load(QStringLiteral("Shuko83.AppForge.Network"));
 qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate;
 ```
 
-`scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. Loading a plugin registers its components; a loaded plugin stays loaded until the application exits.
+`scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. `addFile(filePath)` adds a single plugin, anywhere on the disk, with the same checks; it tells why a file cannot be added through `errorString()`. Loading a plugin registers its components; a loaded plugin stays loaded until the application exits.
 
 The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin providing the `Greeter` component, and `ExampleApp`, which loads the plugins next to it, lists their components and runs a `Greeter`: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
 
@@ -136,6 +136,17 @@ greeter->stop();                                                // Ready
 ```
 
 Each step calls a hook the component can override (`onInitialize()`, `onStart()`, `onStop()`); `onInitialize()` and `onStart()` can refuse it by returning `false`. `stateChanged()` is emitted on every change.
+
+---
+
+## 🔨 Forge
+
+`Forge` is the application that assembles applications from the components of the plugins, live. For now, it lists:
+
+- the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state and a **Load** button; **Open plugin...** loads a plugin from anywhere on the disk;
+- the components of the loaded plugins, with a viewer of the selected one: what it is and its properties.
+
+It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 
 ---
 

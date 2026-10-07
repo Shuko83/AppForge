@@ -54,31 +54,31 @@ bool isCompatibleCore(const QVersionNumber& pluginCoreVersion)
            pluginCoreVersion.normalized() <= coreVersion;
 }
 
-// Reads the metadata of filePath without loading it; nullopt, with a warning, when the plugin cannot be used.
-std::optional<PluginInfo> readPlugin(const QPluginLoader& loader, const QString& filePath)
+// Reads the metadata of filePath without loading it; nullopt, with error set, when the plugin cannot be used.
+std::optional<PluginInfo> readPlugin(const QPluginLoader& loader, const QString& filePath, QString& error)
 {
     const QJsonObject metaData = loader.metaData();
     if(metaData.isEmpty())
     {
-        qCWarning(lcPlugins).noquote() << "Skipping" << filePath << "-" << loader.errorString();
+        error = loader.errorString();
         return std::nullopt;
     }
     const QString iid = metaData.value(u"IID").toString();
     if(iid != QLatin1StringView(APPFORGE_PLUGIN_IID))
     {
-        qCWarning(lcPlugins).noquote() << "Skipping" << filePath << "- built against another plugin interface:" << iid;
+        error = QStringLiteral("Built against another plugin interface: %1").arg(iid);
         return std::nullopt;
     }
     std::optional<PluginInfo> info = readInfo(metaData.value(u"MetaData").toObject(), filePath);
     if(!info)
     {
-        qCWarning(lcPlugins).noquote() << "Skipping" << filePath << "- no id or name in its metadata";
+        error = QStringLiteral("No id or name in its metadata");
         return std::nullopt;
     }
     if(!isCompatibleCore(info->coreVersion))
     {
-        qCWarning(lcPlugins).noquote() << "Skipping" << filePath << "- built against Core"
-                                       << info->coreVersion.toString() << "instead of" << CoreInfo::version;
+        error = QStringLiteral("Built against Core %1 instead of %2")
+                    .arg(info->coreVersion.toString(), QLatin1StringView(CoreInfo::version));
         return std::nullopt;
     }
     return info;
@@ -105,30 +105,38 @@ QList<PluginInfo> PluginManager::scan(const QString& directory)
     for(const QFileInfo& file : files)
     {
         const QString filePath = file.canonicalFilePath();
-        if(std::ranges::any_of(m_entries | std::views::values,
-                               [&](const Entry& entry) { return entry.info.filePath == filePath; }))
+        if(findFile(filePath) != nullptr)
         {
             continue;
         }
-
-        auto loader = std::make_unique<QPluginLoader>(filePath);
-        std::optional<PluginInfo> info = readPlugin(*loader, filePath);
-        if(!info)
+        QString error;
+        if(std::optional<PluginInfo> info = addNewFile(filePath, error))
         {
-            continue;
+            found.append(*info);
         }
-        if(const auto known = m_entries.find(info->id); known != m_entries.end())
+        else
         {
-            qCWarning(lcPlugins).noquote()
-                << "Skipping" << filePath << "-" << info->id << "is already provided by" << known->second.info.filePath;
-            continue;
+            qCWarning(lcPlugins).noquote() << "Skipping" << filePath << "-" << error;
         }
-
-        found.append(*info);
-        const QString pluginId = info->id;
-        m_entries.emplace(pluginId, Entry{.info = std::move(*info), .loader = std::move(loader)});
     }
     return found;
+}
+
+std::optional<PluginInfo> PluginManager::addFile(const QString& filePath)
+{
+    const QFileInfo file(filePath);
+    if(!file.isFile())
+    {
+        m_errorString = QStringLiteral("%1 is not a file").arg(QDir::toNativeSeparators(filePath));
+        return std::nullopt;
+    }
+    m_errorString.clear();
+    const QString canonicalPath = file.canonicalFilePath();
+    if(const Entry* known = findFile(canonicalPath))
+    {
+        return known->info;
+    }
+    return addNewFile(canonicalPath, m_errorString);
 }
 
 QList<PluginInfo> PluginManager::plugins() const
@@ -183,6 +191,32 @@ bool PluginManager::isLoaded(const QString& pluginId) const
 QString PluginManager::errorString() const
 {
     return m_errorString;
+}
+
+const PluginManager::Entry* PluginManager::findFile(const QString& filePath) const
+{
+    const auto entries = m_entries | std::views::values;
+    const auto entry = std::ranges::find(entries, filePath, [](const Entry& known) { return known.info.filePath; });
+    return entry == entries.end() ? nullptr : &*entry;
+}
+
+std::optional<PluginInfo> PluginManager::addNewFile(const QString& filePath, QString& error)
+{
+    auto loader = std::make_unique<QPluginLoader>(filePath);
+    std::optional<PluginInfo> info = readPlugin(*loader, filePath, error);
+    if(!info)
+    {
+        return std::nullopt;
+    }
+    if(const auto known = m_entries.find(info->id); known != m_entries.end())
+    {
+        error = QStringLiteral("%1 is already provided by %2")
+                    .arg(info->id, QDir::toNativeSeparators(known->second.info.filePath));
+        return std::nullopt;
+    }
+    const QString pluginId = info->id;
+    m_entries.emplace(pluginId, Entry{.info = *info, .loader = std::move(loader)});
+    return info;
 }
 
 } // namespace AppForge
