@@ -16,3 +16,10 @@ add_subdirectory(Core)
 add_subdirectory(Forge)
 add_subdirectory(exemple)
 
+# Unit tests of Core, run by ctest (see README.md); -DBUILD_TESTING=OFF leaves them out.
+option(BUILD_TESTING "Build the unit tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+

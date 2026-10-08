@@ -195,6 +195,26 @@ It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next t
 
 ---
 
+## 🧪 Tests
+
+The [tests](tests/) folder holds the unit tests of `Core`, written with Qt Test and run by CTest:
+
+| Test                   | What it checks                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `ComponentTest`        | The life cycle of a component and its hooks; declaring, binding and unbinding interfaces         |
+| `ComponentFactoryTest` | What the factory reads from the `QMetaObject` of the components, and how it has their plugin build them |
+| `PluginManagerTest`    | Scanning, adding and loading the plugins, with `TestPlugin` and `NewerCorePlugin`, built for it |
+
+```bash
+cmake -S . -B build
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure
+```
+
+They are built with the project, unless `-DBUILD_TESTING=OFF`. The test plugins are written to `<build>/tests/plugins`, so that neither Forge nor the examples list them, and are not installed. CTest finds the DLLs of Qt with CMake 3.22 or newer.
+
+---
+
 ## 📁 Project File
 
 AppForge uses `.afp` (AppForge Project) files to store application structure:
