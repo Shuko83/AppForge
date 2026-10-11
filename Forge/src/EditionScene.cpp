@@ -89,6 +89,7 @@ void EditionScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
     m_linkSource = source;
     m_pendingLink = addPath({}, QPen(palette().color(QPalette::ButtonText), 1.5, Qt::DashLine));
     m_pendingLink->setZValue(1); // Over the components it is drawn across
+    dimLinkTargets(source);
     event->accept();
 }
 
@@ -120,6 +121,7 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     m_linkSource = nullptr;
     delete m_pendingLink;
     m_pendingLink = nullptr;
+    dimLinkTargets(nullptr);
     if(target != nullptr)
     {
         link(*source, *target);
@@ -143,6 +145,18 @@ InterfaceItem* EditionScene::linkTargetAt(const QPointF& position) const
 {
     InterfaceItem* target = interfaceAt(position);
     return target != nullptr && m_linkSource != nullptr && m_linkSource->canLinkTo(*target) ? target : nullptr;
+}
+
+void EditionScene::dimLinkTargets(const InterfaceItem* source)
+{
+    for(QGraphicsItem* item : items())
+    {
+        if(auto* interfaceItem = qgraphicsitem_cast<InterfaceItem*>(item))
+        {
+            interfaceItem->setDimmed(source != nullptr && interfaceItem != source &&
+                                     !source->canLinkTo(*interfaceItem));
+        }
+    }
 }
 
 void EditionScene::link(InterfaceItem& source, InterfaceItem& target)

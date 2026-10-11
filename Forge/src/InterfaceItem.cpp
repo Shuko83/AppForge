@@ -23,6 +23,8 @@ constexpr int OutlineDots = 6;
 constexpr qreal HoverMargin = 3;
 // Between the dot and the name.
 constexpr qreal Spacing = 5;
+// How much of its color a dimmed interface keeps.
+constexpr float DimmedOpacity = 0.3F;
 
 // color as it looks over background, opaque: the colors of a style can be translucent, which would let the edge of the
 // component show through the dot.
@@ -102,6 +104,16 @@ void InterfaceItem::setAvailable(bool available)
     update();
 }
 
+void InterfaceItem::setDimmed(bool dimmed)
+{
+    if(m_dimmed == dimmed)
+    {
+        return;
+    }
+    m_dimmed = dimmed;
+    update();
+}
+
 const QList<LinkItem*>& InterfaceItem::links() const
 {
     return m_links;
@@ -137,7 +149,10 @@ void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*o
     const QPalette palette = widget != nullptr ? widget->palette() : QApplication::palette();
     // The colors of the component, as ComponentItem paints them over the background of the edition zone.
     const QColor background = over(palette.color(QPalette::Button), palette.color(QPalette::Base));
-    const QColor color = over(palette.color(QPalette::ButtonText), background);
+    // Dimmed, it fades into the component, but stays opaque over its edge.
+    QColor ink = palette.color(QPalette::ButtonText);
+    ink.setAlphaF(m_dimmed ? ink.alphaF() * DimmedOpacity : ink.alphaF());
+    const QColor color = over(ink, background);
 
     // Shapes rather than colors, which not everyone tells apart: a disc is provided, a circle is consumed, and a dotted
     // circle is provided but unavailable. Not filled, it still hides the edge of the component it is on.

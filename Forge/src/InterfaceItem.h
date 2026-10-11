@@ -52,6 +52,8 @@ class InterfaceItem : public QGraphicsItem
     [[nodiscard]] bool canLinkTo(const InterfaceItem& other) const;
 
     void setAvailable(bool available);
+    // Faded, while a link that cannot end on it is being drawn.
+    void setDimmed(bool dimmed);
 
     // The links drawn from it, which follow it and are deleted with it: LinkItem adds and removes itself.
     [[nodiscard]] const QList<LinkItem*>& links() const;
@@ -73,5 +75,6 @@ class InterfaceItem : public QGraphicsItem
     QMetaType m_type;
     qreal m_nameWidth;
     bool m_available = false;
+    bool m_dimmed = false;
     QList<LinkItem*> m_links;
 };
