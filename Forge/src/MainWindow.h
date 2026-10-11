@@ -10,12 +10,14 @@ class ComponentModel;
 class ComponentViewer;
 class PluginModel;
 class PluginViewer;
+class PropertyEditor;
 class QGraphicsView;
 class QTreeView;
 
 // Lists the plugins of <application directory>/plugins and the components of the loaded ones, each with a viewer of
 // the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk. Between them, the edition
-// zone, where a component dropped from its list is instantiated.
+// zone, where a component dropped from its list is instantiated, above the editor of the properties of the one
+// selected there.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -39,4 +41,5 @@ class MainWindow : public QMainWindow
     PluginViewer* m_pluginViewer = nullptr;
     ComponentModel* m_componentModel = nullptr;
     ComponentViewer* m_componentViewer = nullptr;
+    PropertyEditor* m_propertyEditor = nullptr; // Of the component selected in m_editionView
 };

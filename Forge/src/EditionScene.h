@@ -8,8 +8,9 @@ class QGraphicsPathItem;
 
 namespace AppForge
 {
+class Component;
 class ComponentFactory;
-}
+} // namespace AppForge
 
 // The zone where the application is assembled: a component dragged from a ComponentModel and dropped here is
 // instantiated in the Assembly, and shown where it was dropped. Dragging from the dot of an interface to the dot of
@@ -21,6 +22,9 @@ class EditionScene : public QGraphicsScene
 
   public:
     EditionScene(Assembly& assembly, const AppForge::ComponentFactory& factory, QObject* parent = nullptr);
+
+    // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
+    [[nodiscard]] AppForge::Component* selectedComponent() const;
 
   protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent* event) override;

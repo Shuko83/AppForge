@@ -2,9 +2,11 @@
 
 #include <QApplication>
 #include <QFontMetricsF>
+#include <QGraphicsSceneHoverEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPalette>
+#include <QToolTip>
 #include <QWidget>
 #include <numbers>
 
@@ -53,6 +55,7 @@ InterfaceItem::InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qre
       m_nameWidth(nameWidth)
 {
     setFlag(ItemSendsScenePositionChanges); // For its links to follow it
+    setAcceptHoverEvents(true);
     setCursor(Qt::CrossCursor);
     setAvailable(info.available);
 }
@@ -100,7 +103,9 @@ void InterfaceItem::setAvailable(bool available)
     {
         typeName.chop(1);
     }
-    setToolTip(QStringLiteral("%1\n%2").arg(typeName, m_available ? tr("Available") : tr("Unavailable")));
+    // What it is, which tells what it can be bound to: the other kind, of the same type.
+    const QString what = (m_kind == Kind::Provided ? tr("Provides %1") : tr("Consumes %1")).arg(typeName);
+    setToolTip(QStringLiteral("%1\n%2").arg(what, m_available ? tr("Available") : tr("Unavailable")));
     update();
 }
 
@@ -167,6 +172,17 @@ void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*o
     painter->setPen(color);
     painter->drawText(nameRect, (provided ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
                       QFontMetricsF(painter->font()).elidedText(m_name, Qt::ElideRight, nameRect.width()));
+}
+
+void InterfaceItem::hoverEnterEvent(QGraphicsSceneHoverEvent* event)
+{
+    // At once, without the delay of a tooltip: its dot is small, and its type is what is looked for there.
+    QToolTip::showText(event->screenPos(), toolTip(), event->widget());
+}
+
+void InterfaceItem::hoverLeaveEvent(QGraphicsSceneHoverEvent* /*event*/)
+{
+    QToolTip::hideText();
 }
 
 QVariant InterfaceItem::itemChange(GraphicsItemChange change, const QVariant& value)

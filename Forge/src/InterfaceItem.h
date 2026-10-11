@@ -18,8 +18,8 @@ struct InterfaceInfo;
 
 // An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
 // One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
-// consumes is on its left edge: a circle. Hovering the dot tells the type of the interface, and links are drawn from
-// it, see EditionScene.
+// consumes is on its left edge: a circle. Hovering the dot tells, in its tooltip, whether the interface is provided or
+// consumed, its type and its state; links are drawn from it, see EditionScene.
 class InterfaceItem : public QGraphicsItem
 {
     Q_DECLARE_TR_FUNCTIONS(InterfaceItem)
@@ -66,6 +66,9 @@ class InterfaceItem : public QGraphicsItem
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 
   protected:
+    // Its tooltip is shown as soon as its dot is hovered.
+    void hoverEnterEvent(QGraphicsSceneHoverEvent* event) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override;
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
   private:

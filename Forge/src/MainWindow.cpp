@@ -21,6 +21,7 @@
 #include "EditionScene.h"
 #include "PluginModel.h"
 #include "PluginViewer.h"
+#include "PropertyEditor.h"
 
 namespace
 {
@@ -61,7 +62,8 @@ MainWindow::MainWindow(QWidget* parent)
       m_pluginModel(new PluginModel(m_plugins, this)),
       m_pluginViewer(new PluginViewer(m_plugins)),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
-      m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance()))
+      m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance())),
+      m_propertyEditor(new PropertyEditor(AppForge::ComponentFactory::instance()))
 {
     setWindowTitle(tr("Forge"));
 
@@ -92,14 +94,23 @@ MainWindow::MainWindow(QWidget* parent)
             [this](const QModelIndex& current)
             { m_componentViewer->setComponentId(current.data(ComponentModel::IdRole).toString()); });
 
-    m_editionView = new QGraphicsView(new EditionScene(m_assembly, AppForge::ComponentFactory::instance(), this));
+    auto* scene = new EditionScene(m_assembly, AppForge::ComponentFactory::instance(), this);
+    m_editionView = new QGraphicsView(scene);
     m_editionView->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_editionView->setRenderHint(QPainter::Antialiasing);
     m_editionView->setDragMode(QGraphicsView::RubberBandDrag);
     m_editionView->setAcceptDrops(true);
+    connect(scene, &QGraphicsScene::selectionChanged, this,
+            [this, scene] { m_propertyEditor->setComponent(scene->selectedComponent()); });
+
+    // The properties of the component selected in the edition zone, under it; the zone takes the room.
+    auto* editionSplitter = new QSplitter(Qt::Vertical);
+    editionSplitter->addWidget(m_editionView);
+    editionSplitter->addWidget(m_propertyEditor);
+    editionSplitter->setStretchFactor(0, 1);
     auto* edition = new QGroupBox(tr("Application"));
     auto* editionLayout = new QVBoxLayout(edition);
-    editionLayout->addWidget(m_editionView);
+    editionLayout->addWidget(editionSplitter);
 
     // The edition zone between the plugins and the components, next to the list a component is dragged from.
     auto* splitter = new QSplitter(Qt::Horizontal);
@@ -118,7 +129,10 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow()
 {
-    // Its items refer to the components of m_assembly, destroyed after this body, before the children of the window.
+    // Its items, and the property editor, refer to the components of m_assembly, destroyed after this body, before the
+    // children of the window. The scene is no longer listened to: deleting a selected item changes its selection.
+    m_editionView->scene()->disconnect(this);
+    m_propertyEditor->setComponent(nullptr);
     delete m_editionView->scene();
 }
 

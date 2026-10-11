@@ -7,6 +7,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
+#include <QToolTip>
 #include <cmath>
 #include <optional>
 
@@ -45,6 +46,15 @@ void acceptComponent(QGraphicsSceneDragDropEvent& event)
 EditionScene::EditionScene(Assembly& assembly, const AppForge::ComponentFactory& factory, QObject* parent)
     : QGraphicsScene(SceneRect, parent), m_assembly(assembly), m_factory(factory)
 {
+}
+
+AppForge::Component* EditionScene::selectedComponent() const
+{
+    // Only the components can be selected.
+    const QList<QGraphicsItem*> selected = selectedItems();
+    const auto* item =
+        selected.size() == 1 ? qobject_cast<const ComponentItem*>(selected.constFirst()->toGraphicsObject()) : nullptr;
+    return item != nullptr ? &item->component() : nullptr;
 }
 
 void EditionScene::dragEnterEvent(QGraphicsSceneDragDropEvent* event)
@@ -100,8 +110,13 @@ void EditionScene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
         QGraphicsScene::mouseMoveEvent(event);
         return;
     }
+    // What the dot under the cursor is: no tooltip shows by itself while a button is pressed, and its type is what
+    // tells whether the link can end there.
+    const InterfaceItem* hovered = interfaceAt(event->scenePos());
+    QToolTip::showText(event->screenPos(),
+                       hovered != nullptr && hovered != m_linkSource ? hovered->toolTip() : QString(), event->widget());
     // To the dot it would be bound to rather than to the cursor, which tells that releasing there binds them.
-    const InterfaceItem* target = linkTargetAt(event->scenePos());
+    const InterfaceItem* target = hovered != nullptr && m_linkSource->canLinkTo(*hovered) ? hovered : nullptr;
     const QPointF end = target != nullptr ? target->scenePos() : event->scenePos();
     const QPointF start = m_linkSource->scenePos();
     const bool provided = m_linkSource->kind() == InterfaceItem::Kind::Provided;
@@ -122,6 +137,7 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     delete m_pendingLink;
     m_pendingLink = nullptr;
     dimLinkTargets(nullptr);
+    QToolTip::hideText();
     if(target != nullptr)
     {
         link(*source, *target);
