@@ -34,8 +34,9 @@ class IComponent
     // Running -> Ready
     virtual void stop() = 0;
 
-    // The interfaces it provides, in the order it declared them.
+    // The interfaces it provides, and those it consumes, each in the order it declared them.
     [[nodiscard]] virtual QList<InterfaceInfo> providedInterfaces() const = 0;
+    [[nodiscard]] virtual QList<InterfaceInfo> consumedInterfaces() const = 0;
 
     // The pointer it provides as name; nullptr while it is unavailable, when no interface has this name, or when T is
     // not the type it is provided with.

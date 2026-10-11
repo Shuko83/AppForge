@@ -163,6 +163,29 @@ for(const AppForge::InterfaceInfo& provided : component->providedInterfaces())
 IGreeter* greeter = component->providedInterface<IGreeter>(QStringLiteral("greeter")); // nullptr while unavailable
 ```
 
+A component consumes interfaces the same way: `consumeInterface<T>(name, member, onAvailable, onUnavailable)` declares, when it is built, that one of its members is the pointer it gets under a name. The member is `nullptr` until the interface is bound to one another component provides, and that one is available:
+
+```cpp
+Window::Window()
+{
+    consumeInterface<QWidget>(
+        QStringLiteral("content"), m_content,  // QWidget* m_content
+        [this] { emit contentAvailable(); },   // m_content is set
+        [this] { emit contentUnavailable(); }); // m_content is about to be set back to nullptr
+}
+```
+
+Both callbacks are optional. `onUnavailable` is called while the member still points to what it has to let go of: when the provider withdraws or replaces its pointer, when the interface is unbound, and when one of the two components is destroyed.
+
+`bindInterface()` binds what a component consumes to what another one provides, whatever their names, as long as they have the same type; an interface can be provided to several consumers, and a consumer is bound to one provider at a time:
+
+```cpp
+window->bindInterface(QStringLiteral("content"), *ticker, QStringLiteral("display")); // false when it cannot be
+window->unbindInterface(QStringLiteral("content"));
+```
+
+`consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side.
+
 ---
 
 ## 🔨 Forge
@@ -171,7 +194,9 @@ IGreeter* greeter = component->providedInterface<IGreeter>(QStringLiteral("greet
 
 - the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state and a **Load** button; **Open plugin...** loads a plugin from anywhere on the disk;
 - the components of the loaded plugins, with a viewer of the selected one: what it is and its properties;
-- between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces an instance provides are listed under its names, each with a dot on its right edge: filled while the interface is available, hollow otherwise. Hovering the dot tells the type of the interface.
+- between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces of an instance are listed under its names, each with a dot on an edge: those it consumes on the left, a circle; those it provides on the right, a disc while the interface is available and a dotted circle otherwise. Hovering a dot tells the type of the interface. Dragging from the dot of a provided interface to the dot of a consumed one of the same type, or the other way round, binds them and draws a link between them, in place of the link the consumed one had.
+
+`ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window.
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 

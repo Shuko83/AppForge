@@ -11,8 +11,9 @@ namespace AppForge
 class Component;
 }
 
-// A component instantiated in the edition zone: its name above the name of its component, then the interfaces it
-// provides, one per row, each an InterfaceItem on its right edge. It can be moved and selected.
+// A component instantiated in the edition zone: its name above the name of its component, then its interfaces, one
+// InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. It can be moved
+// and selected.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
@@ -32,5 +33,7 @@ class ComponentItem : public QGraphicsObject
 
     AppForge::Component& m_component;
     QString m_componentName;
-    QList<InterfaceItem*> m_interfaces; // Its children, in the order of Component::providedInterfaces()
+    // Its children, in the order of Component::consumedInterfaces() and Component::providedInterfaces().
+    QList<InterfaceItem*> m_consumedInterfaces;
+    QList<InterfaceItem*> m_providedInterfaces;
 };

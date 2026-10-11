@@ -67,6 +67,14 @@ class CORE_EXPORT Plugin
     // The only instantiable class deriving from T, as it implements Component::builtByPlugin().
     template <typename T> class Instance final : public T
     {
+      public:
+        // Before the destructor of T: what the component provides and consumes ends while it is still whole.
+        ~Instance() override
+        {
+            this->releaseInterfaces();
+        }
+
+      private:
         void builtByPlugin() override {}
     };
 

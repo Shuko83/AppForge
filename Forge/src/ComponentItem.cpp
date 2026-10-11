@@ -24,11 +24,7 @@ ComponentItem::ComponentItem(AppForge::Component& component, QString componentNa
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
 
-    for(const auto changed : {&AppForge::Component::interfaceAdded, &AppForge::Component::interfaceAvailable,
-                              &AppForge::Component::interfaceUnavailable})
-    {
-        connect(&m_component, changed, this, &ComponentItem::refreshInterfaces);
-    }
+    connect(&m_component, &AppForge::Component::interfacesChanged, this, &ComponentItem::refreshInterfaces);
     refreshInterfaces();
 }
 
@@ -39,7 +35,8 @@ AppForge::Component& ComponentItem::component() const
 
 QRectF ComponentItem::boundingRect() const
 {
-    return Header.adjusted(0, 0, 0, static_cast<qreal>(m_interfaces.size()) * InterfaceItem::RowHeight);
+    const qsizetype rows = m_consumedInterfaces.size() + m_providedInterfaces.size();
+    return Header.adjusted(0, 0, 0, static_cast<qreal>(rows) * InterfaceItem::RowHeight);
 }
 
 void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -72,20 +69,24 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
 
 void ComponentItem::refreshInterfaces()
 {
-    const QList<AppForge::InterfaceInfo> interfaces = m_component.providedInterfaces();
-    for(qsizetype index = 0; index < interfaces.size(); ++index)
+    // The rows start in the padding under the names and leave as much under the last one.
+    qreal row = Header.bottom() - Padding / 2 + InterfaceItem::RowHeight / 2;
+    // items shows interfaces, of kind, down from row, each on the edge at x.
+    const auto refresh = [&](QList<InterfaceItem*>& items, const QList<AppForge::InterfaceInfo>& interfaces,
+                             InterfaceItem::Kind kind, qreal x)
     {
-        if(index < m_interfaces.size())
+        for(qsizetype index = 0; index < interfaces.size(); ++index, row += InterfaceItem::RowHeight)
         {
-            m_interfaces.at(index)->setAvailable(interfaces.at(index).available);
-            continue;
+            if(index == items.size())
+            {
+                prepareGeometryChange(); // A row more
+                items.append(new InterfaceItem(kind, interfaces.at(index), Header.width() - 2 * Padding, *this));
+            }
+            items.at(index)->setAvailable(interfaces.at(index).available);
+            items.at(index)->setPos(x, row); // Lower than it was when an interface was declared above it
         }
-        prepareGeometryChange(); // A row more
-        auto* item = new InterfaceItem(interfaces.at(index), Header.width() - 2 * Padding, this);
-        // On the edge drawn by paint(), one pixel inside its bounds; the rows start in the padding under the names
-        // and leave as much under the last one.
-        item->setPos(Header.right() - 1,
-                     Header.bottom() - Padding / 2 + (static_cast<qreal>(index) + 0.5) * InterfaceItem::RowHeight);
-        m_interfaces.append(item);
-    }
+    };
+    // On the edges drawn by paint(), one pixel inside its bounds.
+    refresh(m_consumedInterfaces, m_component.consumedInterfaces(), InterfaceItem::Kind::Consumed, Header.left() + 1);
+    refresh(m_providedInterfaces, m_component.providedInterfaces(), InterfaceItem::Kind::Provided, Header.right() - 1);
 }

@@ -6,12 +6,13 @@
 namespace AppForge
 {
 
-// An interface a component provides: a pointer it makes available under a name, see Component::provideInterface().
+// An interface of a component: a pointer it provides under a name, see Component::provideInterface(), or one it
+// consumes, see Component::consumeInterface().
 struct InterfaceInfo
 {
-    QString name;           // Unique among the interfaces of its component
+    QString name;           // Unique among the interfaces its component provides, or among those it consumes
     QMetaType type;         // Of the pointer, e.g. QWidget*
-    bool available = false; // Whether its pointer can be retrieved, see IComponent::providedInterface()
+    bool available = false; // Whether the component has the pointer: it provides one, or the one it consumes is set
 };
 
 } // namespace AppForge

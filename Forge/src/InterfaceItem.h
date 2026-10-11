@@ -2,36 +2,76 @@
 
 #include <QCoreApplication>
 #include <QGraphicsItem>
+#include <QList>
+#include <QMetaType>
 #include <QString>
+#include <cstdint>
+
+class ComponentItem;
+class LinkItem;
 
 namespace AppForge
 {
+class Component;
 struct InterfaceInfo;
-}
+} // namespace AppForge
 
-// An interface a component provides, on an edge of its ComponentItem: a dot, with its name next to it, inside the
-// component. The dot is filled while the interface is available and hollow otherwise; hovering it tells its type.
+// An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
+// One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
+// consumes is on its left edge: a circle. Hovering the dot tells the type of the interface, and links are drawn from
+// it, see EditionScene.
 class InterfaceItem : public QGraphicsItem
 {
     Q_DECLARE_TR_FUNCTIONS(InterfaceItem)
 
   public:
+    enum class Kind : std::uint8_t
+    {
+        Provided,
+        Consumed,
+    };
+    // For qgraphicsitem_cast.
+    enum
+    {
+        Type = UserType + 1
+    };
+
     // What an interface takes of the height of its component.
     static constexpr qreal RowHeight = 20;
 
-    // Its position is the center of its dot, on the right edge of parent; its name fits in nameWidth, left of the dot.
-    InterfaceItem(const AppForge::InterfaceInfo& info, qreal nameWidth, QGraphicsItem* parent);
+    // Its position is the center of its dot, on the edge of parent; its name fits in nameWidth, inside parent.
+    InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent);
+    ~InterfaceItem() override;
+
+    [[nodiscard]] int type() const override;
+    [[nodiscard]] Kind kind() const;
+    [[nodiscard]] const QString& name() const;
+    // The component it is an interface of.
+    [[nodiscard]] AppForge::Component& component() const;
+    // Whether one can be bound to the other: provided and consumed by two components, with the same type.
+    [[nodiscard]] bool canLinkTo(const InterfaceItem& other) const;
 
     void setAvailable(bool available);
 
+    // The links drawn from it, which follow it and are deleted with it: LinkItem adds and removes itself.
+    [[nodiscard]] const QList<LinkItem*>& links() const;
+    void addLink(LinkItem& link);
+    void removeLink(LinkItem& link);
+
     [[nodiscard]] QRectF boundingRect() const override;
-    // Its dot only, which its tooltip is about.
+    // Its dot only, which its tooltip is about and links are drawn from.
     [[nodiscard]] QPainterPath shape() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 
+  protected:
+    QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
+
   private:
+    ComponentItem& m_componentItem;
+    Kind m_kind;
     QString m_name;
-    QString m_typeName;
+    QMetaType m_type;
     qreal m_nameWidth;
     bool m_available = false;
+    QList<LinkItem*> m_links;
 };

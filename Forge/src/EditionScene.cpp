@@ -1,6 +1,8 @@
 #include "EditionScene.h"
 
+#include <QGraphicsPathItem>
 #include <QGraphicsSceneDragDropEvent>
+#include <QGraphicsSceneMouseEvent>
 #include <QList>
 #include <QMimeData>
 #include <QPainter>
@@ -12,6 +14,8 @@
 #include "Component/ComponentFactory.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
+#include "InterfaceItem.h"
+#include "LinkItem.h"
 
 namespace
 {
@@ -71,6 +75,91 @@ void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
     item->setSelected(true);
     event->setDropAction(Qt::CopyAction);
     event->accept();
+}
+
+void EditionScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    InterfaceItem* source = event->button() == Qt::LeftButton ? interfaceAt(event->scenePos()) : nullptr;
+    if(source == nullptr)
+    {
+        QGraphicsScene::mousePressEvent(event);
+        return;
+    }
+    // Not passed to the items: its component would move.
+    m_linkSource = source;
+    m_pendingLink = addPath({}, QPen(palette().color(QPalette::ButtonText), 1.5, Qt::DashLine));
+    m_pendingLink->setZValue(1); // Over the components it is drawn across
+    event->accept();
+}
+
+void EditionScene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+{
+    if(m_linkSource == nullptr)
+    {
+        QGraphicsScene::mouseMoveEvent(event);
+        return;
+    }
+    // To the dot it would be bound to rather than to the cursor, which tells that releasing there binds them.
+    const InterfaceItem* target = linkTargetAt(event->scenePos());
+    const QPointF end = target != nullptr ? target->scenePos() : event->scenePos();
+    const QPointF start = m_linkSource->scenePos();
+    const bool provided = m_linkSource->kind() == InterfaceItem::Kind::Provided;
+    m_pendingLink->setPath(provided ? LinkItem::curve(start, end) : LinkItem::curve(end, start));
+    event->accept();
+}
+
+void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
+{
+    if(m_linkSource == nullptr || event->button() != Qt::LeftButton)
+    {
+        QGraphicsScene::mouseReleaseEvent(event);
+        return;
+    }
+    InterfaceItem* source = m_linkSource;
+    InterfaceItem* target = linkTargetAt(event->scenePos());
+    m_linkSource = nullptr;
+    delete m_pendingLink;
+    m_pendingLink = nullptr;
+    if(target != nullptr)
+    {
+        link(*source, *target);
+    }
+    event->accept();
+}
+
+InterfaceItem* EditionScene::interfaceAt(const QPointF& position) const
+{
+    for(QGraphicsItem* item : items(position))
+    {
+        if(auto* interfaceItem = qgraphicsitem_cast<InterfaceItem*>(item))
+        {
+            return interfaceItem;
+        }
+    }
+    return nullptr;
+}
+
+InterfaceItem* EditionScene::linkTargetAt(const QPointF& position) const
+{
+    InterfaceItem* target = interfaceAt(position);
+    return target != nullptr && m_linkSource != nullptr && m_linkSource->canLinkTo(*target) ? target : nullptr;
+}
+
+void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
+{
+    const bool sourceProvided = source.kind() == InterfaceItem::Kind::Provided;
+    InterfaceItem& provided = sourceProvided ? source : target;
+    InterfaceItem& consumed = sourceProvided ? target : source;
+    if(!consumed.component().bindInterface(consumed.name(), provided.component(), provided.name()))
+    {
+        return;
+    }
+    // What a component consumes is bound to one interface: the new one.
+    while(!consumed.links().isEmpty())
+    {
+        delete consumed.links().constFirst();
+    }
+    addItem(new LinkItem(provided, consumed));
 }
 
 void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
