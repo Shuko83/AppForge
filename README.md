@@ -48,7 +48,7 @@ appforge_add_plugin(
 )
 ```
 
-It accepts every keyword of `cmu_add_target` ([CMakeUtils](CMakeUtils/README.md)) and creates a `MODULE` library linked to `AppForge::Core`, named `<NAME>.afplugin` and written to `plugins/` next to the executables (`CMAKE_RUNTIME_OUTPUT_DIRECTORY`, else `<build>/bin`). Its metadata is embedded in the binary and read without loading it:
+It accepts every keyword of `cmu_add_target` ([CMakeUtils](CMakeUtils/README.md)) and creates a `MODULE` library `AppForge::<NAME>` linked to `AppForge::Core`, named `<NAME>.afdl` (AppForge DLL) and written to `plugins/` next to the executables (`CMAKE_RUNTIME_OUTPUT_DIRECTORY`, else `<build>/bin`). It is installed in `plugins/` next to each application too (`cmu_plugins_dir` of CMakeUtils); `set(cmu_plugins_dir "")` before the call keeps a plugin out of it. Its metadata is embedded in the binary and read without loading it:
 
 | Key           | Value                                                                        |
 | ------------- | ---------------------------------------------------------------------------- |

@@ -101,7 +101,7 @@ QList<PluginInfo> PluginManager::scan(const QString& directory)
 {
     QList<PluginInfo> found;
     // The extension appforge_add_plugin gives to the plugins (Core/cmake/AppForgePlugin.cmake).
-    const QFileInfoList files = QDir(directory).entryInfoList({QStringLiteral("*.afplugin")}, QDir::Files, QDir::Name);
+    const QFileInfoList files = QDir(directory).entryInfoList({QStringLiteral("*.afdl")}, QDir::Files, QDir::Name);
     for(const QFileInfo& file : files)
     {
         const QString filePath = file.canonicalFilePath();

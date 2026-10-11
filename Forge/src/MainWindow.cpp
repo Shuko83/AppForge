@@ -138,7 +138,7 @@ void MainWindow::load(const QString& pluginId)
 void MainWindow::openPlugin()
 {
     const QString filePath = QFileDialog::getOpenFileName(this, tr("Open plugin"), m_openDirectory,
-                                                          tr("AppForge plugins (*.afplugin);;All files (*)"));
+                                                          tr("AppForge plugins (*.afdl);;All files (*)"));
     if(filePath.isEmpty())
     {
         return;

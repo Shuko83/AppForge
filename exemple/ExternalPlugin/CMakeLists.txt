@@ -1,5 +1,7 @@
 # A plugin outside <application directory>/plugins: not found when an application starts, Forge opens it with
 # "Open plugin...". Its class (APPFORGE_PLUGIN) and its components are in src/.
+# Empty: not installed in plugins/ next to the applications either.
+set(cmu_plugins_dir "")
 appforge_add_plugin(
     NAME ExternalPlugin
     DESCRIPTION "Example plugin outside the plugins directory, opened from Forge"

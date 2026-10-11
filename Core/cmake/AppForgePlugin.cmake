@@ -30,7 +30,9 @@ function(appforge_add_plugin)
     if(DEFINED ARG_VERSION)
         list(APPEND _forwarded VERSION "${ARG_VERSION}")
     endif()
-    cmu_add_target(NAME ${ARG_NAME} ${_forwarded} TYPE MODULE)
+    # .afdl (AppForge DLL): PluginManager only scans this extension (see PluginManager.cpp). SHARED_EXTENSION rather
+    # than SUFFIX: cmu_add_target also writes the file name in the version resource.
+    cmu_add_target(NAME ${ARG_NAME} ${_forwarded} TYPE MODULE SHARED_EXTENSION afdl NAMESPACE AppForge)
     target_link_libraries(${ARG_NAME} PRIVATE AppForge::Core)
     target_compile_definitions(${ARG_NAME} PRIVATE "APPFORGE_PLUGIN_ID=\"${_id}\"")
 
@@ -48,7 +50,6 @@ function(appforge_add_plugin)
     set_target_properties(${ARG_NAME} PROPERTIES
         AUTOMOC ON
         PREFIX ""
-        SUFFIX ".afplugin"
         LIBRARY_OUTPUT_DIRECTORY "${_output_dir}/plugins")
 
     # Values of the templates, a JSON string for the description.
