@@ -4,7 +4,10 @@
 
 #include "Component/Component.h"
 
+class IGreeter;
+
 // Exposes a greeting for its recipient, written when it starts by GreeterLogic, which ExamplePlugin builds it with.
+// While it runs, it provides the interface "greeter", an IGreeter.
 class Greeter : public AppForge::Component
 {
     Q_OBJECT
@@ -14,12 +17,17 @@ class Greeter : public AppForge::Component
     Q_PROPERTY(QString greeting READ greeting NOTIFY greetingChanged)
 
   public:
+    Greeter();
+
     [[nodiscard]] QString recipient() const;
     void setRecipient(const QString& recipient);
 
     [[nodiscard]] QString greeting() const;
     // Not a property setter: only its logic writes the greeting.
     void setGreeting(const QString& greeting);
+
+    // Provides greeter as the interface "greeter", or withdraws it when nullptr: only its logic does.
+    void setGreeter(IGreeter* greeter);
 
   signals:
     void recipientChanged(const QString& recipient);

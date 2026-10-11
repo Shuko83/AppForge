@@ -1,5 +1,7 @@
 #include "Ticker.h"
 
+#include <QWidget>
+
 #include "ExternalPlugin.h"
 
 APPFORGE_REGISTER_COMPONENT(ExternalPlugin, Ticker);
@@ -32,4 +34,9 @@ void Ticker::setTicks(int ticks)
     }
     m_ticks = ticks;
     emit ticksChanged(m_ticks);
+}
+
+void Ticker::setDisplay(QWidget* display)
+{
+    provideInterface<QWidget>(QStringLiteral("display"), display);
 }

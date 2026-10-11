@@ -1,7 +1,11 @@
 #pragma once
 
+#include <QList>
+#include <QMetaType>
 #include <QString>
 #include <cstdint>
+
+#include "Component/InterfaceInfo.h"
 
 namespace AppForge
 {
@@ -29,6 +33,20 @@ class IComponent
     virtual bool start() = 0;
     // Running -> Ready
     virtual void stop() = 0;
+
+    // The interfaces it provides, in the order it declared them.
+    [[nodiscard]] virtual QList<InterfaceInfo> providedInterfaces() const = 0;
+
+    // The pointer it provides as name; nullptr while it is unavailable, when no interface has this name, or when T is
+    // not the type it is provided with.
+    template <typename T> [[nodiscard]] T* providedInterface(const QString& name) const
+    {
+        return static_cast<T*>(providedPointer(name, QMetaType::fromType<T*>()));
+    }
+
+  protected:
+    // What providedInterface() returns, type being the one of the pointer asked for.
+    [[nodiscard]] virtual void* providedPointer(const QString& name, QMetaType type) const = 0;
 };
 
 } // namespace AppForge

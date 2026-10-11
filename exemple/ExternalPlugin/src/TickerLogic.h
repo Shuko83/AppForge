@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QLCDNumber>
 #include <QObject>
 #include <QTimer>
 
@@ -7,7 +8,8 @@
 
 class Ticker;
 
-// Logic of a Ticker, built with it by ExternalPlugin: counts the ticks of a timer while the Ticker runs.
+// Logic of a Ticker, built with it by ExternalPlugin: counts the ticks of a timer while the Ticker runs, and shows
+// them in the display the Ticker provides.
 class TickerLogic : public QObject
 {
     Q_OBJECT
@@ -21,4 +23,5 @@ class TickerLogic : public QObject
 
     Ticker& m_ticker;
     QTimer m_timer;
+    QLCDNumber m_display;
 };

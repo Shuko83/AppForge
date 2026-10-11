@@ -1,8 +1,22 @@
 #include "Greeter.h"
 
 #include "ExamplePlugin.h"
+#include "IGreeter.h"
 
 APPFORGE_REGISTER_COMPONENT(ExamplePlugin, Greeter);
+
+namespace
+{
+
+constexpr QLatin1StringView GreeterInterface("greeter");
+
+} // namespace
+
+Greeter::Greeter()
+{
+    // Declared, without a pointer yet: known as soon as the Greeter is built.
+    provideInterface<IGreeter>(GreeterInterface);
+}
 
 QString Greeter::recipient() const
 {
@@ -32,4 +46,9 @@ void Greeter::setGreeting(const QString& greeting)
     }
     m_greeting = greeting;
     emit greetingChanged(m_greeting);
+}
+
+void Greeter::setGreeter(IGreeter* greeter)
+{
+    provideInterface<IGreeter>(GreeterInterface, greeter);
 }

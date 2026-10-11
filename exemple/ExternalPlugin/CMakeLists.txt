@@ -6,6 +6,8 @@ appforge_add_plugin(
     NAME ExternalPlugin
     DESCRIPTION "Example plugin outside the plugins directory, opened from Forge"
     VERSION 1.0.0
+    # Its Ticker provides a widget.
+    LINK_LIBRARIES PRIVATE Qt6::Widgets
 )
 
 # appforge_add_plugin writes it to <application directory>/plugins, which PluginManager::scan() reads by default.

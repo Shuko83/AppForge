@@ -60,15 +60,25 @@ int main(int argc, char* argv[])
 
     // The factory is the only way to create a component: `new Greeter` does not compile.
     const std::unique_ptr<AppForge::Component> greeter =
-        factory.create(QStringLiteral("Shuko83.AppForge.ExamplePlugin.Greeter"));
+        factory.create(QStringLiteral("FabienDG.AppForge.ExamplePlugin.Greeter"));
     if(greeter == nullptr)
     {
         return 1;
     }
     QObject::connect(greeter.get(), &AppForge::Component::stateChanged,
                      [&out](AppForge::ComponentState state) { out << "  -> " << toString(state) << '\n'; });
+    QObject::connect(greeter.get(), &AppForge::Component::interfaceAvailable,
+                     [&out](const QString& name) { out << "  -> " << name << " available\n"; });
+    QObject::connect(greeter.get(), &AppForge::Component::interfaceUnavailable,
+                     [&out](const QString& name) { out << "  -> " << name << " unavailable\n"; });
 
     out << "\nGreeter created: " << toString(greeter->state()) << '\n';
+    // Its interfaces are declared as soon as it is built; the Greeter only provides its own while it runs.
+    for(const AppForge::InterfaceInfo& provided : greeter->providedInterfaces())
+    {
+        out << "  provides " << provided.name << ": " << provided.type.name()
+            << (provided.available ? "" : ", unavailable") << '\n';
+    }
     greeter->setProperty("recipient", QStringLiteral("AppForge"));
     greeter->initialize();
     greeter->start();

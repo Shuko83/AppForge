@@ -7,10 +7,20 @@ GreeterLogic::GreeterLogic(Greeter& greeter) : QObject(&greeter), m_greeter(gree
     connect(&m_greeter, &AppForge::Component::stateChanged, this, &GreeterLogic::onStateChanged);
 }
 
+QString GreeterLogic::greet(const QString& recipient) const
+{
+    return QStringLiteral("Hello, %1!").arg(recipient);
+}
+
 void GreeterLogic::onStateChanged(AppForge::ComponentState state)
 {
     if(state == AppForge::ComponentState::Running)
     {
-        m_greeter.setGreeting(QStringLiteral("Hello, %1!").arg(m_greeter.recipient()));
+        m_greeter.setGreeting(greet(m_greeter.recipient()));
+        m_greeter.setGreeter(this);
+    }
+    else
+    {
+        m_greeter.setGreeter(nullptr);
     }
 }

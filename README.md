@@ -74,7 +74,7 @@ qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate
 
 `scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. `addFile(filePath)` adds a single plugin, anywhere on the disk, with the same checks; it tells why a file cannot be added through `errorString()`. Loading a plugin registers its components; a loaded plugin stays loaded until the application exits.
 
-The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin providing the `Greeter` component, and `ExampleApp`, which loads the plugins next to it, lists their components and runs a `Greeter`: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin providing the `Greeter` component, and `ExampleApp`, which loads the plugins next to it, lists their components and runs a `Greeter`, whose interface it follows: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
 
 ---
 
@@ -137,6 +137,32 @@ greeter->stop();                                                // Ready
 
 Each step calls a hook the component can override (`onInitialize()`, `onStart()`, `onStop()`); `onInitialize()` and `onStart()` can refuse it by returning `false`. `stateChanged()` is emitted on every change.
 
+A component also provides interfaces: pointers it makes available under a name, such as a `QWidget`, a class of its plugin, or both. It declares each one with `provideInterface<T>(name)` when it is built, so that it is known before the component runs, and calls it again with the pointer once it has one:
+
+```cpp
+Greeter::Greeter()
+{
+    provideInterface<IGreeter>(QStringLiteral("greeter")); // Declared: listed, but unavailable
+}
+
+void Greeter::setGreeter(IGreeter* greeter) // Called by its logic
+{
+    provideInterface<IGreeter>(QStringLiteral("greeter"), greeter); // Available; withdrawn with nullptr
+}
+```
+
+`provideInterface()` is protected: only the component provides its interfaces. `T` is the type the pointer is retrieved with and is always written: `provideInterface<QWidget>(name, label)` provides a `QLabel` as a `QWidget`. A name keeps the type it was declared with.
+
+The pointer can change while the component lives. Providing another one emits `interfaceUnavailable(name)`, replaces the pointer, then emits `interfaceAvailable(name)`; `interfaceUnavailable()` is also emitted when the interface is withdrawn and when the component is destroyed. Whoever retrieved the pointer stops using it then.
+
+```cpp
+for(const AppForge::InterfaceInfo& provided : component->providedInterfaces())
+{
+    qInfo() << provided.name << provided.type.name() << provided.available; // "greeter" IGreeter* false
+}
+IGreeter* greeter = component->providedInterface<IGreeter>(QStringLiteral("greeter")); // nullptr while unavailable
+```
+
 ---
 
 ## 🔨 Forge
@@ -145,7 +171,7 @@ Each step calls a hook the component can override (`onInitialize()`, `onStart()`
 
 - the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state and a **Load** button; **Open plugin...** loads a plugin from anywhere on the disk;
 - the components of the loaded plugins, with a viewer of the selected one: what it is and its properties;
-- between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected.
+- between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces an instance provides are listed under its names, each with a dot on its right edge: filled while the interface is available, hollow otherwise. Hovering the dot tells the type of the interface.
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 

@@ -2,7 +2,10 @@
 
 #include "Component/Component.h"
 
+class QWidget;
+
 // Exposes the ticks of a timer while it runs, counted by TickerLogic, which ExternalPlugin builds it with.
+// It provides the interface "display", a QWidget showing its ticks: it needs a QApplication.
 class Ticker : public AppForge::Component
 {
     Q_OBJECT
@@ -19,6 +22,9 @@ class Ticker : public AppForge::Component
     [[nodiscard]] int ticks() const;
     // Not a property setter: only its logic counts the ticks.
     void setTicks(int ticks);
+
+    // Provides display as the interface "display": only its logic does.
+    void setDisplay(QWidget* display);
 
   signals:
     void intervalChanged(int interval);
