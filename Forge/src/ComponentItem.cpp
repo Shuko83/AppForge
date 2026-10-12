@@ -33,6 +33,16 @@ AppForge::Component& ComponentItem::component() const
     return m_component;
 }
 
+const QList<InterfaceItem*>& ComponentItem::consumedInterfaces() const
+{
+    return m_consumedInterfaces;
+}
+
+const QList<InterfaceItem*>& ComponentItem::providedInterfaces() const
+{
+    return m_providedInterfaces;
+}
+
 QRectF ComponentItem::boundingRect() const
 {
     const qsizetype rows = m_consumedInterfaces.size() + m_providedInterfaces.size();

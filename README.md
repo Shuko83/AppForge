@@ -206,17 +206,43 @@ It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next t
 
 ## 📁 Project File
 
-AppForge uses `.afp` (AppForge Project) files to store application structure:
+Forge saves what is in its edition zone to a `.afp` (AppForge Project) file, and opens it again, from its **File** menu: **New**, **Open...**, **Save** and **Save As...**. Unless another directory is chosen, the projects are saved to, and looked for in, `scene/` next to Forge, created the first time one is saved: `<build>/bin/scene` (`<build>/bin/<config>/scene` with Visual Studio). A project that has a file is saved and looked for next to it instead. A project file given on its command line is opened at once: `Forge my.afp`. Before the application is replaced, or Forge closed, it asks whether to save it when it changed since it was saved or opened.
+
+A project file is a JSON object:
 
 ```json
 {
-  "version": 1,
-  "plugins": ["core"],
-  "components": [
-    {
-      "id": "comp1",
-      "type": "ExampleComponent"
-    }
-  ],
-  "bindings": []
+    "version": 1,
+    "plugins": [
+        { "id": "FabienDG.AppForge.ExternalPlugin", "file": "C:/build/external-plugins/Debug/ExternalPlugin.afdl" }
+    ],
+    "components": [
+        {
+            "name": "Ticker1",
+            "type": "FabienDG.AppForge.ExternalPlugin.Ticker",
+            "x": 200,
+            "y": 120,
+            "properties": { "interval": 250 }
+        },
+        { "name": "Window1", "type": "FabienDG.AppForge.ExternalPlugin.Window", "x": 500, "y": 160, "properties": {} }
+    ],
+    "bindings": [
+        { "consumer": "Window1", "consumed": "content", "provider": "Ticker1", "provided": "display" }
+    ],
+    "zones": [
+        { "title": "Display", "color": "#59a14f", "x": 100, "y": 60, "width": 560, "height": 240 }
+    ]
 }
+```
+
+| Key          | Value                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `version`    | `1`: a file of another version is not opened                                                            |
+| `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are |
+| `components` | The instances: their name, the id of their component, where they are in the edition zone and their properties |
+| `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
+| `zones`      | The colored zones of the edition zone                                                                   |
+
+The `properties` of a component are those that can be written and whose value JSON holds as it is: numbers, booleans and texts, and whatever is read back from its text, as dates are.
+
+Opening a project tells what could not be restored, a plugin that is no longer where it was, say, and opens the rest. The file is then no longer the one **Save** writes to, which would write over what is missing.

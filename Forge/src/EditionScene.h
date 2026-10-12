@@ -1,9 +1,13 @@
 #pragma once
 
+#include <QColor>
 #include <QGraphicsScene>
+#include <QJsonObject>
+#include <QStringList>
 #include <cstddef>
 
 class Assembly;
+class ComponentItem;
 class InterfaceItem;
 class QGraphicsPathItem;
 class ZoneItem;
@@ -29,6 +33,14 @@ class EditionScene : public QGraphicsScene
     // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
     [[nodiscard]] AppForge::Component* selectedComponent() const;
 
+    // What is in the edition zone, as the "components", "bindings" and "zones" of a project file: see README.md.
+    [[nodiscard]] QJsonObject save() const;
+    // Replaces what is in the edition zone with what project holds, as save() wrote it; the plugins of its components
+    // are loaded already. Returns what could not be restored, a sentence each: none when everything was.
+    QStringList load(const QJsonObject& project);
+    // Empties the edition zone, and the Assembly of its components.
+    void reset();
+
   protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent* event) override;
     void dragMoveEvent(QGraphicsSceneDragDropEvent* event) override;
@@ -48,13 +60,16 @@ class EditionScene : public QGraphicsScene
     [[nodiscard]] InterfaceItem* linkTargetAt(const QPointF& position) const;
     // Dims the interfaces a link drawn from source cannot be bound to; none when source is nullptr.
     void dimLinkTargets(const InterfaceItem* source);
+    // Instantiates componentId in the Assembly, named name if it can be, see Assembly::instantiate(), and shows it at
+    // position; nullptr when it is not registered.
+    ComponentItem* addComponent(const QString& componentId, const QPointF& position, const QString& name = {});
     // Binds the consumed one to the provided one, whichever is which, and draws their link, in place of the one the
-    // consumed one had; does nothing when they cannot be bound.
-    void link(InterfaceItem& source, InterfaceItem& target);
+    // consumed one had; returns false, doing nothing, when they cannot be bound.
+    bool link(InterfaceItem& source, InterfaceItem& target);
     // The zone position is in, the smallest one when several are; nullptr when there is none.
     [[nodiscard]] ZoneItem* zoneAt(const QPointF& position) const;
-    // Adds a zone, its top left corner at position, and has it named.
-    void addZone(const QPointF& position);
+    // Adds a zone, its top left corner at position; of the next color when color is not valid.
+    ZoneItem* addZone(const QPointF& position, const QSizeF& size, const QString& title, const QColor& color = {});
 
     Assembly& m_assembly;
     const AppForge::ComponentFactory& m_factory;

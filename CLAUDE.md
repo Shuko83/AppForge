@@ -67,11 +67,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Classe | Rôle |
 | --- | --- |
-| `MainWindow` | Possède `PluginManager` et `Assembly` ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Son destructeur détruit la scène avant l'`Assembly` |
+| `MainWindow` | Possède `PluginManager` et `Assembly` ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menu **File** et fichiers de projet (voir plus bas). Son destructeur détruit la scène avant l'`Assembly` |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec bouton **Load** (signal `loadRequested`) |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés |
-| `Assembly` | Possède les instances (`unique_ptr<Component>`) ; `instantiate(id)` les nomme `Greeter1`, `Greeter2`… dans `objectName` |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = instanciation, tracé des liens entre points d'interface, menu contextuel des zones, `selectedComponent()` |
+| `Assembly` | Possède les instances (`unique_ptr<Component>`) ; `instantiate(id[, nom])` les nomme `Greeter1`, `Greeter2`… dans `objectName`, ou du nom lu dans un projet ; `components()`, `clear()` |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = instanciation, tracé des liens entre points d'interface, menu contextuel des zones, `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets |
 | `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
@@ -80,12 +80,25 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
+**Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
+- `EditionScene::save()` écrit `components` (nom, type, x, y, propriétés inscriptibles qui font l'aller-retour JSON),
+  `bindings` (lus depuis les `LinkItem`, Core n'expose pas à quoi une interface est liée) et `zones`.
+  `MainWindow::project()` y ajoute `version` et `plugins` (id + chemin absolu, seulement ceux des composants présents).
+- `MainWindow::openProjectFile()` charge les plugins, puis `EditionScene::load()` vide la scène et la reconstruit ; les
+  deux renvoient la liste de ce qui n'a pas pu être restauré, affichée dans une seule boîte. Après une ouverture
+  partielle, le projet n'a plus de fichier associé pour que **Save** n'écrase pas ce qui manque.
+- « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `project()` à `m_savedProject`, mémorisé par
+  `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `project()`.
+- `Forge fichier.afp` ouvre le projet au démarrage.
+- Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
+  **Save As...**), ou du dossier du fichier du projet quand il en a un.
+
 ## Pas encore fait
 
 - Forge n'appelle jamais `initialize()` / `start()` : les instances restent en `Initializing`.
 - Pas de suppression d'instance ni de lien dans Forge (`unbindInterface` n'y est pas utilisé) ; seules les zones se
   suppriment.
-- Aucune sérialisation : le format `.afp` du README n'a pas de code, et les zones ne sont que dans la scène.
+- Le fichier de projet n'est lu que par Forge : rien dans Core ne permet de lancer une application depuis un `.afp`.
 - Pas de tests automatisés.
 
 ## Pièges
