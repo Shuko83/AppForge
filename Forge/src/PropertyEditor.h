@@ -16,8 +16,8 @@ class Component;
 class ComponentFactory;
 } // namespace AppForge
 
-// Shows the properties of a component instantiated in the application, with their values, and edits those that can be
-// written and whose type has an editor. It follows the changes the component notifies.
+// Edits the properties of a component instantiated in the application. It only shows those it can edit: they can be
+// written and their type has an editor. It follows the changes the component notifies.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT
@@ -25,7 +25,7 @@ class PropertyEditor : public QWidget
   public:
     explicit PropertyEditor(const AppForge::ComponentFactory& factory, QWidget* parent = nullptr);
 
-    // Shows the properties of component; none when it is nullptr.
+    // Shows the editable properties of component; none when it is nullptr.
     void setComponent(AppForge::Component* component);
 
   private slots:
@@ -38,7 +38,7 @@ class PropertyEditor : public QWidget
 
     const AppForge::ComponentFactory& m_factory;
     QPointer<AppForge::Component> m_component;
-    QList<QMetaProperty> m_properties; // Of m_component, one per row of m_table
+    QList<QMetaProperty> m_properties; // Those of m_component that can be edited, one per row of m_table
 
     QStackedWidget* m_stack = nullptr;
     QLabel* m_placeholder = nullptr; // Shown when there is no property to show, and tells why

@@ -7,7 +7,9 @@
 #include <QStackedWidget>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <optional>
 
 #include "Component/ComponentFactory.h"
@@ -22,10 +24,14 @@ enum Column : std::uint8_t
     ColumnCount,
 };
 
-// Whether a cell edits a value of this type as what it is: the types the default editors of Qt take.
-bool hasEditor(QMetaType type)
+// Whether a cell edits property: it can be written, and its type is one the default editors of Qt take.
+bool isEditable(const QMetaProperty& property)
 {
-    switch(type.id())
+    if(!property.isWritable())
+    {
+        return false;
+    }
+    switch(property.typeId())
     {
     case QMetaType::Bool:
     case QMetaType::Int:
@@ -78,7 +84,12 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     m_component = component;
     const std::optional<AppForge::ComponentInfo> info =
         component != nullptr ? m_factory.component(component->componentId()) : std::nullopt;
-    m_properties = info ? info->properties : QList<QMetaProperty>();
+    // Only what can be edited here: the others are in the viewer of its component.
+    m_properties.clear();
+    if(info)
+    {
+        std::ranges::copy_if(info->properties, std::back_inserter(m_properties), isEditable);
+    }
 
     const QSignalBlocker blocker(m_table); // itemChanged is for the values edited in the table
     m_table->setRowCount(0);               // Closes the editor of a value of the previous component
@@ -87,17 +98,12 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     for(int row = 0; row < m_table->rowCount(); ++row)
     {
         const QMetaProperty& property = m_properties.at(row);
-        const bool editable = property.isWritable() && hasEditor(property.metaType());
 
         auto* name = new QTableWidgetItem(QString::fromLatin1(property.name()));
         name->setFlags(Qt::ItemIsEnabled);
         name->setToolTip(QString::fromLatin1(property.typeName()));
         m_table->setItem(row, NameColumn, name);
-
-        // Disabled when it cannot be edited, which also tells so.
-        auto* value = new QTableWidgetItem;
-        value->setFlags(editable ? Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable : Qt::NoItemFlags);
-        m_table->setItem(row, ValueColumn, value);
+        m_table->setItem(row, ValueColumn, new QTableWidgetItem); // Editable, as an item is by default
 
         if(property.hasNotifySignal())
         {
@@ -107,7 +113,7 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     refreshValues();
 
     m_placeholder->setText(component == nullptr ? tr("Select a component of the application to edit its properties")
-                                                : tr("%1 has no properties").arg(component->objectName()));
+                                                : tr("%1 has no editable property").arg(component->objectName()));
     m_stack->setCurrentWidget(m_properties.isEmpty() ? static_cast<QWidget*>(m_placeholder) : m_table);
 }
 
