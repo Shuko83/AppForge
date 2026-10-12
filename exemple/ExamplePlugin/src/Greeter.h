@@ -2,7 +2,7 @@
 
 #include <QString>
 
-#include "Component/Component.h"
+#include "AppForge/Component/Component.h"
 
 class IGreeter;
 

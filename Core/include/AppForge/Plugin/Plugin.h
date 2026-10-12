@@ -5,7 +5,7 @@
 #include <memory>
 #include <type_traits>
 
-#include "Component/Component.h"
+#include "AppForge/Component/Component.h"
 #include "Core_export.h"
 
 namespace AppForge

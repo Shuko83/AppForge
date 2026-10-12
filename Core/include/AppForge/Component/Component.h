@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "Component/IComponent.h"
+#include "AppForge/Component/IComponent.h"
 #include "Core_export.h"
 
 namespace AppForge

@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QTimer>
 
-#include "Component/IComponent.h"
+#include "AppForge/Component/IComponent.h"
 
 class Ticker;
 

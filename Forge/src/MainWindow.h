@@ -3,8 +3,8 @@
 #include <QMainWindow>
 #include <QString>
 
+#include "AppForge/Plugin/PluginManager.h"
 #include "Assembly.h"
-#include "Plugin/PluginManager.h"
 
 class ComponentModel;
 class ComponentViewer;

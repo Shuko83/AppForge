@@ -6,8 +6,8 @@
 #include <memory>
 #include <optional>
 
+#include "AppForge/Plugin/PluginInfo.h"
 #include "Core_export.h"
-#include "Plugin/PluginInfo.h"
 
 class QPluginLoader;
 

@@ -2,7 +2,7 @@
 
 #include <QObject>
 
-#include "Component/IComponent.h"
+#include "AppForge/Component/IComponent.h"
 #include "IGreeter.h"
 
 class Greeter;

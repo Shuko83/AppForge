@@ -2,7 +2,7 @@
 
 #include <QMimeData>
 
-#include "Component/ComponentFactory.h"
+#include "AppForge/Component/ComponentFactory.h"
 
 ComponentModel::ComponentModel(const AppForge::ComponentFactory& factory, QObject* parent)
     : QAbstractTableModel(parent), m_factory(factory)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Plugin/Plugin.h"
+#include "AppForge/Plugin/Plugin.h"
 
 class Greeter;
 

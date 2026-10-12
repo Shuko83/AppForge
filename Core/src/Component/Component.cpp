@@ -1,4 +1,4 @@
-#include "Component/Component.h"
+#include "AppForge/Component/Component.h"
 
 #include <QLoggingCategory>
 #include <algorithm>

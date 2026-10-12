@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "Plugin/PluginManager.h"
+#include "AppForge/Plugin/PluginManager.h"
 
 PluginModel::PluginModel(const AppForge::PluginManager& plugins, QObject* parent)
     : QAbstractTableModel(parent), m_plugins(plugins)

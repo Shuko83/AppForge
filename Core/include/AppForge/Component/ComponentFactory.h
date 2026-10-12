@@ -6,10 +6,10 @@
 #include <memory>
 #include <optional>
 
-#include "Component/Component.h"
-#include "Component/ComponentInfo.h"
+#include "AppForge/Component/Component.h"
+#include "AppForge/Component/ComponentInfo.h"
+#include "AppForge/Plugin/Plugin.h"
 #include "Core_export.h"
-#include "Plugin/Plugin.h"
 
 namespace AppForge
 {

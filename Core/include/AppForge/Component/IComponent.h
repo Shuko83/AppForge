@@ -5,7 +5,7 @@
 #include <QString>
 #include <cstdint>
 
-#include "Component/InterfaceInfo.h"
+#include "AppForge/Component/InterfaceInfo.h"
 
 namespace AppForge
 {

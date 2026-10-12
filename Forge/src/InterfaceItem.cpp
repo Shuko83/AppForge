@@ -10,7 +10,7 @@
 #include <QWidget>
 #include <numbers>
 
-#include "Component/InterfaceInfo.h"
+#include "AppForge/Component/InterfaceInfo.h"
 #include "ComponentItem.h"
 #include "LinkItem.h"
 

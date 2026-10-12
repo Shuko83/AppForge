@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <optional>
 
-#include "Component/ComponentFactory.h"
+#include "AppForge/Component/ComponentFactory.h"
 
 Assembly::Assembly(const AppForge::ComponentFactory& factory) : m_factory(factory) {}
 

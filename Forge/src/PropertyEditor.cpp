@@ -12,7 +12,7 @@
 #include <iterator>
 #include <optional>
 
-#include "Component/ComponentFactory.h"
+#include "AppForge/Component/ComponentFactory.h"
 
 namespace
 {

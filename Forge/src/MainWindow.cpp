@@ -15,7 +15,7 @@
 #include <QVBoxLayout>
 #include <optional>
 
-#include "Component/ComponentFactory.h"
+#include "AppForge/Component/ComponentFactory.h"
 #include "ComponentModel.h"
 #include "ComponentViewer.h"
 #include "EditionScene.h"

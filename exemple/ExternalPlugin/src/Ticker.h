@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Component/Component.h"
+#include "AppForge/Component/Component.h"
 
 class QWidget;
 

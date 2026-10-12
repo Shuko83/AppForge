@@ -4,7 +4,7 @@
 #include <QList>
 #include <cstdint>
 
-#include "Component/ComponentInfo.h"
+#include "AppForge/Component/ComponentInfo.h"
 
 namespace AppForge
 {

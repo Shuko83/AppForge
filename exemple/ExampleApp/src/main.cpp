@@ -4,8 +4,8 @@
 #include <memory>
 #include <optional>
 
-#include "Component/ComponentFactory.h"
-#include "Plugin/PluginManager.h"
+#include "AppForge/Component/ComponentFactory.h"
+#include "AppForge/Plugin/PluginManager.h"
 
 namespace
 {

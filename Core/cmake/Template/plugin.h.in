@@ -6,8 +6,8 @@
 #include <memory>
 
 #include "@APPFORGE_PLUGIN_NAME@_info.h"
-#include "Plugin/IPlugin.h"
-#include "Plugin/Plugin.h"
+#include "AppForge/Plugin/IPlugin.h"
+#include "AppForge/Plugin/Plugin.h"
 
 namespace AppForge::Generated
 {

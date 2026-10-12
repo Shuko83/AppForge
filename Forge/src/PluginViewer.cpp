@@ -9,7 +9,7 @@
 #include <QVBoxLayout>
 #include <optional>
 
-#include "Plugin/PluginManager.h"
+#include "AppForge/Plugin/PluginManager.h"
 
 namespace
 {

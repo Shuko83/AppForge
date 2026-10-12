@@ -1,4 +1,4 @@
-#include "Plugin/Plugin.h"
+#include "AppForge/Plugin/Plugin.h"
 
 namespace AppForge
 {

@@ -15,8 +15,8 @@
 #include <cmath>
 #include <optional>
 
+#include "AppForge/Component/ComponentFactory.h"
 #include "Assembly.h"
-#include "Component/ComponentFactory.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
 #include "InterfaceItem.h"

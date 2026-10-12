@@ -6,7 +6,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <utility>
 
-#include "Component/Component.h"
+#include "AppForge/Component/Component.h"
 #include "InterfaceItem.h"
 
 namespace

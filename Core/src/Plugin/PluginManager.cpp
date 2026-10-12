@@ -1,4 +1,4 @@
-#include "Plugin/PluginManager.h"
+#include "AppForge/Plugin/PluginManager.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -10,9 +10,9 @@
 #include <ranges>
 #include <utility>
 
-#include "Component/ComponentFactory.h"
+#include "AppForge/Component/ComponentFactory.h"
+#include "AppForge/Plugin/IPlugin.h"
 #include "Core_info.h"
-#include "Plugin/IPlugin.h"
 
 namespace AppForge
 {
