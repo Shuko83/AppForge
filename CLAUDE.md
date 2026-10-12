@@ -83,13 +83,15 @@ Les chaînes affichées passent par `tr()`, en anglais.
 **Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
 - `EditionScene::save()` écrit `components` (nom, type, x, y, propriétés inscriptibles qui font l'aller-retour JSON),
   `bindings` (lus depuis les `LinkItem`, Core n'expose pas à quoi une interface est liée) et `zones`.
-  `MainWindow::project()` y ajoute `version` et `plugins` (id + chemin absolu, seulement ceux des composants présents).
+  `MainWindow::project()` y ajoute `version` et `plugins` (id + chemin, seulement ceux des composants présents). Le
+  chemin est relatif à `m_pluginRoot` : le dossier de `Forge.exe`, ou celui de l'option `--plugin-root` (analysée
+  dans `main.cpp`, passée au constructeur de `MainWindow`). Un chemin absolu dans un fichier reste lu tel quel.
 - `MainWindow::openProjectFile()` charge les plugins, puis `EditionScene::load()` vide la scène et la reconstruit ; les
   deux renvoient la liste de ce qui n'a pas pu être restauré, affichée dans une seule boîte. Après une ouverture
   partielle, le projet n'a plus de fichier associé pour que **Save** n'écrase pas ce qui manque.
 - « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `project()` à `m_savedProject`, mémorisé par
   `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `project()`.
-- `Forge fichier.afp` ouvre le projet au démarrage.
+- `Forge [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage.
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
 

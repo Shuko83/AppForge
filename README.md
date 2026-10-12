@@ -214,7 +214,7 @@ A project file is a JSON object:
 {
     "version": 1,
     "plugins": [
-        { "id": "FabienDG.AppForge.ExternalPlugin", "file": "C:/build/external-plugins/Debug/ExternalPlugin.afdl" }
+        { "id": "FabienDG.AppForge.ExternalPlugin", "file": "../../external-plugins/Debug/ExternalPlugin.afdl" }
     ],
     "components": [
         {
@@ -238,10 +238,12 @@ A project file is a JSON object:
 | Key          | Value                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | `version`    | `1`: a file of another version is not opened                                                            |
-| `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are |
+| `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
 | `components` | The instances: their name, the id of their component, where they are in the edition zone and their properties |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `zones`      | The colored zones of the edition zone                                                                   |
+
+The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
 
 The `properties` of a component are those that can be written and whose value JSON holds as it is: numbers, booleans and texts, and whatever is read back from its text, as dates are.
 

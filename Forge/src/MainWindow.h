@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDir>
 #include <QJsonObject>
 #include <QMainWindow>
 #include <QString>
@@ -25,7 +26,9 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    // pluginRoot is the directory the files of the plugins are relative to in a project file: the one of Forge when
+    // it is empty.
+    explicit MainWindow(const QString& pluginRoot = {}, QWidget* parent = nullptr);
     ~MainWindow() override;
 
     // Replaces the application with the one of the project file filePath, whose plugins it loads, and tells what
@@ -63,6 +66,7 @@ class MainWindow : public QMainWindow
 
     AppForge::PluginManager m_plugins;
     Assembly m_assembly;
+    QDir m_pluginRoot;          // What the files of the plugins are relative to in a project file
     QString m_openDirectory;    // Where openPlugin() starts browsing: the directory of the last plugin opened
     QString m_projectFile;      // Empty until the application is saved to a file, or opened from one
     QJsonObject m_savedProject; // What project() was when m_projectFile was set
