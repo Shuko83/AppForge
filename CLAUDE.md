@@ -148,3 +148,25 @@ Les chaînes affichées passent par `tr()`, en anglais.
 - Commentaires en anglais, au-dessus de la déclaration, qui disent le pourquoi ou le contrat.
 - Commits en français, préfixés : `feat(Forge): …`, `fix(Forge): …`, `refactor: …`.
 - Toute nouvelle fonctionnalité visible est décrite dans le README (sections Plugin, Component, Forge).
+
+## Process
+
+Chaque travail suit le cycle issue → branche → PR, sur `Shuko83/AppForge`, avec la CLI `gh`. Rien n'est commité ni
+poussé directement sur `main`.
+
+1. **Issue** : une par travail. Claude la rédige à partir de la demande (contexte, comportement attendu, critères
+   d'acceptation) et la fait valider avant de la créer ; ou il part d'une issue existante.
+2. **Branche** : depuis un `main` à jour (`git fetch`, puis fast-forward), nommée `feat/<n°>-<nom-court>`,
+   `fix/<n°>-…`, `docs/<n°>-…` ou `refactor/<n°>-…`.
+3. **Travail** : code, vérification, puis commits selon les conventions ci-dessus, qui citent l'issue (`#<n°>`) dans
+   leur corps.
+4. **PR** : push de la branche, puis PR vers `main` avec `Closes #<n°>`, un résumé, ce qui a été vérifié et ce qui ne
+   l'a pas été. La CI compile chaque PR.
+5. **Revue** : les corrections demandées vont sur la même branche.
+6. **Fusion** : par l'utilisateur, en rebase. Ensuite, suppression de la branche et `main` local remis à jour.
+
+Créer l'issue une fois validée, pousser la branche et ouvrir la PR font partie du cycle : Claude n'a pas à redemander.
+Il ne fusionne jamais sans qu'on le lui demande.
+
+Quand une demande sort du cycle, Claude le dit avant de continuer et propose d'y revenir : un changement demandé sans
+issue, un commit ou un push sur `main`, une fusion sans PR, ou une demande sans rapport avec la branche en cours.
