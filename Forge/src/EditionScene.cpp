@@ -5,12 +5,16 @@
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QHash>
+#include <QJsonArray>
 #include <QList>
 #include <QMenu>
+#include <QMetaProperty>
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
 #include <QToolTip>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <optional>
@@ -50,6 +54,63 @@ void acceptComponent(QGraphicsSceneDragDropEvent& event)
     }
 }
 
+// Where an item is, as the "x" and "y" of what a project file holds about it.
+void writePosition(QJsonObject& json, const QPointF& position)
+{
+    json.insert(u"x", position.x());
+    json.insert(u"y", position.y());
+}
+
+QPointF readPosition(const QJsonObject& json)
+{
+    return {json.value(u"x").toDouble(), json.value(u"y").toDouble()};
+}
+
+// value as a project file holds it; nullopt when it would not be read back as it is, its type being one JSON has
+// nothing for.
+std::optional<QJsonValue> toJson(const QVariant& value)
+{
+    const QJsonValue json = QJsonValue::fromVariant(value);
+    QVariant read = json.toVariant();
+    if(!read.convert(value.metaType()) || read != value)
+    {
+        return std::nullopt;
+    }
+    return json;
+}
+
+// The properties of component a project file holds, by name: those of properties that can be written.
+QJsonObject writableProperties(const AppForge::Component& component, const QList<QMetaProperty>& properties)
+{
+    QJsonObject json;
+    for(const QMetaProperty& property : properties)
+    {
+        const std::optional<QJsonValue> value =
+            property.isWritable() ? toJson(property.read(&component)) : std::nullopt;
+        if(value)
+        {
+            json.insert(QLatin1StringView(property.name()), *value);
+        }
+    }
+    return json;
+}
+
+// Sets the property name of component, one of properties, to value; false when it is none of them or cannot be set.
+bool writeProperty(AppForge::Component& component, const QList<QMetaProperty>& properties, const QString& name,
+                   const QJsonValue& value)
+{
+    const auto property = std::ranges::find(properties, name, [](const QMetaProperty& known)
+                                            { return QString::fromLatin1(known.name()); });
+    return property != properties.end() && property->write(&component, value.toVariant());
+}
+
+// The one of interfaces named name; nullptr when none is.
+InterfaceItem* interfaceNamed(const QList<InterfaceItem*>& interfaces, const QString& name)
+{
+    const auto found = std::ranges::find(interfaces, name, &InterfaceItem::name);
+    return found != interfaces.end() ? *found : nullptr;
+}
+
 } // namespace
 
 EditionScene::EditionScene(Assembly& assembly, const AppForge::ComponentFactory& factory, QObject* parent)
@@ -66,6 +127,133 @@ AppForge::Component* EditionScene::selectedComponent() const
     return item != nullptr ? &item->component() : nullptr;
 }
 
+QJsonObject EditionScene::save() const
+{
+    QJsonArray components;
+    QJsonArray bindings;
+    QJsonArray zones;
+    // From the first one added: load() adds them in this order, which is then the same again.
+    const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
+    for(const QGraphicsItem* item : added)
+    {
+        if(const auto* componentItem = qobject_cast<const ComponentItem*>(item->toGraphicsObject()))
+        {
+            const AppForge::Component& component = componentItem->component();
+            const std::optional<AppForge::ComponentInfo> info = m_factory.component(component.componentId());
+            QJsonObject json;
+            json.insert(u"name", component.objectName());
+            json.insert(u"type", component.componentId());
+            writePosition(json, componentItem->pos());
+            json.insert(u"properties", writableProperties(component, info ? info->properties : QList<QMetaProperty>()));
+            components.append(json);
+
+            for(const InterfaceItem* consumed : componentItem->consumedInterfaces())
+            {
+                // One at most: what a component consumes is bound to one interface.
+                for(const LinkItem* link : consumed->links())
+                {
+                    QJsonObject binding;
+                    binding.insert(u"consumer", component.objectName());
+                    binding.insert(u"consumed", consumed->name());
+                    binding.insert(u"provider", link->provided().component().objectName());
+                    binding.insert(u"provided", link->provided().name());
+                    bindings.append(binding);
+                }
+            }
+        }
+        else if(const auto* zone = qgraphicsitem_cast<const ZoneItem*>(item))
+        {
+            QJsonObject json;
+            json.insert(u"title", zone->title());
+            json.insert(u"color", zone->color().name());
+            writePosition(json, zone->pos());
+            json.insert(u"width", zone->boundingRect().width());
+            json.insert(u"height", zone->boundingRect().height());
+            zones.append(json);
+        }
+    }
+
+    QJsonObject project;
+    project.insert(u"components", components);
+    project.insert(u"bindings", bindings);
+    project.insert(u"zones", zones);
+    return project;
+}
+
+QStringList EditionScene::load(const QJsonObject& project)
+{
+    reset();
+    QStringList problems;
+
+    QHash<QString, ComponentItem*> componentItems; // By the name project gives them
+    const QJsonArray components = project.value(u"components").toArray();
+    for(const QJsonValue& value : components)
+    {
+        const QJsonObject json = value.toObject();
+        const QString name = json.value(u"name").toString();
+        const QString componentId = json.value(u"type").toString();
+        const std::optional<AppForge::ComponentInfo> info = m_factory.component(componentId);
+        ComponentItem* item = info ? addComponent(componentId, readPosition(json), name) : nullptr;
+        if(item == nullptr)
+        {
+            problems.append(tr("%1 is missing: no loaded plugin provides %2").arg(name, componentId));
+            continue;
+        }
+        componentItems.insert(name, item);
+
+        const QJsonObject properties = json.value(u"properties").toObject();
+        for(auto property = properties.begin(); property != properties.end(); ++property)
+        {
+            if(!writeProperty(item->component(), info->properties, property.key(), property.value()))
+            {
+                problems.append(tr("The property %1 of %2 could not be set").arg(property.key(), name));
+            }
+        }
+    }
+
+    const QJsonArray bindings = project.value(u"bindings").toArray();
+    for(const QJsonValue& value : bindings)
+    {
+        const QJsonObject json = value.toObject();
+        const QString consumerName = json.value(u"consumer").toString();
+        const QString consumedName = json.value(u"consumed").toString();
+        const QString providerName = json.value(u"provider").toString();
+        const QString providedName = json.value(u"provided").toString();
+        const ComponentItem* consumer = componentItems.value(consumerName);
+        const ComponentItem* provider = componentItems.value(providerName);
+        InterfaceItem* consumed =
+            consumer != nullptr ? interfaceNamed(consumer->consumedInterfaces(), consumedName) : nullptr;
+        InterfaceItem* provided =
+            provider != nullptr ? interfaceNamed(provider->providedInterfaces(), providedName) : nullptr;
+        if(consumed == nullptr || provided == nullptr || !link(*consumed, *provided))
+        {
+            problems.append(tr("%1 of %2 could not be bound to %3 of %4")
+                                .arg(consumedName, consumerName, providedName, providerName));
+        }
+    }
+
+    const QJsonArray zones = project.value(u"zones").toArray();
+    for(const QJsonValue& value : zones)
+    {
+        const QJsonObject json = value.toObject();
+        addZone(readPosition(json), QSizeF(json.value(u"width").toDouble(), json.value(u"height").toDouble()),
+                json.value(u"title").toString(), QColor::fromString(json.value(u"color").toString()));
+    }
+    return problems;
+}
+
+void EditionScene::reset()
+{
+    // Nothing is selected, nor being linked, any longer: who listens lets go of the components before they go.
+    clearSelection();
+    m_linkSource = nullptr;
+    m_pendingLink = nullptr;
+    clear(); // Its items first: they refer to the components
+    m_assembly.clear();
+    m_zoneCount = 0;
+    update(HintRect); // Shown again
+}
+
 void EditionScene::dragEnterEvent(QGraphicsSceneDragDropEvent* event)
 {
     acceptComponent(*event);
@@ -79,17 +267,12 @@ void EditionScene::dragMoveEvent(QGraphicsSceneDragDropEvent* event)
 void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
 {
     const QString componentId = QString::fromUtf8(event->mimeData()->data(ComponentModel::MimeType));
-    const std::optional<AppForge::ComponentInfo> info = m_factory.component(componentId);
-    AppForge::Component* component = info ? m_assembly.instantiate(componentId) : nullptr;
-    if(component == nullptr)
+    ComponentItem* item = addComponent(componentId, event->scenePos());
+    if(item == nullptr)
     {
         event->ignore();
         return;
     }
-    auto* item = new ComponentItem(*component, info->name);
-    item->setPos(event->scenePos());
-    addItem(item);
-    update(HintRect); // Hidden once anything is in the edition zone
     clearSelection();
     item->setSelected(true);
     event->setDropAction(Qt::CopyAction);
@@ -183,7 +366,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     }
     if(chosen == add)
     {
-        addZone(event->scenePos());
+        addZone(event->scenePos(), ZoneSize, tr("Zone"))->editTitle(); // Named at once
     }
     else if(chosen == rename)
     {
@@ -234,14 +417,29 @@ void EditionScene::dimLinkTargets(const InterfaceItem* source)
     }
 }
 
-void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
+ComponentItem* EditionScene::addComponent(const QString& componentId, const QPointF& position, const QString& name)
+{
+    const std::optional<AppForge::ComponentInfo> info = m_factory.component(componentId);
+    AppForge::Component* component = info ? m_assembly.instantiate(componentId, name) : nullptr;
+    if(component == nullptr)
+    {
+        return nullptr;
+    }
+    auto* item = new ComponentItem(*component, info->name);
+    item->setPos(position);
+    addItem(item);
+    update(HintRect); // Hidden once anything is in the edition zone
+    return item;
+}
+
+bool EditionScene::link(InterfaceItem& source, InterfaceItem& target)
 {
     const bool sourceProvided = source.kind() == InterfaceItem::Kind::Provided;
     InterfaceItem& provided = sourceProvided ? source : target;
     InterfaceItem& consumed = sourceProvided ? target : source;
     if(!consumed.component().bindInterface(consumed.name(), provided.component(), provided.name()))
     {
-        return;
+        return false;
     }
     // What a component consumes is bound to one interface: the new one.
     while(!consumed.links().isEmpty())
@@ -249,6 +447,7 @@ void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
         delete consumed.links().constFirst();
     }
     addItem(new LinkItem(provided, consumed));
+    return true;
 }
 
 ZoneItem* EditionScene::zoneAt(const QPointF& position) const
@@ -264,13 +463,14 @@ ZoneItem* EditionScene::zoneAt(const QPointF& position) const
     return nullptr;
 }
 
-void EditionScene::addZone(const QPointF& position)
+ZoneItem* EditionScene::addZone(const QPointF& position, const QSizeF& size, const QString& title, const QColor& color)
 {
-    auto* zone = new ZoneItem(ZoneSize, tr("Zone"), QColor(ZoneColors.at(m_zoneCount++ % ZoneColors.size())));
+    const QColor next(ZoneColors.at(m_zoneCount++ % ZoneColors.size()));
+    auto* zone = new ZoneItem(size, title, color.isValid() ? color : next);
     zone->setPos(position);
     addItem(zone);
     update(HintRect); // Hidden once anything is in the edition zone
-    zone->editTitle();
+    return zone;
 }
 
 void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)

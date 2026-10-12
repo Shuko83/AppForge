@@ -24,6 +24,8 @@ class ZoneItem : public QGraphicsItem
     ZoneItem(const QSizeF& size, QString title, const QColor& color);
 
     [[nodiscard]] int type() const override;
+    // As it was before it started being edited, while it is.
+    [[nodiscard]] const QString& title() const;
     [[nodiscard]] const QColor& color() const;
     void setColor(const QColor& color);
     // Edits its title in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. It

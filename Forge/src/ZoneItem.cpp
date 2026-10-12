@@ -65,6 +65,11 @@ int ZoneItem::type() const
     return Type;
 }
 
+const QString& ZoneItem::title() const
+{
+    return m_title;
+}
+
 const QColor& ZoneItem::color() const
 {
     return m_color;

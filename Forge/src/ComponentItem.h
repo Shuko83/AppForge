@@ -23,6 +23,9 @@ class ComponentItem : public QGraphicsObject
     ComponentItem(AppForge::Component& component, QString componentName);
 
     [[nodiscard]] AppForge::Component& component() const;
+    // Its interfaces, in the order of Component::consumedInterfaces() and Component::providedInterfaces().
+    [[nodiscard]] const QList<InterfaceItem*>& consumedInterfaces() const;
+    [[nodiscard]] const QList<InterfaceItem*>& providedInterfaces() const;
 
     [[nodiscard]] QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
@@ -33,7 +36,7 @@ class ComponentItem : public QGraphicsObject
 
     AppForge::Component& m_component;
     QString m_componentName;
-    // Its children, in the order of Component::consumedInterfaces() and Component::providedInterfaces().
+    // Its children.
     QList<InterfaceItem*> m_consumedInterfaces;
     QList<InterfaceItem*> m_providedInterfaces;
 };
