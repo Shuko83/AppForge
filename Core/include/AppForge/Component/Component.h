@@ -48,6 +48,8 @@ class CORE_EXPORT Component : public QObject, public IComponent
     bool bindInterface(const QString& name, Component& provider, const QString& providedName);
     // name, which it consumes, becomes unavailable and is bound to nothing.
     void unbindInterface(const QString& name);
+    // What name is bound to: nothing when it is unbound, or not an interface it consumes.
+    [[nodiscard]] InterfaceBinding binding(const QString& name) const;
 
   signals:
     void stateChanged(AppForge::ComponentState state);

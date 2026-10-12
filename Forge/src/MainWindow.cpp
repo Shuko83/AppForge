@@ -1,15 +1,14 @@
 #include "MainWindow.h"
 
+#include <QAction>
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDir>
-#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsView>
 #include <QGroupBox>
 #include <QHeaderView>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QMenuBar>
@@ -20,7 +19,6 @@
 #include <QStatusBar>
 #include <QTreeView>
 #include <QVBoxLayout>
-#include <map>
 #include <optional>
 
 #include "AppForge/Component/ComponentFactory.h"
@@ -33,9 +31,6 @@
 
 namespace
 {
-
-// The version of the project files written, the only one read.
-constexpr int ProjectVersion = 1;
 
 // Where the project files are saved and looked for unless told otherwise: scene/ next to Forge.
 QString defaultProjectDirectory()
@@ -75,10 +70,8 @@ QWidget* createPanel(const QString& title, QWidget* view, QWidget* viewer)
 } // namespace
 
 MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
-    : QMainWindow(parent), m_assembly(AppForge::ComponentFactory::instance()),
-      m_pluginRoot(pluginRoot.isEmpty() ? QCoreApplication::applicationDirPath() : pluginRoot),
-      m_pluginModel(new PluginModel(m_plugins, this)),
-      m_pluginViewer(new PluginViewer(m_plugins)),
+    : QMainWindow(parent), m_pluginModel(new PluginModel(m_application.plugins(), this)),
+      m_pluginViewer(new PluginViewer(m_application.plugins())),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
       m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance())),
       m_propertyEditor(new PropertyEditor(AppForge::ComponentFactory::instance()))
@@ -89,8 +82,24 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     fileMenu->addAction(tr("&Save"), QKeySequence::Save, this, &MainWindow::saveProject);
     fileMenu->addAction(tr("Save &As..."), QKeySequence::SaveAs, this, &MainWindow::saveProjectAs);
 
+    // One of them at a time: what the application can be told.
+    QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
+    QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
+    QAction* stopAction = runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application,
+                                             &AppForge::ForgeApplication::stop);
+    stopAction->setEnabled(false);
+    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
+            [startAction, stopAction](bool running)
+            {
+                startAction->setEnabled(!running);
+                stopAction->setEnabled(running);
+            });
+
+    if(!pluginRoot.isEmpty())
+    {
+        m_application.setPluginRoot(pluginRoot);
+    }
     m_openDirectory = AppForge::PluginManager::defaultDirectory();
-    m_plugins.scan();
     m_pluginModel->refresh();
     m_componentModel->refresh();
 
@@ -116,7 +125,7 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
             [this](const QModelIndex& current)
             { m_componentViewer->setComponentId(current.data(ComponentModel::IdRole).toString()); });
 
-    m_scene = new EditionScene(m_assembly, AppForge::ComponentFactory::instance(), this);
+    m_scene = new EditionScene(m_application, AppForge::ComponentFactory::instance(), this);
     m_editionView = new QGraphicsView(m_scene);
     m_editionView->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_editionView->setRenderHint(QPainter::Antialiasing);
@@ -152,8 +161,10 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
 
 MainWindow::~MainWindow()
 {
-    // Its items, and the property editor, refer to the components of m_assembly, destroyed after this body, before the
-    // children of the window. The scene is no longer listened to: deleting a selected item changes its selection.
+    // Its items, and the property editor, refer to the components of m_application, destroyed after this body, before
+    // the children of the window. The scene is no longer listened to: deleting a selected item changes its selection.
+    // Neither is the application, stopped when it is destroyed.
+    m_application.disconnect(this);
     m_scene->disconnect(this);
     m_propertyEditor->setComponent(nullptr);
     delete m_scene;
@@ -161,49 +172,20 @@ MainWindow::~MainWindow()
 
 bool MainWindow::openProjectFile(const QString& filePath)
 {
-    // Told before anything is changed.
-    const auto refuse = [&](const QString& reason)
+    QString error;
+    const std::optional<QJsonObject> project = AppForge::ForgeApplication::read(filePath, error);
+    if(!project)
     {
+        // Told before anything is changed.
         QMessageBox::warning(this, tr("Open project"),
-                             tr("%1 cannot be opened:\n%2").arg(QDir::toNativeSeparators(filePath), reason));
+                             tr("%1 cannot be opened:\n%2").arg(QDir::toNativeSeparators(filePath), error));
         return false;
-    };
-    QFile file(filePath);
-    if(!file.open(QIODevice::ReadOnly))
-    {
-        return refuse(file.errorString());
     }
-    QJsonParseError parsed;
-    const QJsonObject project = QJsonDocument::fromJson(file.readAll(), &parsed).object();
-    if(parsed.error != QJsonParseError::NoError)
-    {
-        return refuse(parsed.errorString());
-    }
-    if(project.value(u"version").toInt() != ProjectVersion)
-    {
-        return refuse(tr("It is not an AppForge project of version %1").arg(ProjectVersion));
-    }
-
-    QStringList problems;
-    const QJsonArray plugins = project.value(u"plugins").toArray();
-    for(const QJsonValue& value : plugins)
-    {
-        const QJsonObject plugin = value.toObject();
-        const QString pluginId = plugin.value(u"id").toString();
-        // Where its file is from m_pluginRoot; as it is when it is not relative.
-        const QString filePath = QDir::cleanPath(m_pluginRoot.absoluteFilePath(plugin.value(u"file").toString()));
-        // Opened from its file when it is not found already, as the ones of plugins/ are.
-        if((!m_plugins.plugin(pluginId) && !m_plugins.addFile(filePath)) ||
-           (!m_plugins.isLoaded(pluginId) && !m_plugins.load(pluginId)))
-        {
-            problems.append(tr("The plugin %1 is not loaded: %2").arg(pluginId, m_plugins.errorString()));
-        }
-    }
+    const QStringList problems = m_scene->load(*project);
+    // The plugins of the project, loaded with it, and their components.
     m_pluginModel->refresh();
     m_pluginViewer->refresh();
     m_componentModel->refresh();
-
-    problems.append(m_scene->load(project));
     // No longer its file when part of it is missing: saving would write over what could not be restored.
     setProjectFile(problems.isEmpty() ? filePath : QString());
     if(!problems.isEmpty())
@@ -219,7 +201,7 @@ bool MainWindow::saveProjectFile(const QString& filePath)
 {
     m_scene->setFocusItem(nullptr); // The title of a zone is no longer edited: it is saved as it was typed
     QSaveFile file(filePath);
-    if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(project()).toJson()) < 0 || !file.commit())
+    if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(m_scene->save()).toJson()) < 0 || !file.commit())
     {
         QMessageBox::warning(this, tr("Save project"),
                              tr("%1 cannot be saved:\n%2").arg(QDir::toNativeSeparators(filePath), file.errorString()));
@@ -236,10 +218,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::load(const QString& pluginId)
 {
-    if(!m_plugins.load(pluginId))
+    if(!m_application.plugins().load(pluginId))
     {
         QMessageBox::warning(this, tr("Load plugin"),
-                             tr("%1 cannot be loaded:\n%2").arg(pluginId, m_plugins.errorString()));
+                             tr("%1 cannot be loaded:\n%2").arg(pluginId, m_application.plugins().errorString()));
         return;
     }
     m_pluginModel->refresh();
@@ -257,63 +239,32 @@ void MainWindow::openPlugin()
     }
     m_openDirectory = QFileInfo(filePath).absolutePath();
 
-    const std::optional<AppForge::PluginInfo> info = m_plugins.addFile(filePath);
+    const std::optional<AppForge::PluginInfo> info = m_application.plugins().addFile(filePath);
     if(!info)
     {
         QMessageBox::warning(this, tr("Open plugin"),
                              tr("%1 cannot be opened:\n%2")
-                                 .arg(QDir::toNativeSeparators(filePath), m_plugins.errorString()));
+                                 .arg(QDir::toNativeSeparators(filePath), m_application.plugins().errorString()));
         return;
     }
     m_pluginModel->refresh();
     m_pluginView->setCurrentIndex(m_pluginModel->indexOf(info->id));
-    if(!m_plugins.isLoaded(info->id))
+    if(!m_application.plugins().isLoaded(info->id))
     {
         load(info->id);
     }
 }
 
-QJsonObject MainWindow::project() const
-{
-    // The plugins of its components, each once: those to load before it is opened again.
-    std::map<QString, QString> files; // By plugin id
-    for(const std::unique_ptr<AppForge::Component>& component : m_assembly.components())
-    {
-        const std::optional<AppForge::ComponentInfo> info =
-            AppForge::ComponentFactory::instance().component(component->componentId());
-        const std::optional<AppForge::PluginInfo> plugin = info ? m_plugins.plugin(info->pluginId) : std::nullopt;
-        if(plugin)
-        {
-            files.emplace(plugin->id, plugin->filePath);
-        }
-    }
-    QJsonArray plugins;
-    for(const auto& [pluginId, filePath] : files)
-    {
-        QJsonObject plugin;
-        plugin.insert(u"id", pluginId);
-        // Relative, for the project to be opened wherever its plugins are moved to, with their root; it cannot be when
-        // the file is on another drive than the root.
-        plugin.insert(u"file", m_pluginRoot.relativeFilePath(filePath));
-        plugins.append(plugin);
-    }
-
-    QJsonObject project = m_scene->save();
-    project.insert(u"version", ProjectVersion);
-    project.insert(u"plugins", plugins);
-    return project;
-}
-
 void MainWindow::setProjectFile(const QString& filePath)
 {
     m_projectFile = filePath;
-    m_savedProject = project();
+    m_savedProject = m_scene->save();
     setWindowTitle(filePath.isEmpty() ? tr("Forge") : tr("%1 - Forge").arg(QFileInfo(filePath).fileName()));
 }
 
 bool MainWindow::saveChanges()
 {
-    if(project() == m_savedProject)
+    if(m_scene->save() == m_savedProject)
     {
         return true;
     }
@@ -365,4 +316,13 @@ bool MainWindow::saveProjectAs()
     const QString filePath =
         QFileDialog::getSaveFileName(this, tr("Save project"), proposed, tr("AppForge projects (*.afp)"));
     return !filePath.isEmpty() && saveProjectFile(filePath);
+}
+
+void MainWindow::start()
+{
+    if(!m_application.start())
+    {
+        QMessageBox::warning(this, tr("Start"),
+                             tr("The application cannot be started:\n%1").arg(m_application.errorString()));
+    }
 }

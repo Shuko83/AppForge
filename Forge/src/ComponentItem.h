@@ -12,14 +12,14 @@ class Component;
 }
 
 // A component instantiated in the edition zone: its name above the name of its component, then its interfaces, one
-// InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. It can be moved
-// and selected.
+// InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. A mark in its
+// corner tells its state: a square once it is initialized, a triangle while it runs. It can be moved and selected.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
 
   public:
-    // component, owned by the Assembly, outlives the item.
+    // component, owned by the application, outlives the item.
     ComponentItem(AppForge::Component& component, QString componentName);
 
     [[nodiscard]] AppForge::Component& component() const;

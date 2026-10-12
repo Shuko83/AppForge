@@ -184,7 +184,7 @@ window->bindInterface(QStringLiteral("content"), *ticker, QStringLiteral("displa
 window->unbindInterface(QStringLiteral("content"));
 ```
 
-`consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side.
+`consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, `binding(name)` tells what one of them is bound to, the provider and the name it provides it under, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side.
 
 ---
 
@@ -197,6 +197,7 @@ window->unbindInterface(QStringLiteral("content"));
 - between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces of an instance are listed under its names, each with a dot on an edge: those it consumes on the left, a circle; those it provides on the right, a disc while the interface is available and a dotted circle otherwise. Hovering a dot tells at once, in a tooltip, whether the interface is provided or consumed, its type and its state; it does too while a link is being drawn. Dragging from the dot of a provided interface to the dot of a consumed one of the same type, or the other way round, binds them and draws a link between them, in place of the link the consumed one had. While the link is being drawn, the dots it cannot be bound to are dimmed.
 - in the edition zone too, colored zones that group instances, by what they are for, say: **Add zone**, in its context menu, adds one where it was right-clicked, under a title typed at once. Dragging a zone by its title moves it with what is in it then: the instances whose center is in it, and the zones that are entirely in it. Dragging an edge or a corner resizes it. Double-clicking its title edits it, and right-clicking anywhere in a zone renames it, changes its color or removes it, which leaves what is in it. Between its title and its edges, a zone lets the mouse through: instances are selected there as anywhere else.
 - under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component.
+- in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits for the next **Start**. Opening a project, or **New**, stops it.
 
 `ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window.
 
@@ -243,8 +244,50 @@ A project file is a JSON object:
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
-The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
+`x`, `y` and `zones` are only for Forge: an application runs without them.
+
+The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`; it is the directory of the application that runs a project unless `ForgeApplication::setPluginRoot()` sets it. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
 
 The `properties` of a component are those that can be written and whose value JSON holds as it is: numbers, booleans and texts, and whatever is read back from its text, as dates are.
 
 Opening a project tells what could not be restored, a plugin that is no longer where it was, say, and opens the rest. The file is then no longer the one **Save** writes to, which would write over what is missing.
+
+---
+
+## ▶️ Running an Application
+
+A project is an application: `AppForge::ForgeApplication` instantiates its components as the project defines them and runs them. This is what Forge does when it starts one, and all the `main` of an application has to do:
+
+```cpp
+#include <QApplication>
+
+#include "AppForge/Application/ForgeApplication.h"
+
+int main(int argc, char* argv[])
+{
+    QApplication app(argc, argv); // A QCoreApplication is enough when no component shows a widget
+
+    AppForge::ForgeApplication application;
+    if(!application.open(QStringLiteral("scene/my.afp")) || !application.start())
+    {
+        qCritical().noquote() << application.errorString();
+        return 1;
+    }
+    return QApplication::exec(); // The application is stopped when it is destroyed
+}
+```
+
+It links to `AppForge::Core` only: the plugins of the project are loaded when it is opened, from `plugins/` next to the application or from the file the project gives, relative to the plugin root.
+
+| Function                | What it does                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `open(filePath)`        | Loads the plugins of the project, instantiates its components, sets their properties and binds their interfaces. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
+| `start()`               | Initializes the components that are not yet, all of them first, then starts them, in the order of the project. `false`, with `errorString()` set, when one refuses: those it started are stopped again |
+| `stop()`                | Stops the components that run, the last one first. They can be started again                               |
+| `isRunning()`           | Whether it was started and not stopped since; `runningChanged()` is emitted when it changes               |
+| `components()`, `component(name)` | Its instances, to reach one from the `main`: `application.component(QStringLiteral("Greeter1"))` |
+| `setPluginRoot(directory)` | The directory the files of the plugins are relative to in a project; the directory of the application by default |
+
+An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `Component::bindInterface()` binds it, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+
+The [exemple](exemple/) folder holds `ExampleForgeApp`, which runs the project given on its command line until its last window is closed: assemble a `Ticker` and a `Window` in Forge, save them as `scene/clock.afp`, then run `ExampleForgeApp scene/clock.afp` from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).

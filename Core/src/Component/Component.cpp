@@ -150,6 +150,16 @@ void Component::unbindInterface(const QString& name)
     consumed->providedName.clear();
 }
 
+InterfaceBinding Component::binding(const QString& name) const
+{
+    const auto consumed = std::ranges::find(m_consumedInterfaces, name, &ConsumedInterface::name);
+    if(consumed == m_consumedInterfaces.end())
+    {
+        return {};
+    }
+    return {.provider = consumed->provider, .providedName = consumed->providedName};
+}
+
 void* Component::providedPointer(const QString& name, QMetaType type) const
 {
     const auto provided = std::ranges::find(m_providedInterfaces, name, &ProvidedInterface::name);
