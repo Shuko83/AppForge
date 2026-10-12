@@ -91,7 +91,7 @@ AppForge::Component* EditionScene::selectedComponent() const
 
 QJsonObject EditionScene::save() const
 {
-    QHash<QString, QPointF> positions; // Of the components, by name
+    QHash<QString, const ComponentItem*> shown; // The components, by name
     QJsonArray zones;
     // From the first one added: load() adds them in this order, which is then the same again.
     const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
@@ -99,7 +99,7 @@ QJsonObject EditionScene::save() const
     {
         if(const auto* componentItem = qobject_cast<const ComponentItem*>(item->toGraphicsObject()))
         {
-            positions.insert(componentItem->component().objectName(), componentItem->pos());
+            shown.insert(componentItem->component().objectName(), componentItem);
         }
         else if(const auto* zone = qgraphicsitem_cast<const ZoneItem*>(item))
         {
@@ -118,7 +118,14 @@ QJsonObject EditionScene::save() const
     for(QJsonValueRef component : components)
     {
         QJsonObject json = component.toObject();
-        writePosition(json, positions.value(json.value(u"name").toString()));
+        if(const ComponentItem* item = shown.value(json.value(u"name").toString()))
+        {
+            writePosition(json, item->pos());
+            if(item->color().isValid()) // None while it has the colors of the style
+            {
+                json.insert(u"color", item->color().name(QColor::HexArgb)); // With its opacity
+            }
+        }
         component = json;
     }
     project.insert(u"components", components);
@@ -131,17 +138,20 @@ QStringList EditionScene::load(const QJsonObject& project)
     removeItems(); // Before the components they show are replaced
     QStringList problems = m_application.load(project);
 
-    QHash<QString, QPointF> positions; // Of the components, by name
+    QHash<QString, QJsonObject> saved; // What the project holds of the components, by name
     const QJsonArray components = project.value(u"components").toArray();
     for(const QJsonValue& value : components)
     {
         const QJsonObject json = value.toObject();
-        positions.insert(json.value(u"name").toString(), readPosition(json));
+        saved.insert(json.value(u"name").toString(), json);
     }
     QHash<const AppForge::Component*, ComponentItem*> shown;
     for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
     {
-        shown.insert(component.get(), showComponent(*component, positions.value(component->objectName())));
+        const QJsonObject json = saved.value(component->objectName());
+        ComponentItem* item = showComponent(*component, readPosition(json));
+        item->setColor(QColor::fromString(json.value(u"color").toString())); // Not valid when it has none
+        shown.insert(component.get(), item);
     }
     // The links of what the application bound, once every component is shown.
     for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
@@ -266,35 +276,66 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
+    ComponentItem* component = componentAt(event->scenePos());
     ZoneItem* zone = zoneAt(event->scenePos());
     QMenu menu(event->widget());
+    const QAction* renameComponent = nullptr;
+    const QAction* recolorComponent = nullptr;
+    QAction* uncolorComponent = nullptr;
+    if(component != nullptr)
+    {
+        renameComponent = menu.addAction(tr("Rename component"));
+        recolorComponent = menu.addAction(tr("Change component color..."));
+        uncolorComponent = menu.addAction(tr("Reset component color"));
+        uncolorComponent->setEnabled(component->color().isValid());
+        menu.addSeparator();
+    }
     const QAction* add = menu.addAction(tr("Add zone"));
-    const QAction* rename = nullptr;
-    const QAction* recolor = nullptr;
-    const QAction* remove = nullptr;
+    const QAction* renameZone = nullptr;
+    const QAction* recolorZone = nullptr;
+    const QAction* removeZone = nullptr;
     if(zone != nullptr)
     {
         menu.addSeparator();
-        rename = menu.addAction(tr("Rename zone"));
-        recolor = menu.addAction(tr("Change zone color..."));
-        remove = menu.addAction(tr("Remove zone"));
+        renameZone = menu.addAction(tr("Rename zone"));
+        recolorZone = menu.addAction(tr("Change zone color..."));
+        removeZone = menu.addAction(tr("Remove zone"));
     }
-    // Done once the menu is closed, and the focus back in the view: editing a title takes it.
+    // Done once the menu is closed, and the focus back in the view: editing a name takes it.
     const QAction* chosen = menu.exec(event->screenPos());
     event->accept();
     if(chosen == nullptr)
     {
         return;
     }
-    if(chosen == add)
+    if(chosen == renameComponent)
+    {
+        component->editName();
+    }
+    else if(chosen == recolorComponent)
+    {
+        // From the color it has: the one of the style until it is given one.
+        const QColor current = component->color().isValid() ? component->color() : palette().color(QPalette::Button);
+        const QColor color = QColorDialog::getColor(current, event->widget(), tr("Component color"),
+                                                    QColorDialog::ShowAlphaChannel); // Its opacity too
+        if(color.isValid())
+        {
+            component->setColor(color);
+        }
+    }
+    else if(chosen == uncolorComponent)
+    {
+        component->setColor({});
+    }
+    else if(chosen == add)
     {
         addZone(event->scenePos(), ZoneSize, tr("Zone"))->editTitle(); // Named at once
     }
-    else if(chosen == rename)
+    else if(chosen == renameZone)
     {
         zone->editTitle();
     }
-    else if(chosen == recolor)
+    else if(chosen == recolorZone)
     {
         const QColor color = QColorDialog::getColor(zone->color(), event->widget(), tr("Zone color"));
         if(color.isValid())
@@ -302,7 +343,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
             zone->setColor(color);
         }
     }
-    else if(chosen == remove)
+    else if(chosen == removeZone)
     {
         delete zone; // Not what is in it
         update(HintRect);
@@ -346,7 +387,31 @@ ComponentItem* EditionScene::showComponent(AppForge::Component& component, const
     item->setPos(position);
     addItem(item);
     update(HintRect); // Hidden once anything is in the edition zone
+    connect(item, &ComponentItem::nameEdited, this,
+            [this, &component](const QString& name) { rename(component, name); });
     return item;
+}
+
+ComponentItem* EditionScene::componentAt(const QPointF& position) const
+{
+    for(const QGraphicsItem* item : items(position))
+    {
+        // Through what it is the parent of: the dots of its interfaces go past its edges.
+        if(auto* component = qobject_cast<ComponentItem*>(item->topLevelItem()->toGraphicsObject()))
+        {
+            return component;
+        }
+    }
+    return nullptr;
+}
+
+void EditionScene::rename(AppForge::Component& component, const QString& name)
+{
+    // No name is one given up rather than refused.
+    if(!name.isEmpty() && !m_application.rename(component, name))
+    {
+        emit refused(tr("%1 is not renamed: another component is named %2").arg(component.objectName(), name));
+    }
 }
 
 void EditionScene::removeItems()

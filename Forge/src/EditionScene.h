@@ -22,7 +22,8 @@ class ForgeApplication;
 // instantiated in the application, and shown where it was dropped. Dragging from the dot of an interface to the dot of
 // one it can be bound to, a provided and a consumed one of the same type, binds them and draws a link between them;
 // meanwhile, the interfaces it cannot be bound to are dimmed. Its context menu adds a zone, which groups components,
-// see ZoneItem, and renames, recolors or removes the one under the cursor.
+// see ZoneItem, and renames, recolors or removes the one under the cursor; it renames and recolors the component under
+// the cursor too, see ComponentItem. A component keeps a name no other one of the application has: see refused().
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -35,13 +36,17 @@ class EditionScene : public QGraphicsScene
     [[nodiscard]] AppForge::Component* selectedComponent() const;
 
     // The application as a project file holds it, see README.md: what ForgeApplication::save() writes, with where its
-    // components are in the edition zone, and its zones.
+    // components are in the edition zone and the color they were given, and its zones.
     [[nodiscard]] QJsonObject save() const;
     // Replaces the application with the one project holds, as save() wrote it, see ForgeApplication::load(), and shows
     // it as it was. Returns what could not be restored, a sentence each: none when everything was.
     QStringList load(const QJsonObject& project);
     // Empties the edition zone, and the application of its components.
     void reset();
+
+  signals:
+    // What was just asked of it is not done; why is a sentence to show.
+    void refused(const QString& why);
 
   protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent* event) override;
@@ -64,6 +69,10 @@ class EditionScene : public QGraphicsScene
     void dimLinkTargets(const InterfaceItem* source);
     // Shows component, one of the application, at position.
     ComponentItem* showComponent(AppForge::Component& component, const QPointF& position);
+    // The component shown at position, or whose interface is; nullptr when there is none.
+    [[nodiscard]] ComponentItem* componentAt(const QPointF& position) const;
+    // Names component name, as typed in place of its name; tells why through refused() when it cannot be.
+    void rename(AppForge::Component& component, const QString& name);
     // Empties the edition zone, while the components it shows still exist.
     void removeItems();
     // Binds the consumed one to the provided one, whichever is which, and draws their link, in place of the one the

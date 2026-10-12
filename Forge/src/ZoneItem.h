@@ -5,7 +5,7 @@
 #include <QList>
 #include <QString>
 
-class QGraphicsTextItem;
+class NameEditor;
 
 // A colored zone of the edition zone, under a title: it groups the components placed in it, by what they are for, say.
 // Dragged by its title, it moves with what is in it then: the components whose center is, and the zones that entirely
@@ -44,12 +44,8 @@ class ZoneItem : public QGraphicsItem
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) override;
-    // Of the editor of its title: ends the edition.
-    bool sceneEventFilter(QGraphicsItem* watched, QEvent* event) override;
 
   private:
-    // Its title becomes the text edited, and is no longer edited.
-    void endTitleEdition();
     // Where its title is written.
     [[nodiscard]] QRectF titleRect() const;
     // The edges dragging from position resizes it by: both of a corner near it, none between its edges.
@@ -64,9 +60,9 @@ class ZoneItem : public QGraphicsItem
     QSizeF m_size;
     QString m_title;
     QColor m_color;
-    QGraphicsTextItem* m_titleEditor = nullptr; // Its child, over its title while it is edited; created when first so
-    bool m_moving = false;                      // Whether it is being dragged by its title
-    QList<QGraphicsItem*> m_followers;          // What was in it when that started, and moves with it
-    Qt::Edges m_resizedEdges;                   // The edges being dragged; none when it is not being resized
-    QPointF m_grabOffset;                       // From those edges to where they were grabbed, in the scene
+    NameEditor* m_titleEditor = nullptr; // Its child, over its title while it is edited; created when first so
+    bool m_moving = false;               // Whether it is being dragged by its title
+    QList<QGraphicsItem*> m_followers;   // What was in it when that started, and moves with it
+    Qt::Edges m_resizedEdges;            // The edges being dragged; none when it is not being resized
+    QPointF m_grabOffset;                // From those edges to where they were grabbed, in the scene
 };

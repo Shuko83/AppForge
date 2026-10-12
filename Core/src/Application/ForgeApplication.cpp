@@ -259,6 +259,17 @@ Component* ForgeApplication::instantiate(const QString& componentId, const QStri
     return m_components.emplace_back(std::move(instance)).get();
 }
 
+bool ForgeApplication::rename(Component& instance, const QString& name)
+{
+    const Component* named = component(name);
+    if(name.isEmpty() || (named != nullptr && named != &instance))
+    {
+        return false;
+    }
+    instance.setObjectName(name);
+    return true;
+}
+
 const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
 {
     return m_components;

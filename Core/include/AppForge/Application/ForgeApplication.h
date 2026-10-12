@@ -55,6 +55,9 @@ class CORE_EXPORT ForgeApplication : public QObject
     // Creates componentId, in the Initializing state; nullptr when it is not registered. It is named name, as one read
     // from a project is, unless name is empty or the name of another instance.
     Component* instantiate(const QString& componentId, const QString& name = {});
+    // Names instance, one of its components, name: what component() finds it by, and a project holds it as. Returns
+    // false, changing nothing, when name is empty or the name of another instance.
+    bool rename(Component& instance, const QString& name);
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one named name; nullptr when none is.

@@ -11,6 +11,7 @@
 #include <numbers>
 
 #include "AppForge/Component/InterfaceInfo.h"
+#include "Colors.h"
 #include "ComponentItem.h"
 #include "LinkItem.h"
 
@@ -27,16 +28,6 @@ constexpr qreal HoverMargin = 3;
 constexpr qreal Spacing = 5;
 // How much of its color a dimmed interface keeps.
 constexpr float DimmedOpacity = 0.3F;
-
-// color as it looks over background, opaque: the colors of a style can be translucent, which would let the edge of the
-// component show through the dot.
-QColor over(const QColor& color, const QColor& background)
-{
-    const float alpha = color.alphaF();
-    return QColor::fromRgbF(color.redF() * alpha + background.redF() * (1 - alpha),
-                            color.greenF() * alpha + background.greenF() * (1 - alpha),
-                            color.blueF() * alpha + background.blueF() * (1 - alpha));
-}
 
 // An outline of the dot made of OutlineDots dashes, as long as the gaps between them.
 QPen dottedOutline(const QColor& color)
@@ -152,7 +143,8 @@ QPainterPath InterfaceItem::shape() const
 void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*option*/, QWidget* widget)
 {
     const QPalette palette = widget != nullptr ? widget->palette() : QApplication::palette();
-    // The colors of the component, as ComponentItem paints them over the background of the edition zone.
+    // The colors of the component, as ComponentItem paints them over the background of the edition zone. Opaque: the
+    // colors of a style can be translucent, which would let the edge of the component show through the dot.
     const QColor background = over(palette.color(QPalette::Button), palette.color(QPalette::Base));
     // Dimmed, it fades into the component, but stays opaque over its edge.
     QColor ink = palette.color(QPalette::ButtonText);

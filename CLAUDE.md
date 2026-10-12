@@ -67,7 +67,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 **Application** (`Application/ForgeApplication.*`)
 - `ForgeApplication` (QObject) : l'application assemblée, utilisée telle quelle par Forge et par le `main` d'une
   application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
-  (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`.
+  (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`. `rename(instance, nom)` renomme en
+  gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
 - Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
   qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
   `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON) et `bindings`.
@@ -89,8 +90,9 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec bouton **Load** (signal `loadRequested`) |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets |
-| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur), `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
+| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
+| `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
 | `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu, redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
@@ -100,8 +102,9 @@ Les chaînes affichées passent par `tr()`, en anglais.
 
 **Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
 - Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
-  dans chaque composant (retrouvé par son nom) et `zones` ; `EditionScene::load()` retire ses items, appelle
-  `ForgeApplication::load()`, puis recrée un `ComponentItem` par composant et un `LinkItem` par `binding()`.
+  et `color` (`#aarrggbb`, seulement si une couleur a été choisie) dans chaque composant (retrouvé par son nom) et
+  `zones` ; `EditionScene::load()` retire ses items, appelle `ForgeApplication::load()`, puis recrée un
+  `ComponentItem` par composant et un `LinkItem` par `binding()`.
 - `MainWindow::openProjectFile()` : `ForgeApplication::read()`, puis `m_scene->load()`, puis rafraîchit les modèles.
   Les problèmes sont affichés dans une seule boîte ; après une ouverture partielle, le projet n'a plus de fichier
   associé pour que **Save** n'écrase pas ce qui manque.
@@ -128,6 +131,9 @@ Les chaînes affichées passent par `tr()`, en anglais.
   de version ne compare que la majeure de Core.
 - `MainWindow::~MainWindow` : les items et l'éditeur de propriétés référencent les composants de `m_application` ;
   garder l'ordre de destruction actuel quand un membre est ajouté.
+- Un `QGraphicsTextItem` qui a le focus fait défiler la vue pour montrer son curseur, et la vue rejoue alors le dernier
+  événement souris comme un déplacement : un item encore tenu par le double-clic qui a lancé l'édition suivrait le
+  défilement. `ComponentItem::mouseMoveEvent` ignore donc les déplacements tant que son nom est édité.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais

@@ -195,6 +195,7 @@ window->unbindInterface(QStringLiteral("content"));
 - the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state and a **Load** button; **Open plugin...** loads a plugin from anywhere on the disk;
 - the components of the loaded plugins, with a viewer of the selected one: what it is and its properties;
 - between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces of an instance are listed under its names, each with a dot on an edge: those it consumes on the left, a circle; those it provides on the right, a disc while the interface is available and a dotted circle otherwise. Hovering a dot tells at once, in a tooltip, whether the interface is provided or consumed, its type and its state; it does too while a link is being drawn. Dragging from the dot of a provided interface to the dot of a consumed one of the same type, or the other way round, binds them and draws a link between them, in place of the link the consumed one had. While the link is being drawn, the dots it cannot be bound to are dimmed.
+- an instance is renamed and colored there too. Double-clicking its names, or **Rename component** in its context menu, edits its name in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. An instance keeps a name no other one has, the one a project and `ForgeApplication::component()` know it by: a name already taken is refused, which the status bar tells, and so is no name at all. **Change component color...**, in the same menu, colors its names, which tells it from the others at a glance: the color is chosen with its opacity, and lets the instance show through as much as it is translucent. **Reset component color** gives it back the colors of the style.
 - in the edition zone too, colored zones that group instances, by what they are for, say: **Add zone**, in its context menu, adds one where it was right-clicked, under a title typed at once. Dragging a zone by its title moves it with what is in it then: the instances whose center is in it, and the zones that are entirely in it. Dragging an edge or a corner resizes it. Double-clicking its title edits it, and right-clicking anywhere in a zone renames it, changes its color or removes it, which leaves what is in it. Between its title and its edges, a zone lets the mouse through: instances are selected there as anywhere else.
 - under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component.
 - in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits for the next **Start**. Opening a project, or **New**, stops it.
@@ -223,6 +224,7 @@ A project file is a JSON object:
             "type": "FabienDG.AppForge.ExternalPlugin.Ticker",
             "x": 200,
             "y": 120,
+            "color": "#804e79a7",
             "properties": { "interval": 250 }
         },
         { "name": "Window1", "type": "FabienDG.AppForge.ExternalPlugin.Window", "x": 500, "y": 160, "properties": {} }
@@ -240,11 +242,11 @@ A project file is a JSON object:
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | `version`    | `1`: a file of another version is not opened                                                            |
 | `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
-| `components` | The instances: their name, the id of their component, where they are in the edition zone and their properties |
+| `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, and their properties |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
-`x`, `y` and `zones` are only for Forge: an application runs without them.
+`x`, `y`, `color` and `zones` are only for Forge: an application runs without them. The `color` of a component is written `#aarrggbb`, its opacity first: `#804e79a7` is half translucent; `#rrggbb` is read too, as an opaque color.
 
 The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`; it is the directory of the application that runs a project unless `ForgeApplication::setPluginRoot()` sets it. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
 
@@ -288,6 +290,6 @@ It links to `AppForge::Core` only: the plugins of the project are loaded when it
 | `components()`, `component(name)` | Its instances, to reach one from the `main`: `application.component(QStringLiteral("Greeter1"))` |
 | `setPluginRoot(directory)` | The directory the files of the plugins are relative to in a project; the directory of the application by default |
 
-An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `Component::bindInterface()` binds it, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `rename(component, name)` names it, unless the name is empty or the one of another instance, `Component::bindInterface()` binds it, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
 
 The [exemple](exemple/) folder holds `ExampleForgeApp`, which runs the project given on its command line until its last window is closed: assemble a `Ticker` and a `Window` in Forge, save them as `scene/clock.afp`, then run `ExampleForgeApp scene/clock.afp` from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).

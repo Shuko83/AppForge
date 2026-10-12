@@ -32,6 +32,9 @@
 namespace
 {
 
+// How long the status bar tells what the edition zone refused, in milliseconds.
+constexpr int RefusalDuration = 8000;
+
 // Where the project files are saved and looked for unless told otherwise: scene/ next to Forge.
 QString defaultProjectDirectory()
 {
@@ -133,6 +136,9 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     m_editionView->setAcceptDrops(true);
     connect(m_scene, &QGraphicsScene::selectionChanged, this,
             [this] { m_propertyEditor->setComponent(m_scene->selectedComponent()); });
+    // In the status bar rather than in a box, which would open in the middle of the click that ends an edition.
+    connect(m_scene, &EditionScene::refused, this,
+            [this](const QString& why) { statusBar()->showMessage(why, RefusalDuration); });
 
     // The properties of the component selected in the edition zone, under it; the zone takes the room.
     auto* editionSplitter = new QSplitter(Qt::Vertical);
@@ -199,7 +205,8 @@ bool MainWindow::openProjectFile(const QString& filePath)
 
 bool MainWindow::saveProjectFile(const QString& filePath)
 {
-    m_scene->setFocusItem(nullptr); // The title of a zone is no longer edited: it is saved as it was typed
+    // The title of a zone, or the name of a component, is no longer edited: what was typed is taken before it is saved.
+    m_scene->setFocusItem(nullptr);
     QSaveFile file(filePath);
     if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(m_scene->save()).toJson()) < 0 || !file.commit())
     {

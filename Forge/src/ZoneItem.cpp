@@ -5,16 +5,14 @@
 #include <QGraphicsScene>
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsSceneMouseEvent>
-#include <QGraphicsTextItem>
-#include <QKeyEvent>
 #include <QPainter>
 #include <QPainterPath>
-#include <QTextCursor>
-#include <QTextDocument>
 #include <algorithm>
 #include <utility>
 
+#include "Colors.h"
 #include "ComponentItem.h"
+#include "NameEditor.h"
 
 namespace
 {
@@ -29,14 +27,6 @@ constexpr qreal CornerSize = 16;
 constexpr QSizeF MinimumSize(120, 60);
 // How much of its color a zone keeps under its title, where the components are.
 constexpr float FillOpacity = 0.15F;
-// The gray above which a color is light.
-constexpr int LightGray = 128;
-
-// Black or white, whichever is read over color.
-QColor textColorOver(const QColor& color)
-{
-    return qGray(color.rgb()) < LightGray ? Qt::white : Qt::black;
-}
 
 // The cursor of the edges a zone is resized by, at least one.
 Qt::CursorShape resizeCursor(Qt::Edges edges)
@@ -85,25 +75,9 @@ void ZoneItem::editTitle()
 {
     if(m_titleEditor == nullptr)
     {
-        m_titleEditor = new QGraphicsTextItem(this);
-        QFont font = m_titleEditor->font();
-        font.setBold(true); // As its title is painted
-        m_titleEditor->setFont(font);
-        m_titleEditor->setTextInteractionFlags(Qt::TextEditorInteraction);
-        m_titleEditor->installSceneEventFilter(this);
+        m_titleEditor = new NameEditor(*this, [this](const QString& title) { m_title = title; });
     }
-    m_titleEditor->setDefaultTextColor(textColorOver(m_color));
-    m_titleEditor->setPlainText(m_title);
-    // Its text where the title is painted: it is inside the margin of its document.
-    const QRectF title = titleRect();
-    m_titleEditor->setPos(title.left() - m_titleEditor->document()->documentMargin(),
-                          title.center().y() - m_titleEditor->boundingRect().height() / 2);
-    m_titleEditor->show();
-    m_titleEditor->setFocus();
-    QTextCursor cursor = m_titleEditor->textCursor();
-    cursor.select(QTextCursor::Document); // What is typed replaces it
-    m_titleEditor->setTextCursor(cursor);
-    update(); // Its title is no longer painted
+    m_titleEditor->edit(m_title, textColorOver(m_color), titleRect(), Qt::AlignLeft);
 }
 
 QRectF ZoneItem::boundingRect() const
@@ -215,39 +189,6 @@ void ZoneItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
     {
         QGraphicsItem::mouseDoubleClickEvent(event); // A press
     }
-}
-
-bool ZoneItem::sceneEventFilter(QGraphicsItem* /*watched*/, QEvent* event)
-{
-    if(event->type() == QEvent::KeyPress)
-    {
-        const int key = static_cast<const QKeyEvent*>(event)->key();
-        if(key == Qt::Key_Escape)
-        {
-            m_titleEditor->setPlainText(m_title); // Given up: as it was
-        }
-        if(key == Qt::Key_Escape || key == Qt::Key_Return || key == Qt::Key_Enter)
-        {
-            endTitleEdition();
-            return true;
-        }
-    }
-    else if(event->type() == QEvent::FocusOut)
-    {
-        endTitleEdition();
-    }
-    return false;
-}
-
-void ZoneItem::endTitleEdition()
-{
-    if(!m_titleEditor->isVisible())
-    {
-        return; // Ended already: hiding its editor takes its focus, which ends it too
-    }
-    m_title = m_titleEditor->toPlainText().simplified(); // On one line, whatever was pasted
-    m_titleEditor->hide();
-    update(); // Its title is painted again
 }
 
 QRectF ZoneItem::titleRect() const

@@ -112,8 +112,18 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     }
     refreshValues();
 
-    m_placeholder->setText(component == nullptr ? tr("Select a component of the application to edit its properties")
-                                                : tr("%1 has no editable property").arg(component->objectName()));
+    // Why no property is shown, when none is. It names the component, which can be renamed meanwhile.
+    const auto explain = [this]
+    {
+        m_placeholder->setText(m_component == nullptr
+                                   ? tr("Select a component of the application to edit its properties")
+                                   : tr("%1 has no editable property").arg(m_component->objectName()));
+    };
+    explain();
+    if(component != nullptr)
+    {
+        connect(component, &QObject::objectNameChanged, this, explain);
+    }
     m_stack->setCurrentWidget(m_properties.isEmpty() ? static_cast<QWidget*>(m_placeholder) : m_table);
 }
 
