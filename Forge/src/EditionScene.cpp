@@ -1,13 +1,17 @@
 #include "EditionScene.h"
 
+#include <QColorDialog>
 #include <QGraphicsPathItem>
+#include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QList>
+#include <QMenu>
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
 #include <QToolTip>
+#include <array>
 #include <cmath>
 #include <optional>
 
@@ -17,6 +21,7 @@
 #include "ComponentModel.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
+#include "ZoneItem.h"
 
 namespace
 {
@@ -24,8 +29,12 @@ namespace
 constexpr qreal GridStep = 20;
 // Large enough not to grow, so that the view does not move when a component is dropped.
 constexpr QRectF SceneRect(0, 0, 4000, 3000);
-// Where the hint is drawn while the zone is empty, in its top left corner.
+// Where the hint is drawn while nothing is in the edition zone, in its top left corner.
 constexpr QRectF HintRect(GridStep, GridStep, 600, 2 * GridStep);
+// A zone as it is added: room for a few components, until it is resized.
+constexpr QSizeF ZoneSize(16 * GridStep, 10 * GridStep);
+// The colors the zones are added with, in turn, which tells them apart until theirs is chosen.
+constexpr std::array<QRgb, 6> ZoneColors = {0x4E79A7, 0xF28E2B, 0x59A14F, 0xE15759, 0xB07AA1, 0x76B7B2};
 
 // Accepts a drag carrying a component, as a copy: the component stays in its list.
 void acceptComponent(QGraphicsSceneDragDropEvent& event)
@@ -80,7 +89,7 @@ void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
     auto* item = new ComponentItem(*component, info->name);
     item->setPos(event->scenePos());
     addItem(item);
-    update(HintRect); // Hidden once a component is in the zone
+    update(HintRect); // Hidden once anything is in the edition zone
     clearSelection();
     item->setSelected(true);
     event->setDropAction(Qt::CopyAction);
@@ -145,6 +154,56 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     event->accept();
 }
 
+void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
+{
+    // Not while a link is drawn or an item is dragged: what is dragged could be removed from under the cursor.
+    if(m_linkSource != nullptr || mouseGrabberItem() != nullptr)
+    {
+        return;
+    }
+    ZoneItem* zone = zoneAt(event->scenePos());
+    QMenu menu(event->widget());
+    const QAction* add = menu.addAction(tr("Add zone"));
+    const QAction* rename = nullptr;
+    const QAction* recolor = nullptr;
+    const QAction* remove = nullptr;
+    if(zone != nullptr)
+    {
+        menu.addSeparator();
+        rename = menu.addAction(tr("Rename zone"));
+        recolor = menu.addAction(tr("Change zone color..."));
+        remove = menu.addAction(tr("Remove zone"));
+    }
+    // Done once the menu is closed, and the focus back in the view: editing a title takes it.
+    const QAction* chosen = menu.exec(event->screenPos());
+    event->accept();
+    if(chosen == nullptr)
+    {
+        return;
+    }
+    if(chosen == add)
+    {
+        addZone(event->scenePos());
+    }
+    else if(chosen == rename)
+    {
+        zone->editTitle();
+    }
+    else if(chosen == recolor)
+    {
+        const QColor color = QColorDialog::getColor(zone->color(), event->widget(), tr("Zone color"));
+        if(color.isValid())
+        {
+            zone->setColor(color);
+        }
+    }
+    else if(chosen == remove)
+    {
+        delete zone; // Not what is in it
+        update(HintRect);
+    }
+}
+
 InterfaceItem* EditionScene::interfaceAt(const QPointF& position) const
 {
     for(QGraphicsItem* item : items(position))
@@ -192,6 +251,28 @@ void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
     addItem(new LinkItem(provided, consumed));
 }
 
+ZoneItem* EditionScene::zoneAt(const QPointF& position) const
+{
+    // By their bounds, as their shape is only their title and their edges; the topmost one is the smallest.
+    for(QGraphicsItem* item : items(position, Qt::IntersectsItemBoundingRect))
+    {
+        if(auto* zone = qgraphicsitem_cast<ZoneItem*>(item))
+        {
+            return zone;
+        }
+    }
+    return nullptr;
+}
+
+void EditionScene::addZone(const QPointF& position)
+{
+    auto* zone = new ZoneItem(ZoneSize, tr("Zone"), QColor(ZoneColors.at(m_zoneCount++ % ZoneColors.size())));
+    zone->setPos(position);
+    addItem(zone);
+    update(HintRect); // Hidden once anything is in the edition zone
+    zone->editTitle();
+}
+
 void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
 {
     QGraphicsScene::drawBackground(painter, rect);
@@ -215,7 +296,8 @@ void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
     {
         painter->setPen(palette().color(QPalette::PlaceholderText));
         painter->drawText(HintRect, Qt::AlignLeft | Qt::AlignVCenter,
-                          tr("Drag a component from the list of components and drop it here to instantiate it"));
+                          tr("Drag a component from the list of components and drop it here to instantiate it\n"
+                             "Right-click to add a zone, which groups components"));
     }
     painter->restore();
 }
