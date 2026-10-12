@@ -41,11 +41,6 @@ QPainterPath LinkItem::curve(const QPointF& provided, const QPointF& consumed)
     return path;
 }
 
-const InterfaceItem& LinkItem::provided() const
-{
-    return m_provided;
-}
-
 void LinkItem::follow()
 {
     prepareGeometryChange();

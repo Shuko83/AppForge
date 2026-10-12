@@ -8,12 +8,13 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Dossier | Cible | Rôle |
 | --- | --- | --- |
-| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique. En-têtes publics dans `include/AppForge/{Component,Plugin}/`, sources dans `src/` |
+| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin}/`, sources dans `src/` |
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in` |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; tout est dans `Forge/src/`, sans namespace |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
 | `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
+| `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
 | `CFmake/` | non suivi, dépôt à part | Ne fait pas partie du build : ne pas y toucher |
 
@@ -25,7 +26,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - `cmu_organization` vaut `FabienDG` : les ids réels sont `FabienDG.AppForge.<Plugin>.<Composant>`. Le README écrit
   encore `Shuko83.…` dans ses exemples ; seul l'IID `Shuko83.AppForge.IPlugin/2.0` porte ce nom dans le code.
 - Sorties : `<build>/bin[/<config>]`, plugins dans `plugins/` à côté. Extension `.afdl`, seule scannée.
-- `add_dependencies(Forge ExamplePlugin ExternalPlugin)` : construire Forge reconstruit les plugins du dépôt.
+- `add_dependencies(Forge ExamplePlugin ExternalPlugin)`, de même pour `ExampleForgeApp` : construire l'un reconstruit
+  les plugins du dépôt.
 - Pas de cible de test. CI : Windows, MSVC 2022, Qt 6.8, Release.
 - C++ récent requis (concepts, `std::ranges`, initialiseurs désignés, `std::type_identity_t`).
 
@@ -59,7 +61,24 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
     n'a qu'un fournisseur, un fournisseur peut avoir plusieurs consommateurs.
   - `providedInterfaces()` / `consumedInterfaces()` renvoient des `InterfaceInfo {name, type, available}` ;
     `interfacesChanged()` est émis à chaque déclaration ou changement de disponibilité.
+  - `binding(nom)` dit à quoi une interface consommée est liée : `InterfaceBinding {provider, providedName}`.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
+
+**Application** (`Application/ForgeApplication.*`)
+- `ForgeApplication` (QObject) : l'application assemblée, utilisée telle quelle par Forge et par le `main` d'une
+  application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
+  (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`.
+- Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
+  qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
+  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON) et `bindings`.
+- Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
+  chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits.
+- Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
+- Exécution : `start()` initialise tout ce qui est `Initializing`, puis démarre tout ce qui est `Ready`, dans l'ordre
+  d'instanciation ; au premier refus il arrête ce qu'il a démarré. `stop()` arrête dans l'ordre inverse. `isRunning()`
+  / `runningChanged`. `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend
+  le `start()` suivant.
+- Messages d'erreur de Core en anglais, non traduits (`QStringLiteral`), comme ceux de `PluginManager`.
 
 ## Forge
 
@@ -67,12 +86,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Classe | Rôle |
 | --- | --- |
-| `MainWindow` | Possède `PluginManager` et `Assembly` ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menu **File** et fichiers de projet (voir plus bas). Son destructeur détruit la scène avant l'`Assembly` |
+| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec bouton **Load** (signal `loadRequested`) |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés |
-| `Assembly` | Possède les instances (`unique_ptr<Component>`) ; `instantiate(id[, nom])` les nomme `Greeter1`, `Greeter2`… dans `objectName`, ou du nom lu dans un projet ; `components()`, `clear()` |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = instanciation, tracé des liens entre points d'interface, menu contextuel des zones, `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets |
-| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets |
+| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
 | `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu, redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
@@ -81,26 +99,26 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 Les chaînes affichées passent par `tr()`, en anglais.
 
 **Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
-- `EditionScene::save()` écrit `components` (nom, type, x, y, propriétés inscriptibles qui font l'aller-retour JSON),
-  `bindings` (lus depuis les `LinkItem`, Core n'expose pas à quoi une interface est liée) et `zones`.
-  `MainWindow::project()` y ajoute `version` et `plugins` (id + chemin, seulement ceux des composants présents). Le
-  chemin est relatif à `m_pluginRoot` : le dossier de `Forge.exe`, ou celui de l'option `--plugin-root` (analysée
-  dans `main.cpp`, passée au constructeur de `MainWindow`). Un chemin absolu dans un fichier reste lu tel quel.
-- `MainWindow::openProjectFile()` charge les plugins, puis `EditionScene::load()` vide la scène et la reconstruit ; les
-  deux renvoient la liste de ce qui n'a pas pu être restauré, affichée dans une seule boîte. Après une ouverture
-  partielle, le projet n'a plus de fichier associé pour que **Save** n'écrase pas ce qui manque.
-- « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `project()` à `m_savedProject`, mémorisé par
-  `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `project()`.
-- `Forge [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage.
+- Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
+  dans chaque composant (retrouvé par son nom) et `zones` ; `EditionScene::load()` retire ses items, appelle
+  `ForgeApplication::load()`, puis recrée un `ComponentItem` par composant et un `LinkItem` par `binding()`.
+- `MainWindow::openProjectFile()` : `ForgeApplication::read()`, puis `m_scene->load()`, puis rafraîchit les modèles.
+  Les problèmes sont affichés dans une seule boîte ; après une ouverture partielle, le projet n'a plus de fichier
+  associé pour que **Save** n'écrase pas ce qui manque.
+- « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `m_scene->save()` à `m_savedProject`, mémorisé
+  par `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `EditionScene::save()`.
+- `Forge [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage (options analysées dans `main.cpp`).
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
+- Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus,
+  **Stop** (Maj+F5) appelle `stop()` ; leur activation suit `runningChanged`.
 
 ## Pas encore fait
 
-- Forge n'appelle jamais `initialize()` / `start()` : les instances restent en `Initializing`.
 - Pas de suppression d'instance ni de lien dans Forge (`unbindInterface` n'y est pas utilisé) ; seules les zones se
   suppriment.
-- Le fichier de projet n'est lu que par Forge : rien dans Core ne permet de lancer une application depuis un `.afp`.
+- Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
+  chemin d'erreur de `start()` n'a pas été exercé.
 - Pas de tests automatisés.
 
 ## Pièges
@@ -108,10 +126,13 @@ Les chaînes affichées passent par `tr()`, en anglais.
 - Modifier `Component.h`, `IComponent.h` ou `Plugin.h` change l'agencement binaire : tous les plugins doivent être
   reconstruits, y compris ceux ouverts par **Open plugin...**, sinon plantage à la création d'un composant. Le contrôle
   de version ne compare que la majeure de Core.
-- `MainWindow::~MainWindow` : les items et l'éditeur de propriétés référencent les composants de l'`Assembly` ; garder
-  l'ordre de destruction actuel quand un membre est ajouté.
+- `MainWindow::~MainWindow` : les items et l'éditeur de propriétés référencent les composants de `m_application` ;
+  garder l'ordre de destruction actuel quand un membre est ajouté.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
+- Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
+  partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
+  qui manque alors dans le projet enregistré.
 
 ## Conventions
 

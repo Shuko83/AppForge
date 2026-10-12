@@ -15,4 +15,13 @@ struct InterfaceInfo
     bool available = false; // Whether the component has the pointer: it provides one, or the one it consumes is set
 };
 
+class Component;
+
+// What an interface a component consumes is bound to: see Component::bindInterface().
+struct InterfaceBinding
+{
+    Component* provider = nullptr; // nullptr when it is bound to nothing
+    QString providedName;          // What provider provides it as
+};
+
 } // namespace AppForge

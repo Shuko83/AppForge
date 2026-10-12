@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QFontMetricsF>
 #include <QPainter>
+#include <QPolygonF>
 #include <QStyleOptionGraphicsItem>
 #include <utility>
 
@@ -15,6 +16,8 @@ namespace
 // The names, centered on the position of the item, where the component was dropped; its interfaces are below.
 constexpr QRectF Header(-80, -28, 160, 56);
 constexpr qreal Padding = 8;
+// The mark of its state, in the top right corner of its names.
+constexpr qreal StateMark = 8;
 
 } // namespace
 
@@ -25,6 +28,7 @@ ComponentItem::ComponentItem(AppForge::Component& component, QString componentNa
     setToolTip(m_component.componentId());
 
     connect(&m_component, &AppForge::Component::interfacesChanged, this, &ComponentItem::refreshInterfaces);
+    connect(&m_component, &AppForge::Component::stateChanged, this, [this] { update(); }); // Its mark
     refreshInterfaces();
 }
 
@@ -60,8 +64,24 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     painter->drawRoundedRect(boundingRect().adjusted(1, 1, -1, -1), 6, 6);
 
     const QRectF text = Header.adjusted(Padding, Padding, -Padding, -Padding);
-    const QRectF nameRect(text.left(), text.top(), text.width(), text.height() / 2);
+    // Its name leaves the corner to the mark, and as much on its left to stay centered.
+    const qreal markWidth = StateMark + Padding / 2;
+    const QRectF nameRect(text.left() + markWidth, text.top(), text.width() - 2 * markWidth, text.height() / 2);
     const QRectF componentRect(text.left(), nameRect.bottom(), text.width(), text.height() / 2);
+
+    // Shapes, as the dots of its interfaces: nothing until it is initialized, then a square, and a triangle while it
+    // runs.
+    const QRectF mark(text.right() - StateMark, text.top() + (nameRect.height() - StateMark) / 2, StateMark, StateMark);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(palette.color(QPalette::ButtonText));
+    if(m_component.state() == AppForge::ComponentState::Running)
+    {
+        painter->drawPolygon(QPolygonF({mark.topLeft(), mark.bottomLeft(), QPointF(mark.right(), mark.center().y())}));
+    }
+    else if(m_component.state() == AppForge::ComponentState::Ready)
+    {
+        painter->drawRect(mark);
+    }
 
     QFont font = painter->font();
     font.setBold(true);
