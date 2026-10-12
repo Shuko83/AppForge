@@ -74,8 +74,9 @@ QWidget* createPanel(const QString& title, QWidget* view, QWidget* viewer)
 
 } // namespace
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     : QMainWindow(parent), m_assembly(AppForge::ComponentFactory::instance()),
+      m_pluginRoot(pluginRoot.isEmpty() ? QCoreApplication::applicationDirPath() : pluginRoot),
       m_pluginModel(new PluginModel(m_plugins, this)),
       m_pluginViewer(new PluginViewer(m_plugins)),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
@@ -189,8 +190,10 @@ bool MainWindow::openProjectFile(const QString& filePath)
     {
         const QJsonObject plugin = value.toObject();
         const QString pluginId = plugin.value(u"id").toString();
+        // Where its file is from m_pluginRoot; as it is when it is not relative.
+        const QString filePath = QDir::cleanPath(m_pluginRoot.absoluteFilePath(plugin.value(u"file").toString()));
         // Opened from its file when it is not found already, as the ones of plugins/ are.
-        if((!m_plugins.plugin(pluginId) && !m_plugins.addFile(plugin.value(u"file").toString())) ||
+        if((!m_plugins.plugin(pluginId) && !m_plugins.addFile(filePath)) ||
            (!m_plugins.isLoaded(pluginId) && !m_plugins.load(pluginId)))
         {
             problems.append(tr("The plugin %1 is not loaded: %2").arg(pluginId, m_plugins.errorString()));
@@ -289,7 +292,9 @@ QJsonObject MainWindow::project() const
     {
         QJsonObject plugin;
         plugin.insert(u"id", pluginId);
-        plugin.insert(u"file", filePath);
+        // Relative, for the project to be opened wherever its plugins are moved to, with their root; it cannot be when
+        // the file is on another drive than the root.
+        plugin.insert(u"file", m_pluginRoot.relativeFilePath(filePath));
         plugins.append(plugin);
     }
 
