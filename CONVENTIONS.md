@@ -44,8 +44,8 @@ que ce dont il a besoin entier.
 | Interface | `I` + `PascalCase` | `IComponent`, `IGreeter` |
 | Fonction, méthode | `camelCase` | `bindInterface()`, `refreshInterfaces()` |
 | Variable locale | `camelCase` | `componentId`, `provider` |
-| Paramètre de fonction | `m` + `PascalCase` | `mComponentId`, `mProvider` |
-| Variable membre | `_` + `camelCase` | `_component`, `_linkSource` |
+| Paramètre de fonction | `p` + `PascalCase` | `pComponentId`, `pProvider` |
+| Variable membre | `m` + `PascalCase` | `mComponent`, `mLinkSource` |
 | Constante | `MAJUSCULES`, mots séparés par `_` | `GRID_STEP`, `PROJECT_VERSION` |
 | Valeur d'énumération | `PascalCase` | `ComponentState::Ready` |
 | Catégorie de journalisation | `lc` + `PascalCase` | `lcComponents` |
@@ -53,7 +53,7 @@ que ce dont il a besoin entier.
 | Macro | `APPFORGE_` + `MAJUSCULES` | `APPFORGE_REGISTER_COMPONENT` |
 | Fonction CMake | `snake_case` préfixée | `appforge_add_plugin()` |
 
-Le préfixe dit d'où vient un nom : `_` pour un membre de la classe, `m` pour un paramètre de la fonction, rien pour
+Le préfixe dit d'où vient un nom : `m` pour un membre de la classe, `p` pour un paramètre de la fonction, rien pour
 une variable déclarée dans le bloc.
 
 > Les formes des variables membres, des paramètres et des constantes ont été décidées avec ce document. Le code

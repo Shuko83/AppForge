@@ -147,7 +147,7 @@ règle change. L'essentiel :
 
 - `.clang-format` : base LLVM, 4 espaces, 120 colonnes, accolades Allman, `if(` sans espace, `T* p`. `.clang-tidy`
   actif (bugprone, performance, readability, modernize…).
-- Membres `_camelCase`, paramètres `mPascalCase`, constantes en `MAJUSCULES` : règles décidées avec l'issue 5, que le
+- Membres `mPascalCase`, paramètres `pPascalCase`, constantes en `MAJUSCULES` : règles décidées avec l'issue 5, que le
   code existant (`m_camelCase`, paramètres sans préfixe, constantes en `PascalCase`) ne suit pas encore.
 - `[[nodiscard]]` sur les accesseurs, `#pragma once`, `QStringLiteral` / `u"…"`.
 - Commentaires en anglais, au-dessus de la déclaration, qui disent le pourquoi ou le contrat.
