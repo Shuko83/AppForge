@@ -10,6 +10,8 @@ TickerLogic::TickerLogic(Ticker& ticker) : QObject(&ticker), m_ticker(ticker)
 
     connect(&m_ticker, &Ticker::ticksChanged, &m_display, qOverload<int>(&QLCDNumber::display));
     m_ticker.setDisplay(&m_display);
+    // Edited with the Ticker where it is edited, in a group of its own.
+    m_ticker.addPropertiesForQObject(&m_display, QStringLiteral("Display"));
 }
 
 void TickerLogic::onStateChanged(AppForge::ComponentState state)

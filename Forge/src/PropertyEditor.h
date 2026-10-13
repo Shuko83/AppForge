@@ -3,6 +3,7 @@
 #include <QList>
 #include <QMetaProperty>
 #include <QPointer>
+#include <QString>
 #include <QWidget>
 
 class QLabel;
@@ -16,8 +17,10 @@ class Component;
 class ComponentFactory;
 } // namespace AppForge
 
-// Edits the properties of a component instantiated in the application. It only shows those it can edit: they can be
-// written and their type has an editor. It follows the changes the component notifies.
+// Edits the properties of a component instantiated in the application, then those of the objects it added with
+// Component::addPropertiesForQObject(): with its own when they were added without a name, under the name they were
+// added with otherwise, one group per name. It only shows the properties it can edit: they can be written and their
+// type has an editor. It follows the changes the component and its objects notify, and the objects it adds or loses.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT
@@ -33,12 +36,24 @@ class PropertyEditor : public QWidget
     void refreshValues();
 
   private:
+    // A row of m_table: a property of object, or the title of a group, which has no property.
+    struct Row
+    {
+        QPointer<QObject> object;
+        QMetaProperty property;
+        QString title;
+    };
+
+    // Shows the properties m_component and its objects have now.
+    void rebuild();
+    // Tells why no property is shown, when none is. It names the component, which can be renamed meanwhile.
+    void refreshPlaceholder();
     // Writes the value edited in item to its property.
     void write(const QTableWidgetItem* item);
 
     const AppForge::ComponentFactory& m_factory;
     QPointer<AppForge::Component> m_component;
-    QList<QMetaProperty> m_properties; // Those of m_component that can be edited, one per row of m_table
+    QList<Row> m_rows; // One per row of m_table
 
     QStackedWidget* m_stack = nullptr;
     QLabel* m_placeholder = nullptr; // Shown when there is no property to show, and tells why

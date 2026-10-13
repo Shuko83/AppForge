@@ -12,7 +12,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in` |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; tout est dans `Forge/src/`, sans namespace |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
-| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`) et `Window` (consomme `content` : `QWidget`) |
+| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
 | `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
@@ -62,6 +62,9 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   - `providedInterfaces()` / `consumedInterfaces()` renvoient des `InterfaceInfo {name, type, available}` ;
     `interfacesChanged()` est émis à chaque déclaration ou changement de disponibilité.
   - `binding(nom)` dit à quoi une interface consommée est liée : `InterfaceBinding {provider, providedName}`.
+- Objets à propriétés (`PropertyObject.h`) : `addPropertiesForQObject(objet[, nom])` (public, appelé par la logique)
+  ajoute un `PropertyObject {object, name}` à `propertyObjects()` ; il en sort seul à sa destruction. Signal
+  `propertyObjectsChanged`. Core ne fait que les lister : rien n'est écrit dans un projet.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
 
 **Application** (`Application/ForgeApplication.*`)
@@ -96,7 +99,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
 | `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu, redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime ; suit les signaux NOTIFY |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; suit les signaux NOTIFY et `propertyObjectsChanged` |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
@@ -122,6 +125,8 @@ Les chaînes affichées passent par `tr()`, en anglais.
   suppriment.
 - Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
   chemin d'erreur de `start()` n'a pas été exercé.
+- Les propriétés des objets ajoutés par `addPropertiesForQObject()` ne sont pas enregistrées dans le projet, et les
+  modifier ne rend pas le projet « modifié ».
 - Pas de tests automatisés.
 
 ## Pièges

@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "AppForge/Component/IComponent.h"
+#include "AppForge/Component/PropertyObject.h"
 #include "Core_export.h"
 
 namespace AppForge
@@ -51,6 +52,14 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // What name is bound to: nothing when it is unbound, or not an interface it consumes.
     [[nodiscard]] InterfaceBinding binding(const QString& name) const;
 
+    // Has the properties of object edited with its own, where it is edited: those object declares with Q_PROPERTY,
+    // base classes included. Under name when it is not empty, as a group of their own; the objects added with the same
+    // name share a group. For as long as object lives: it need not outlive the component.
+    // Does nothing, with a warning, when object is nullptr, the component itself, or already added.
+    void addPropertiesForQObject(QObject* object, const QString& name = {});
+    // The objects added with addPropertiesForQObject() that still live, in the order they were added.
+    [[nodiscard]] QList<PropertyObject> propertyObjects() const;
+
   signals:
     void stateChanged(AppForge::ComponentState state);
     // The pointer of name, which it provides, can be retrieved with providedInterface().
@@ -60,6 +69,8 @@ class CORE_EXPORT Component : public QObject, public IComponent
     void interfaceUnavailable(const QString& name);
     // It declared an interface, or one it provides or consumes became available or unavailable.
     void interfacesChanged();
+    // An object was added to propertyObjects(), or one of them was destroyed.
+    void propertyObjectsChanged();
 
   protected:
     Component();
@@ -142,6 +153,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     ComponentState m_state = ComponentState::Initializing;
     QList<ProvidedInterface> m_providedInterfaces; // In the order they were declared
     QList<ConsumedInterface> m_consumedInterfaces; // In the order they were declared
+    QList<PropertyObject> m_propertyObjects;       // In the order they were added
 };
 
 } // namespace AppForge

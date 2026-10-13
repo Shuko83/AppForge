@@ -160,6 +160,29 @@ InterfaceBinding Component::binding(const QString& name) const
     return {.provider = consumed->provider, .providedName = consumed->providedName};
 }
 
+void Component::addPropertiesForQObject(QObject* object, const QString& name)
+{
+    if(object == nullptr || object == this ||
+       std::ranges::find(m_propertyObjects, object, &PropertyObject::object) != m_propertyObjects.end())
+    {
+        qCWarning(lcComponents).noquote() << "The properties of" << object << "cannot be added to" << objectName();
+        return;
+    }
+    m_propertyObjects.append(PropertyObject{.object = object, .name = name});
+    connect(object, &QObject::destroyed, this,
+            [this, object]
+            {
+                m_propertyObjects.removeIf([object](const PropertyObject& added) { return added.object == object; });
+                emit propertyObjectsChanged();
+            });
+    emit propertyObjectsChanged();
+}
+
+QList<PropertyObject> Component::propertyObjects() const
+{
+    return m_propertyObjects;
+}
+
 void* Component::providedPointer(const QString& name, QMetaType type) const
 {
     const auto provided = std::ranges::find(m_providedInterfaces, name, &ProvidedInterface::name);
