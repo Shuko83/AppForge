@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QGraphicsScene>
 #include <QJsonObject>
+#include <QList>
 #include <QStringList>
 #include <cstddef>
 
@@ -45,6 +46,8 @@ class EditionScene : public QGraphicsScene
     QStringList load(const QJsonObject& project);
     // Empties the edition zone, and the application of its components.
     void reset();
+    // Removes components, some of the application, from it and from the edition zone, with their links.
+    void remove(const QList<AppForge::Component*>& components);
 
   signals:
     // What was just asked of it is not done; why is a sentence to show.

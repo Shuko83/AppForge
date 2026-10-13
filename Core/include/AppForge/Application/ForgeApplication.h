@@ -65,6 +65,8 @@ class CORE_EXPORT ForgeApplication : public QObject
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one named name; nullptr when none is.
     [[nodiscard]] Component* component(const QString& name) const;
+    // Those of the plugin pluginId, in the order they were instantiated.
+    [[nodiscard]] QList<Component*> componentsOf(const QString& pluginId) const;
     // Stops it and destroys its components: nothing may refer to them any longer.
     void clear();
 
@@ -76,7 +78,12 @@ class CORE_EXPORT ForgeApplication : public QObject
     // Whether it was started, and not stopped since. A component instantiated meanwhile waits for the next start().
     [[nodiscard]] bool isRunning() const;
 
-    // Why open() or start() returned false.
+    // Removes its components of the plugin pluginId, as remove() does, then unloads it, see PluginManager::unload().
+    // Returns false, with errorString() set, while it runs, nothing being changed then, and when the plugin cannot be
+    // unloaded, its components being removed all the same.
+    bool unloadPlugin(const QString& pluginId);
+
+    // Why open(), start() or unloadPlugin() returned false.
     [[nodiscard]] QString errorString() const;
 
   signals:

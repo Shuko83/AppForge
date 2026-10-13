@@ -92,10 +92,11 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
                                              &AppForge::ForgeApplication::stop);
     stopAction->setEnabled(false);
     connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
-            [startAction, stopAction](bool running)
+            [this, startAction, stopAction](bool running)
             {
                 startAction->setEnabled(!running);
                 stopAction->setEnabled(running);
+                m_pluginViewer->setUnloadAllowed(!running); // What runs keeps its plugin
             });
 
     if(!pluginRoot.isEmpty())
@@ -111,6 +112,7 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
             [this](const QModelIndex& current)
             { m_pluginViewer->setPluginId(current.data(PluginModel::IdRole).toString()); });
     connect(m_pluginViewer, &PluginViewer::loadRequested, this, &MainWindow::load);
+    connect(m_pluginViewer, &PluginViewer::unloadRequested, this, &MainWindow::unload);
 
     auto* openButton = new QPushButton(tr("Open plugin..."));
     openButton->setToolTip(tr("Load a plugin from anywhere on the disk"));
@@ -230,6 +232,38 @@ void MainWindow::load(const QString& pluginId)
         QMessageBox::warning(this, tr("Load plugin"),
                              tr("%1 cannot be loaded:\n%2").arg(pluginId, m_application.plugins().errorString()));
         return;
+    }
+    m_pluginModel->refresh();
+    m_pluginViewer->refresh();
+    m_componentModel->refresh();
+}
+
+void MainWindow::unload(const QString& pluginId)
+{
+    const QList<AppForge::Component*> used = m_application.componentsOf(pluginId);
+    if(!used.isEmpty())
+    {
+        QStringList names;
+        for(const AppForge::Component* component : used)
+        {
+            names.append(component->objectName());
+        }
+        const QMessageBox::StandardButton answer =
+            QMessageBox::warning(this, tr("Unload plugin"),
+                                 tr("The application has components of %1:\n%2\n\n"
+                                    "Unloading the plugin removes them.\nDo you want to unload it?")
+                                     .arg(pluginId, names.join(QStringLiteral(", "))),
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if(answer != QMessageBox::Yes)
+        {
+            return;
+        }
+        m_scene->remove(used); // With what shows them, before the application would remove them itself
+    }
+    if(!m_application.unloadPlugin(pluginId))
+    {
+        QMessageBox::warning(this, tr("Unload plugin"),
+                             tr("%1 cannot be unloaded:\n%2").arg(pluginId, m_application.errorString()));
     }
     m_pluginModel->refresh();
     m_pluginViewer->refresh();

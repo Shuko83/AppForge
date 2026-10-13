@@ -45,12 +45,14 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   privée `Component::builtByPlugin()`, et son destructeur appelle `releaseInterfaces()` avant celui de `T`.
 - `PluginManager` : `scan(dir)` / `addFile(path)` lisent les métadonnées sans charger (contrôle de l'IID, puis même
   majeure de Core et version ≤ celle de Core) ; `load(id)` charge, lit la date de build et appelle
-  `ComponentFactory::instance().add()`. Rien n'est jamais déchargé. Erreurs dans `errorString()`.
+  `ComponentFactory::instance().add()` ; `unload(id)` appelle `ComponentFactory::remove()` puis
+  `QPluginLoader::unload()`, qui détruit l'objet racine, donc la classe du plugin. La DLL, elle, reste en mémoire
+  (voir Pièges) : recharger recrée l'objet racine sans relire le fichier. Erreurs dans `errorString()`.
 
 **Composant** (`Component.*`, `IComponent.h`, `ComponentFactory.*`, `ComponentInfo.h`, `InterfaceInfo.h`)
 - `ComponentFactory` (singleton `instance()`) : `components()`, `component(id)`, `create(id)` qui renvoie un
-  `unique_ptr<Component>` et fixe `m_componentId`. `ComponentInfo` est lu depuis le `QMetaObject` : `Q_CLASSINFO`
-  `description` / `category`, et les propriétés à partir de `Component::staticMetaObject.propertyCount()`.
+  `unique_ptr<Component>` et fixe `m_componentId`, `remove(pluginId)` qui oublie les composants d'un plugin.
+  `ComponentInfo` est lu depuis le `QMetaObject` : `Q_CLASSINFO` `description` / `category`, et les propriétés à partir de `Component::staticMetaObject.propertyCount()`.
 - États : `Initializing` → `initialize()` → `Ready` → `start()` → `Running` → `stop()` → `Ready`. Crochets
   `onInitialize()` / `onStart()` (peuvent refuser) / `onStop()`. Signal `stateChanged`.
 - Interfaces, typées par `QMetaType::fromType<T*>()`, pointeurs stockés en `void*` :
@@ -86,6 +88,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   d'instanciation ; au premier refus il arrête ce qu'il a démarré. `stop()` arrête dans l'ordre inverse. `isRunning()`
   / `runningChanged`. `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend
   le `start()` suivant.
+- Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
+  appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
 - Messages d'erreur de Core en anglais, non traduits (`QStringLiteral`), comme ceux de `PluginManager`.
 
 ## Forge
@@ -94,10 +98,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Classe | Rôle |
 | --- | --- |
-| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
-| `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec bouton **Load** (signal `loadRequested`) |
-| `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
+| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
+| `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
+| `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
 | `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
@@ -148,7 +152,14 @@ Les chaînes affichées passent par `tr()`, en anglais.
   `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ».
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
   partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
-  qui manque alors dans le projet enregistré.
+  qui manque alors dans le projet enregistré. De même, décharger un plugin par l'une retire ses composants de la
+  fabrique pour l'autre, dont les instances lui survivent ; et un `PluginManager` ne décharge que ce qu'il a chargé
+  lui-même (`unload()` échoue sinon, composants réenregistrés).
+- Un plugin déchargé garde sa DLL en mémoire : `QPluginLoader` charge avec `PreventUnloadHint` par défaut, et il faut
+  le laisser. Sans lui, la DLL part vraiment, mais le registre des métatypes de Qt garde des pointeurs vers les types
+  du plugin (`QMetaType::fromName("IGreeter*")` plante après coup) et un `QVariant` lu d'une de ses propriétés pointe
+  aussi dans la DLL. Conséquences : le fichier `.afdl` reste verrouillé jusqu'à la fermeture, et un plugin recompilé
+  n'est relu qu'au lancement suivant.
 
 ## Conventions
 

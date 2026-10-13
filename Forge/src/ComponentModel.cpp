@@ -1,6 +1,7 @@
 #include "ComponentModel.h"
 
 #include <QMimeData>
+#include <algorithm>
 
 #include "AppForge/Component/ComponentFactory.h"
 
@@ -95,8 +96,18 @@ QMimeData* ComponentModel::mimeData(const QModelIndexList& indexes) const
 
 void ComponentModel::refresh()
 {
-    // ComponentFactory only adds components, and lists them by id: the new ones are inserted where they belong.
     const QList<AppForge::ComponentInfo> components = m_factory.components();
+    // Those of a plugin unloaded since, the last one first: the rows above it keep their number.
+    for(qsizetype row = m_components.size() - 1; row >= 0; --row)
+    {
+        if(std::ranges::find(components, m_components.at(row).id, &AppForge::ComponentInfo::id) == components.end())
+        {
+            beginRemoveRows({}, static_cast<int>(row), static_cast<int>(row));
+            m_components.removeAt(row);
+            endRemoveRows();
+        }
+    }
+    // ComponentFactory lists them by id: the new ones are inserted where they belong.
     for(qsizetype row = 0; row < components.size(); ++row)
     {
         if(row < m_components.size() && m_components.at(row).id == components.at(row).id)

@@ -43,7 +43,8 @@ class ComponentModel : public QAbstractTableModel
     [[nodiscard]] QStringList mimeTypes() const override;
     [[nodiscard]] QMimeData* mimeData(const QModelIndexList& indexes) const override;
 
-    // Reads the components of the factory again: inserts the ones registered since, e.g. by a plugin just loaded.
+    // Reads the components of the factory again: inserts the ones registered since, e.g. by a plugin just loaded, and
+    // removes the ones it no longer has, those of a plugin just unloaded.
     void refresh();
 
   private:

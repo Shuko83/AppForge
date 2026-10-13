@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
 #include <QPushButton>
@@ -58,10 +59,17 @@ PluginViewer::PluginViewer(const AppForge::PluginManager& plugins, QWidget* pare
     m_file = addField(*form, tr("File"));
     m_loadButton = new QPushButton(tr("Load"));
     connect(m_loadButton, &QPushButton::clicked, this, [this] { emit loadRequested(m_pluginId); });
+    m_unloadButton = new QPushButton(tr("Unload"));
+    connect(m_unloadButton, &QPushButton::clicked, this, [this] { emit unloadRequested(m_pluginId); });
+
+    auto* buttons = new QHBoxLayout;
+    buttons->addWidget(m_loadButton);
+    buttons->addWidget(m_unloadButton);
+    buttons->addStretch();
 
     auto* pageLayout = new QVBoxLayout(m_page);
     pageLayout->addLayout(form);
-    pageLayout->addWidget(m_loadButton, 0, Qt::AlignLeft);
+    pageLayout->addLayout(buttons);
     pageLayout->addStretch();
 
     m_stack = new QStackedWidget;
@@ -97,5 +105,13 @@ void PluginViewer::refresh()
     m_state->setText(loaded ? tr("Loaded") : tr("Not loaded"));
     m_file->setText(QDir::toNativeSeparators(info->filePath));
     m_loadButton->setEnabled(!loaded);
+    m_unloadButton->setEnabled(loaded && m_unloadAllowed);
+    m_unloadButton->setToolTip(m_unloadAllowed ? QString() : tr("Stop the application to unload a plugin"));
     m_stack->setCurrentWidget(m_page);
+}
+
+void PluginViewer::setUnloadAllowed(bool allowed)
+{
+    m_unloadAllowed = allowed;
+    refresh();
 }

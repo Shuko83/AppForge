@@ -88,7 +88,7 @@ std::optional<PluginInfo> readPlugin(const QPluginLoader& loader, const QString&
 
 PluginManager::PluginManager() = default;
 
-// Destroying the loaders does not unload the plugins.
+// Destroying the loaders does not unload the plugins: only unload() does.
 PluginManager::~PluginManager() = default;
 
 QString PluginManager::defaultDirectory()
@@ -180,6 +180,35 @@ bool PluginManager::load(const QString& pluginId)
     ComponentFactory::instance().add(pluginId, root->plugin());
     m_errorString.clear();
     return true;
+}
+
+bool PluginManager::unload(const QString& pluginId)
+{
+    const auto entry = m_entries.find(pluginId);
+    if(entry == m_entries.end())
+    {
+        m_errorString = QStringLiteral("Unknown plugin %1").arg(pluginId);
+        return false;
+    }
+    QPluginLoader& loader = *entry->second.loader;
+    m_errorString.clear();
+    if(!loader.isLoaded())
+    {
+        return true;
+    }
+    // Before its root object, which owns what builds them, is destroyed.
+    ComponentFactory::instance().remove(pluginId);
+    if(loader.unload())
+    {
+        return true;
+    }
+    // Another loader of its file loaded it, and keeps it: its components are registered again.
+    m_errorString = QStringLiteral("%1 was loaded by another plugin manager").arg(pluginId);
+    if(IPlugin* root = qobject_cast<IPlugin*>(loader.instance()))
+    {
+        ComponentFactory::instance().add(pluginId, root->plugin());
+    }
+    return false;
 }
 
 bool PluginManager::isLoaded(const QString& pluginId) const
