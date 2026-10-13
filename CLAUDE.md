@@ -142,6 +142,10 @@ Les chaînes affichées passent par `tr()`, en anglais.
 
 ## Conventions
 
+Elles sont décrites dans [CONVENTIONS.md](CONVENTIONS.md), à lire avant d'écrire du code et à tenir à jour quand une
+règle change. L'essentiel :
+
+- Base : le style de Qt (`camelCase`) et les C++ Core Guidelines.
 - `.clang-format` : base LLVM, 4 espaces, 120 colonnes, accolades Allman, `if(` sans espace, `T* p`. `.clang-tidy`
   actif (bugprone, performance, readability, modernize…).
 - Membres `m_camelCase`, `[[nodiscard]]` sur les accesseurs, `#pragma once`, `QStringLiteral` / `u"…"`.
