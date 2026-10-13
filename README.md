@@ -186,6 +186,18 @@ window->unbindInterface(QStringLiteral("content"));
 
 `consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, `binding(name)` tells what one of them is bound to, the provider and the name it provides it under, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side.
 
+A component can also answer for the properties of the objects it is made of, a widget of its logic, say, with `addPropertiesForQObject()`, which only the component calls, as it does for its interfaces:
+
+```cpp
+void Ticker::setDisplay(QWidget* display) // Called by TickerLogic, which owns the display
+{
+    provideInterface<QWidget>(QStringLiteral("display"), display);
+    addPropertiesForQObject(display, QStringLiteral("Display"));
+}
+```
+
+Forge then edits the properties the object declares with `Q_PROPERTY`, base classes included, under those of the component, and a project holds their values with those of the component. Not `objectName`, nor the properties declared `DESIGNABLE false` or `STORED false`, as the visibility of a widget is. They are edited in a group titled with the name, shared by the objects added with the same one, or right after the properties of the component when no name is given. `propertyObjects()` lists the objects added, each for as long as it lives, and `propertyObjectsChanged()` is emitted when one is added or destroyed. A component adds its objects when it is built: a project sets the properties of the objects it finds when it is opened.
+
 ---
 
 ## 🔨 Forge
@@ -197,7 +209,7 @@ window->unbindInterface(QStringLiteral("content"));
 - between them, the edition zone of the application: a component dragged from its list and dropped there is instantiated, named after its component and a number (`Greeter1`, `Greeter2`...), and shown where it was dropped. Its instances can be moved and selected. The interfaces of an instance are listed under its names, each with a dot on an edge: those it consumes on the left, a circle; those it provides on the right, a disc while the interface is available and a dotted circle otherwise. Hovering a dot tells at once, in a tooltip, whether the interface is provided or consumed, its type and its state; it does too while a link is being drawn. Dragging from the dot of a provided interface to the dot of a consumed one of the same type, or the other way round, binds them and draws a link between them, in place of the link the consumed one had. While the link is being drawn, the dots it cannot be bound to are dimmed.
 - an instance is renamed and colored there too. Double-clicking its names, or **Rename component** in its context menu, edits its name in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. An instance keeps a name no other one has, the one a project and `ForgeApplication::component()` know it by: a name already taken is refused, which the status bar tells, and so is no name at all. **Change component color...**, in the same menu, colors its names, which tells it from the others at a glance: the color is chosen with its opacity, and lets the instance show through as much as it is translucent. **Reset component color** gives it back the colors of the style.
 - in the edition zone too, colored zones that group instances, by what they are for, say: **Add zone**, in its context menu, adds one where it was right-clicked, under a title typed at once. Dragging a zone by its title moves it with what is in it then: the instances whose center is in it, and the zones that are entirely in it. Dragging an edge or a corner resizes it. Double-clicking its title edits it, and right-clicking anywhere in a zone renames it, changes its color or removes it, which leaves what is in it. Between its title and its edges, a zone lets the mouse through: instances are selected there as anywhere else.
-- under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component.
+- under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component. The properties of the objects the component added with `addPropertiesForQObject()` are edited there as well, after its own, those of a named object in a group under its name: selecting a `Ticker` shows its `interval`, then the properties of its display under **Display**.
 - in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits for the next **Start**. Opening a project, or **New**, stops it.
 
 `ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window.
@@ -225,7 +237,10 @@ A project file is a JSON object:
             "x": 200,
             "y": 120,
             "color": "#804e79a7",
-            "properties": { "interval": 250 }
+            "properties": { "interval": 250 },
+            "objects": [
+                { "name": "Display", "properties": { "digitCount": 8, "windowTitle": "Clock" } }
+            ]
         },
         { "name": "Window1", "type": "FabienDG.AppForge.ExternalPlugin.Window", "x": 500, "y": 160, "properties": {} }
     ],
@@ -242,7 +257,7 @@ A project file is a JSON object:
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | `version`    | `1`: a file of another version is not opened                                                            |
 | `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
-| `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, and their properties |
+| `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, their properties and those of their objects |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
@@ -251,6 +266,8 @@ A project file is a JSON object:
 The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`; it is the directory of the application that runs a project unless `ForgeApplication::setPluginRoot()` sets it. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
 
 The `properties` of a component are those that can be written and whose value JSON holds as it is: numbers, booleans and texts, and whatever is read back from its text, as dates are.
+
+Its `objects`, written when it has some, are those it added with `addPropertiesForQObject()`, in the order it added them: the `name` each was added with, empty when it has none, and its `properties`, chosen as those of the component are. When the project is opened, each is given to the first object of that name not given one yet; an object the component no longer has is reported as missing.
 
 Opening a project tells what could not be restored, a plugin that is no longer where it was, say, and opens the rest. The file is then no longer the one **Save** writes to, which would write over what is missing.
 

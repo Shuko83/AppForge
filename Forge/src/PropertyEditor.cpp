@@ -5,13 +5,14 @@
 #include <QMetaMethod>
 #include <QSignalBlocker>
 #include <QStackedWidget>
+#include <QStringList>
 #include <QTableWidget>
 #include <QVBoxLayout>
-#include <algorithm>
 #include <cstdint>
-#include <iterator>
 #include <optional>
+#include <utility>
 
+#include "AppForge/Component/Component.h"
 #include "AppForge/Component/ComponentFactory.h"
 
 namespace
@@ -82,71 +83,137 @@ void PropertyEditor::setComponent(AppForge::Component* component)
         m_component->disconnect(this);
     }
     m_component = component;
-    const std::optional<AppForge::ComponentInfo> info =
-        component != nullptr ? m_factory.component(component->componentId()) : std::nullopt;
-    // Only what can be edited here: the others are in the viewer of its component.
-    m_properties.clear();
-    if(info)
-    {
-        std::ranges::copy_if(info->properties, std::back_inserter(m_properties), isEditable);
-    }
-
-    const QSignalBlocker blocker(m_table); // itemChanged is for the values edited in the table
-    m_table->setRowCount(0);               // Closes the editor of a value of the previous component
-    m_table->setRowCount(static_cast<int>(m_properties.size()));
-    const QMetaMethod refresh = metaObject()->method(metaObject()->indexOfSlot("refreshValues()"));
-    for(int row = 0; row < m_table->rowCount(); ++row)
-    {
-        const QMetaProperty& property = m_properties.at(row);
-
-        auto* name = new QTableWidgetItem(QString::fromLatin1(property.name()));
-        name->setFlags(Qt::ItemIsEnabled);
-        name->setToolTip(QString::fromLatin1(property.typeName()));
-        m_table->setItem(row, NameColumn, name);
-        m_table->setItem(row, ValueColumn, new QTableWidgetItem); // Editable, as an item is by default
-
-        if(property.hasNotifySignal())
-        {
-            connect(component, property.notifySignal(), this, refresh, Qt::UniqueConnection);
-        }
-    }
-    refreshValues();
-
-    // Why no property is shown, when none is. It names the component, which can be renamed meanwhile.
-    const auto explain = [this]
-    {
-        m_placeholder->setText(m_component == nullptr
-                                   ? tr("Select a component of the application to edit its properties")
-                                   : tr("%1 has no editable property").arg(m_component->objectName()));
-    };
-    explain();
     if(component != nullptr)
     {
-        connect(component, &QObject::objectNameChanged, this, explain);
+        connect(component, &QObject::objectNameChanged, this, &PropertyEditor::refreshPlaceholder);
+        connect(component, &AppForge::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
     }
-    m_stack->setCurrentWidget(m_properties.isEmpty() ? static_cast<QWidget*>(m_placeholder) : m_table);
+    rebuild();
 }
 
 void PropertyEditor::refreshValues()
 {
-    if(m_component == nullptr)
-    {
-        return;
-    }
     const QSignalBlocker blocker(m_table);
     for(int row = 0; row < m_table->rowCount(); ++row)
     {
-        // The value itself rather than its text: its type is what gives the cell its editor.
-        m_table->item(row, ValueColumn)->setData(Qt::EditRole, m_properties.at(row).read(m_component));
+        const Row& shown = m_rows.at(row);
+        if(shown.object != nullptr && shown.property.isValid())
+        {
+            // The value itself rather than its text: its type is what gives the cell its editor.
+            m_table->item(row, ValueColumn)->setData(Qt::EditRole, shown.property.read(shown.object));
+        }
     }
+}
+
+void PropertyEditor::rebuild()
+{
+    // The objects shown until now are no longer listened to. Not the component, should it still be the one shown:
+    // more than its properties is followed.
+    for(const Row& shown : std::as_const(m_rows))
+    {
+        if(shown.object != nullptr && shown.object != m_component)
+        {
+            shown.object->disconnect(this);
+        }
+    }
+    m_rows.clear();
+
+    // Only what can be edited here: the other properties of a component are in the viewer of its component.
+    const auto append = [this](QObject* object, const QList<QMetaProperty>& properties)
+    {
+        for(const QMetaProperty& property : properties)
+        {
+            if(isEditable(property))
+            {
+                m_rows.append(Row{.object = object, .property = property, .title = {}});
+            }
+        }
+    };
+    if(m_component != nullptr)
+    {
+        if(const std::optional<AppForge::ComponentInfo> info = m_factory.component(m_component->componentId()))
+        {
+            append(m_component, info->properties);
+        }
+        const QList<AppForge::PropertyObject> objects = m_component->propertyObjects();
+        // No name first, which follows the properties of the component, then each name once, where it first came.
+        QStringList names{QString()};
+        for(const AppForge::PropertyObject& added : objects)
+        {
+            if(!names.contains(added.name))
+            {
+                names.append(added.name);
+            }
+        }
+        for(const QString& name : std::as_const(names))
+        {
+            const qsizetype title = m_rows.size();
+            for(const AppForge::PropertyObject& added : objects)
+            {
+                if(added.name == name)
+                {
+                    append(added.object, added.properties());
+                }
+            }
+            // No title for a group with nothing to edit.
+            if(!name.isEmpty() && m_rows.size() > title)
+            {
+                m_rows.insert(title, Row{.object = nullptr, .property = {}, .title = name});
+            }
+        }
+    }
+
+    const QSignalBlocker blocker(m_table); // itemChanged is for the values edited in the table
+    m_table->setRowCount(0);               // Closes the editor of a value shown until now
+    m_table->clearSpans();
+    m_table->setRowCount(static_cast<int>(m_rows.size()));
+    const QMetaMethod refresh = metaObject()->method(metaObject()->indexOfSlot("refreshValues()"));
+    for(int row = 0; row < m_table->rowCount(); ++row)
+    {
+        const Row& shown = m_rows.at(row);
+        if(!shown.property.isValid())
+        {
+            auto* title = new QTableWidgetItem(shown.title);
+            title->setFlags(Qt::ItemIsEnabled);
+            QFont font = title->font();
+            font.setBold(true);
+            title->setFont(font);
+            title->setBackground(palette().alternateBase());
+            m_table->setItem(row, NameColumn, title);
+            m_table->setSpan(row, NameColumn, 1, ColumnCount);
+            continue;
+        }
+
+        auto* name = new QTableWidgetItem(QString::fromLatin1(shown.property.name()));
+        name->setFlags(Qt::ItemIsEnabled);
+        name->setToolTip(QString::fromLatin1(shown.property.typeName()));
+        m_table->setItem(row, NameColumn, name);
+        m_table->setItem(row, ValueColumn, new QTableWidgetItem); // Editable, as an item is by default
+
+        if(shown.property.hasNotifySignal())
+        {
+            connect(shown.object, shown.property.notifySignal(), this, refresh, Qt::UniqueConnection);
+        }
+    }
+    refreshValues();
+
+    refreshPlaceholder();
+    m_stack->setCurrentWidget(m_rows.isEmpty() ? static_cast<QWidget*>(m_placeholder) : m_table);
+}
+
+void PropertyEditor::refreshPlaceholder()
+{
+    m_placeholder->setText(m_component == nullptr ? tr("Select a component of the application to edit its properties")
+                                                  : tr("%1 has no editable property").arg(m_component->objectName()));
 }
 
 void PropertyEditor::write(const QTableWidgetItem* item)
 {
-    if(m_component == nullptr || item->column() != ValueColumn)
+    const Row& edited = m_rows.at(item->row());
+    if(edited.object == nullptr || item->column() != ValueColumn)
     {
         return;
     }
-    m_properties.at(item->row()).write(m_component, item->data(Qt::EditRole));
-    refreshValues(); // What the component made of it: it can adjust a value, or refuse it
+    edited.property.write(edited.object, item->data(Qt::EditRole));
+    refreshValues(); // What the object made of it: it can adjust a value, or refuse it
 }

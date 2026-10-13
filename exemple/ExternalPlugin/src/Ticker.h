@@ -23,7 +23,8 @@ class Ticker : public AppForge::Component
     // Not a property setter: only its logic counts the ticks.
     void setTicks(int ticks);
 
-    // Provides display as the interface "display": only its logic does.
+    // Provides display as the interface "display", and has its properties edited and saved with its own: only its
+    // logic does, once.
     void setDisplay(QWidget* display);
 
   signals:

@@ -12,7 +12,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in` |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; tout est dans `Forge/src/`, sans namespace |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
-| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`) et `Window` (consomme `content` : `QWidget`) |
+| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
 | `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
@@ -62,6 +62,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   - `providedInterfaces()` / `consumedInterfaces()` renvoient des `InterfaceInfo {name, type, available}` ;
     `interfacesChanged()` est émis à chaque déclaration ou changement de disponibilité.
   - `binding(nom)` dit à quoi une interface consommée est liée : `InterfaceBinding {provider, providedName}`.
+- Objets à propriétés (`PropertyObject.*`) : `addPropertiesForQObject(objet[, nom])` (protégé, appelé par le composant
+  à sa construction) ajoute un `PropertyObject {object, name}` à `propertyObjects()` ; il en sort seul à sa
+  destruction. Signal `propertyObjectsChanged`. `PropertyObject::properties()` : les propriétés déclarées, sans
+  `objectName` ni celles `DESIGNABLE false` / `STORED false` ; c'est la liste qu'éditent Forge et qu'écrit un projet.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
 
 **Application** (`Application/ForgeApplication.*`)
@@ -71,7 +75,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
 - Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
   qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
-  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON) et `bindings`.
+  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
+  `propertyObjects()`, retrouvés à l'ouverture par nom puis par ordre d'ajout) et `bindings`.
 - Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
   chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits.
 - Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
@@ -96,7 +101,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
 | `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu, redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime ; suit les signaux NOTIFY |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; suit les signaux NOTIFY et `propertyObjectsChanged` |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
@@ -136,6 +141,8 @@ Les chaînes affichées passent par `tr()`, en anglais.
   défilement. `ComponentItem::mouseMoveEvent` ignore donc les déplacements tant que son nom est édité.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
+- Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
+  `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ».
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
   partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
   qui manque alors dans le projet enregistré.

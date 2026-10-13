@@ -34,14 +34,13 @@ std::optional<QJsonValue> toJson(const QVariant& value)
     return json;
 }
 
-// The properties of component a project holds, by name: those of properties that can be written.
-QJsonObject writableProperties(const Component& component, const QList<QMetaProperty>& properties)
+// The properties of object a project holds, by name: those of properties that can be written.
+QJsonObject writableProperties(const QObject& object, const QList<QMetaProperty>& properties)
 {
     QJsonObject json;
     for(const QMetaProperty& property : properties)
     {
-        const std::optional<QJsonValue> value =
-            property.isWritable() ? toJson(property.read(&component)) : std::nullopt;
+        const std::optional<QJsonValue> value = property.isWritable() ? toJson(property.read(&object)) : std::nullopt;
         if(value)
         {
             json.insert(QLatin1StringView(property.name()), *value);
@@ -50,13 +49,13 @@ QJsonObject writableProperties(const Component& component, const QList<QMetaProp
     return json;
 }
 
-// Sets the property name of component, one of properties, to value; false when it is none of them or cannot be set.
-bool writeProperty(Component& component, const QList<QMetaProperty>& properties, const QString& name,
+// Sets the property name of object, one of properties, to value; false when it is none of them or cannot be set.
+bool writeProperty(QObject& object, const QList<QMetaProperty>& properties, const QString& name,
                    const QJsonValue& value)
 {
     const auto property = std::ranges::find(properties, name, [](const QMetaProperty& known)
                                             { return QString::fromLatin1(known.name()); });
-    return property != properties.end() && property->write(&component, value.toVariant());
+    return property != properties.end() && property->write(&object, value.toVariant());
 }
 
 } // namespace
@@ -157,6 +156,33 @@ QStringList ForgeApplication::load(const QJsonObject& project)
                 problems.append(QStringLiteral("The property %1 of %2 could not be set").arg(property.key(), name));
             }
         }
+
+        // Each to the first object of its name that none was given yet: those of a name are held in the order they
+        // were added.
+        QList<PropertyObject> remaining = instance->propertyObjects();
+        const QJsonArray objects = json.value(u"objects").toArray();
+        for(const QJsonValue& objectValue : objects)
+        {
+            const QJsonObject objectJson = objectValue.toObject();
+            const QString objectName = objectJson.value(u"name").toString();
+            const auto found = std::ranges::find(remaining, objectName, &PropertyObject::name);
+            if(found == remaining.end())
+            {
+                problems.append(QStringLiteral("The object %1 of %2 is missing").arg(objectName, name));
+                continue;
+            }
+            const PropertyObject restored = *found;
+            remaining.erase(found);
+            const QJsonObject objectProperties = objectJson.value(u"properties").toObject();
+            for(auto property = objectProperties.begin(); property != objectProperties.end(); ++property)
+            {
+                if(!writeProperty(*restored.object, restored.properties(), property.key(), property.value()))
+                {
+                    problems.append(QStringLiteral("The property %1 of the object %2 of %3 could not be set")
+                                        .arg(property.key(), objectName, name));
+                }
+            }
+        }
     }
 
     const QJsonArray bindings = project.value(u"bindings").toArray();
@@ -209,6 +235,19 @@ QJsonObject ForgeApplication::save() const
         json.insert(u"name", instance->objectName());
         json.insert(u"type", instance->componentId());
         json.insert(u"properties", writableProperties(*instance, info ? info->properties : QList<QMetaProperty>()));
+        QJsonArray objects;
+        const QList<PropertyObject> propertyObjects = instance->propertyObjects();
+        for(const PropertyObject& added : propertyObjects)
+        {
+            QJsonObject object;
+            object.insert(u"name", added.name);
+            object.insert(u"properties", writableProperties(*added.object, added.properties()));
+            objects.append(object);
+        }
+        if(!objects.isEmpty())
+        {
+            json.insert(u"objects", objects);
+        }
         components.append(json);
 
         const QList<InterfaceInfo> consumedInterfaces = instance->consumedInterfaces();

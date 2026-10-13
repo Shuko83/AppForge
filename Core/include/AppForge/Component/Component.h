@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "AppForge/Component/IComponent.h"
+#include "AppForge/Component/PropertyObject.h"
 #include "Core_export.h"
 
 namespace AppForge
@@ -51,6 +52,9 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // What name is bound to: nothing when it is unbound, or not an interface it consumes.
     [[nodiscard]] InterfaceBinding binding(const QString& name) const;
 
+    // The objects added with addPropertiesForQObject() that still live, in the order they were added.
+    [[nodiscard]] QList<PropertyObject> propertyObjects() const;
+
   signals:
     void stateChanged(AppForge::ComponentState state);
     // The pointer of name, which it provides, can be retrieved with providedInterface().
@@ -60,6 +64,8 @@ class CORE_EXPORT Component : public QObject, public IComponent
     void interfaceUnavailable(const QString& name);
     // It declared an interface, or one it provides or consumes became available or unavailable.
     void interfacesChanged();
+    // An object was added to propertyObjects(), or one of them was destroyed.
+    void propertyObjectsChanged();
 
   protected:
     Component();
@@ -89,6 +95,13 @@ class CORE_EXPORT Component : public QObject, public IComponent
             name, QMetaType::fromType<T*>(), [&member](void* pointer) { member = static_cast<T*>(pointer); },
             std::move(onAvailable), std::move(onUnavailable));
     }
+
+    // Has the properties of object, see PropertyObject::properties(), edited and saved with its own: Forge edits them
+    // under those of the component, and a project holds their values. Under name when it is not empty, as a group of
+    // their own; the objects added with the same name share a group. For as long as object lives: it need not outlive
+    // the component. A component adds its objects when it is built, so that a project finds them when it is opened.
+    // Does nothing, with a warning, when object is nullptr, the component itself, or already added.
+    void addPropertiesForQObject(QObject* object, const QString& name = {});
 
     // Returning false from onInitialize() or onStart() leaves the state unchanged.
     virtual bool onInitialize();
@@ -142,6 +155,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     ComponentState m_state = ComponentState::Initializing;
     QList<ProvidedInterface> m_providedInterfaces; // In the order they were declared
     QList<ConsumedInterface> m_consumedInterfaces; // In the order they were declared
+    QList<PropertyObject> m_propertyObjects;       // In the order they were added
 };
 
 } // namespace AppForge
