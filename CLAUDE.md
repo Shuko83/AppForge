@@ -62,9 +62,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   - `providedInterfaces()` / `consumedInterfaces()` renvoient des `InterfaceInfo {name, type, available}` ;
     `interfacesChanged()` est émis à chaque déclaration ou changement de disponibilité.
   - `binding(nom)` dit à quoi une interface consommée est liée : `InterfaceBinding {provider, providedName}`.
-- Objets à propriétés (`PropertyObject.h`) : `addPropertiesForQObject(objet[, nom])` (public, appelé par la logique)
-  ajoute un `PropertyObject {object, name}` à `propertyObjects()` ; il en sort seul à sa destruction. Signal
-  `propertyObjectsChanged`. Core ne fait que les lister : rien n'est écrit dans un projet.
+- Objets à propriétés (`PropertyObject.*`) : `addPropertiesForQObject(objet[, nom])` (protégé, appelé par le composant
+  à sa construction) ajoute un `PropertyObject {object, name}` à `propertyObjects()` ; il en sort seul à sa
+  destruction. Signal `propertyObjectsChanged`. `PropertyObject::properties()` : les propriétés déclarées, sans
+  `objectName` ni celles `DESIGNABLE false` / `STORED false` ; c'est la liste qu'éditent Forge et qu'écrit un projet.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
 
 **Application** (`Application/ForgeApplication.*`)
@@ -74,7 +75,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
 - Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
   qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
-  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON) et `bindings`.
+  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
+  `propertyObjects()`, retrouvés à l'ouverture par nom puis par ordre d'ajout) et `bindings`.
 - Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
   chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits.
 - Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
@@ -125,8 +127,6 @@ Les chaînes affichées passent par `tr()`, en anglais.
   suppriment.
 - Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
   chemin d'erreur de `start()` n'a pas été exercé.
-- Les propriétés des objets ajoutés par `addPropertiesForQObject()` ne sont pas enregistrées dans le projet, et les
-  modifier ne rend pas le projet « modifié ».
 - Pas de tests automatisés.
 
 ## Pièges
@@ -141,6 +141,8 @@ Les chaînes affichées passent par `tr()`, en anglais.
   défilement. `ComponentItem::mouseMoveEvent` ignore donc les déplacements tant que son nom est édité.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
+- Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
+  `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ».
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
   partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
   qui manque alors dans le projet enregistré.

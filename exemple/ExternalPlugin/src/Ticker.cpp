@@ -39,4 +39,9 @@ void Ticker::setTicks(int ticks)
 void Ticker::setDisplay(QWidget* display)
 {
     provideInterface<QWidget>(QStringLiteral("display"), display);
+    if(display != nullptr)
+    {
+        // Edited and saved with its own properties, in a group of their own.
+        addPropertiesForQObject(display, QStringLiteral("Display"));
+    }
 }

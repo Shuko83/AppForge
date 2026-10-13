@@ -1,0 +1,27 @@
+#include "AppForge/Component/PropertyObject.h"
+
+#include <QObject>
+
+namespace AppForge
+{
+
+QList<QMetaProperty> PropertyObject::properties() const
+{
+    QList<QMetaProperty> properties;
+    if(object == nullptr)
+    {
+        return properties;
+    }
+    const QMetaObject* metaObject = object->metaObject();
+    for(int index = QObject::staticMetaObject.propertyCount(); index < metaObject->propertyCount(); ++index)
+    {
+        const QMetaProperty property = metaObject->property(index);
+        if(property.isDesignable() && property.isStored())
+        {
+            properties.append(property);
+        }
+    }
+    return properties;
+}
+
+} // namespace AppForge

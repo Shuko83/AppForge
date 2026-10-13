@@ -48,18 +48,6 @@ bool isEditable(const QMetaProperty& property)
     }
 }
 
-// The properties object declares, base classes included: not objectName, which QObject gives every object.
-QList<QMetaProperty> declaredProperties(const QObject& object)
-{
-    QList<QMetaProperty> properties;
-    const QMetaObject* metaObject = object.metaObject();
-    for(int index = QObject::staticMetaObject.propertyCount(); index < metaObject->propertyCount(); ++index)
-    {
-        properties.append(metaObject->property(index));
-    }
-    return properties;
-}
-
 } // namespace
 
 PropertyEditor::PropertyEditor(const AppForge::ComponentFactory& factory, QWidget* parent)
@@ -164,7 +152,7 @@ void PropertyEditor::rebuild()
             {
                 if(added.name == name)
                 {
-                    append(added.object, declaredProperties(*added.object));
+                    append(added.object, added.properties());
                 }
             }
             // No title for a group with nothing to edit.
