@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 # Components derive from QObject: moc must run on the public headers.
 set(CMAKE_AUTOMOC ON)
 

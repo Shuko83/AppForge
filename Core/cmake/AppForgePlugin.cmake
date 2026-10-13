@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 include_guard(GLOBAL)
 
 # appforge_add_plugin runs in its caller's directory: what it needs from here is kept in global properties.
