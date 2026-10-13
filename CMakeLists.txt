@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.19)
 
 project(AppForge VERSION 0.1.0)
 
+# Before CMakeUtils is included: it builds its default copyright from the organization.
+set(cmu_organization "FabienDG")
+
 include(${CMAKE_CURRENT_LIST_DIR}/CMakeUtils/CMakeUtils.cmake)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-set(cmu_organization "FabienDG")
 
 # Executables and DLLs side by side, so that Core.dll is found when an application starts;
 # appforge_add_plugin puts the plugins in plugins/ next to them.
