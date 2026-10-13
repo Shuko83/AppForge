@@ -14,7 +14,8 @@ class QPluginLoader;
 namespace AppForge
 {
 
-// Finds the plugins built with appforge_add_plugin, loads them on demand and unloads them.
+// Finds the plugins built with appforge_add_plugin, loads them on demand and unloads them. It unloads those it loaded
+// when it is destroyed: it has to outlive the components of its plugins.
 // The library of a plugin stays in memory once loaded, until the application exits, even unloaded: Qt keeps what it
 // learnt from it, the types of its interfaces and of its properties. Unloaded, its file can therefore not be replaced
 // and loading it again does not read it again.
@@ -44,11 +45,13 @@ class CORE_EXPORT PluginManager
     // Loads a scanned plugin, reads its build date and registers its components in ComponentFactory::instance();
     // returns false, with errorString() set, when it is unknown or cannot be loaded.
     bool load(const QString& pluginId);
-    // Unloads a loaded plugin: its components are no longer registered in ComponentFactory::instance(), and its
+    // Unloads a plugin it loaded: its components are no longer registered in ComponentFactory::instance(), and its
     // plugin class is destroyed. None of its components may still be instantiated: see
     // ForgeApplication::unloadPlugin(), which removes them first. It can be loaded again. Returns true when it was not
-    // loaded; false, with errorString() set, when it is unknown or cannot be unloaded.
+    // loaded; false, with errorString() set, when it is unknown, and when another manager loaded it, alone or as
+    // well: it stays loaded then, for that one.
     bool unload(const QString& pluginId);
+    // Whether it is loaded, by any manager.
     [[nodiscard]] bool isLoaded(const QString& pluginId) const;
     [[nodiscard]] QString errorString() const;
 
@@ -57,6 +60,7 @@ class CORE_EXPORT PluginManager
     {
         PluginInfo info;
         std::unique_ptr<QPluginLoader> loader;
+        bool loaded = false; // By this manager, which is then the one to unload it
     };
 
     // The entry of the plugin filePath, canonical; nullptr when it is not known.

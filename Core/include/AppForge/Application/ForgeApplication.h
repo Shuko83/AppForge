@@ -96,7 +96,7 @@ class CORE_EXPORT ForgeApplication : public QObject
     [[nodiscard]] QString newName(const QString& componentName) const;
     void setRunning(bool running);
 
-    PluginManager m_plugins;
+    PluginManager m_plugins; // Before m_components: it unloads its plugins once their components are destroyed
     QDir m_pluginRoot;
     std::vector<std::unique_ptr<Component>> m_components;
     bool m_running = false;

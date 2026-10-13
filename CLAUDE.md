@@ -48,6 +48,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   `ComponentFactory::instance().add()` ; `unload(id)` appelle `ComponentFactory::remove()` puis
   `QPluginLoader::unload()`, qui détruit l'objet racine, donc la classe du plugin. La DLL, elle, reste en mémoire
   (voir Pièges) : recharger recrée l'objet racine sans relire le fichier. Erreurs dans `errorString()`.
+- RAII : le destructeur décharge ce que ce gestionnaire a chargé (`Entry::loaded`). Il doit donc survivre aux
+  composants de ses plugins : dans `ForgeApplication`, `m_plugins` est déclaré avant `m_components`. Chaque
+  gestionnaire prend sa part du plugin par `QPluginLoader::load()`, que Qt compte : un plugin chargé par deux
+  gestionnaires reste tant que l'un des deux le garde, et `unload()` renvoie alors `false`.
 
 **Composant** (`Component.*`, `IComponent.h`, `ComponentFactory.*`, `ComponentInfo.h`, `InterfaceInfo.h`)
 - `ComponentFactory` (singleton `instance()`) : `components()`, `component(id)`, `create(id)` qui renvoie un
@@ -152,9 +156,8 @@ Les chaînes affichées passent par `tr()`, en anglais.
   `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ».
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
   partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
-  qui manque alors dans le projet enregistré. De même, décharger un plugin par l'une retire ses composants de la
-  fabrique pour l'autre, dont les instances lui survivent ; et un `PluginManager` ne décharge que ce qu'il a chargé
-  lui-même (`unload()` échoue sinon, composants réenregistrés).
+  qui manque alors dans le projet enregistré. Ces instances survivent aussi au plugin quand la première le décharge
+  ou est détruite : un `PluginManager` ne garde en vie que ce qu'il a chargé lui-même, et ne décharge que cela.
 - Un plugin déchargé garde sa DLL en mémoire : `QPluginLoader` charge avec `PreventUnloadHint` par défaut, et il faut
   le laisser. Sans lui, la DLL part vraiment, mais le registre des métatypes de Qt garde des pointeurs vers les types
   du plugin (`QMetaType::fromName("IGreeter*")` plante après coup) et un `QVariant` lu d'une de ses propriétés pointe
