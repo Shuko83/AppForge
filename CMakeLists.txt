@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.19)
 
-project(AppForge VERSION 0.1.0)
+project(AppForge VERSION 0.2.0)
 
 # Before CMakeUtils is included: it builds its default copyright from the organization.
 set(cmu_organization "FabienDG")
