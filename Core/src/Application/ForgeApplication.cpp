@@ -332,6 +332,20 @@ Component* ForgeApplication::component(const QString& name) const
     return found != m_components.end() ? found->get() : nullptr;
 }
 
+QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
+{
+    QList<Component*> found;
+    for(const std::unique_ptr<Component>& instance : m_components)
+    {
+        const std::optional<ComponentInfo> info = ComponentFactory::instance().component(instance->componentId());
+        if(info && info->pluginId == pluginId)
+        {
+            found.append(instance.get());
+        }
+    }
+    return found;
+}
+
 void ForgeApplication::clear()
 {
     stop();
@@ -384,6 +398,28 @@ void ForgeApplication::stop()
 bool ForgeApplication::isRunning() const
 {
     return m_running;
+}
+
+bool ForgeApplication::unloadPlugin(const QString& pluginId)
+{
+    if(m_running)
+    {
+        m_errorString = QStringLiteral("A plugin cannot be unloaded while the application runs");
+        return false;
+    }
+    // None of them outlives what built it.
+    const QList<Component*> instances = componentsOf(pluginId);
+    for(Component* instance : instances)
+    {
+        remove(*instance);
+    }
+    if(!m_plugins.unload(pluginId))
+    {
+        m_errorString = m_plugins.errorString();
+        return false;
+    }
+    m_errorString.clear();
+    return true;
 }
 
 QString ForgeApplication::errorString() const

@@ -12,7 +12,7 @@ namespace AppForge
 class PluginManager;
 }
 
-// Shows a plugin of a PluginManager, with a button to load it.
+// Shows a plugin of a PluginManager, with a button to load it and another to unload it.
 class PluginViewer : public QWidget
 {
     Q_OBJECT
@@ -24,14 +24,20 @@ class PluginViewer : public QWidget
     void setPluginId(const QString& pluginId);
     // Reads the plugin shown again, e.g. once loaded.
     void refresh();
+    // Whether a loaded plugin can be unloaded now: it can until told otherwise. Its Unload button tells why not, in
+    // its tooltip.
+    void setUnloadAllowed(bool allowed);
 
   signals:
     // The Load button was clicked: PluginViewer does not load the plugin itself.
     void loadRequested(const QString& pluginId);
+    // The Unload button was clicked: PluginViewer does not unload the plugin itself.
+    void unloadRequested(const QString& pluginId);
 
   private:
     const AppForge::PluginManager& m_plugins;
     QString m_pluginId;
+    bool m_unloadAllowed = true;
 
     QStackedWidget* m_stack = nullptr;
     QWidget* m_placeholder = nullptr; // Shown when there is no plugin
@@ -45,4 +51,5 @@ class PluginViewer : public QWidget
     QLabel* m_state = nullptr;
     QLabel* m_file = nullptr;
     QPushButton* m_loadButton = nullptr;
+    QPushButton* m_unloadButton = nullptr;
 };

@@ -186,6 +186,25 @@ void EditionScene::reset()
     m_application.clear();
 }
 
+void EditionScene::remove(const QList<AppForge::Component*>& components)
+{
+    // Found before any goes: its interfaces and their links, which are items too, go with it.
+    QList<ComponentItem*> removed;
+    const QList<QGraphicsItem*> shown = items();
+    for(QGraphicsItem* item : shown)
+    {
+        auto* componentItem = qobject_cast<ComponentItem*>(item->toGraphicsObject());
+        if(componentItem != nullptr && components.contains(&componentItem->component()))
+        {
+            removed.append(componentItem);
+        }
+    }
+    for(ComponentItem* item : std::as_const(removed))
+    {
+        remove(*item);
+    }
+}
+
 void EditionScene::dragEnterEvent(QGraphicsSceneDragDropEvent* event)
 {
     acceptComponent(*event);

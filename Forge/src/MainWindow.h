@@ -44,6 +44,9 @@ class MainWindow : public QMainWindow
   private:
     // Loads pluginId and shows its components; tells why when it cannot be loaded.
     void load(const QString& pluginId);
+    // Unloads pluginId and no longer shows its components. Those of the application that are its own are removed
+    // with it, once that is confirmed: nothing is done otherwise. Tells why when it cannot be unloaded.
+    void unload(const QString& pluginId);
     // Asks for a plugin file, then selects and loads it.
     void openPlugin();
 

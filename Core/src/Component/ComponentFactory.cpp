@@ -69,6 +69,11 @@ void ComponentFactory::add(const QString& pluginId, Plugin& plugin)
     }
 }
 
+void ComponentFactory::remove(const QString& pluginId)
+{
+    std::erase_if(m_types, [&pluginId](const auto& type) { return type.second.info.pluginId == pluginId; });
+}
+
 QList<ComponentInfo> ComponentFactory::components() const
 {
     QList<ComponentInfo> components;
