@@ -1,0 +1,109 @@
+# Builds AppForge in Release and publishes the GitHub release of a version tag, the three numbers of the version alone
+# (0.2.0): its package as a zip, with the notes of docs/release-notes/<tag>.md. On a pull request that changes this
+# file, nothing is published: the zip is an artifact of the run.
+name: Release
+
+on:
+  push:
+    tags: [ "[0-9]+.[0-9]+.[0-9]+" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ ".github/workflows/release.yml" ]
+  # Builds and publishes an existing tag again, with this file as it is on the branch the run is started from:
+  # the way out when the file of the tag itself is the one that failed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish, e.g. 0.2.0"
+        required: true
+
+env:
+  BUILD_TYPE: Release
+  QT_VERSION: "6.8.*"
+  # What the binaries of the zip are built with: part of its name.
+  PLATFORM: win64-msvc2022-qt6.8
+  # Empty on a pull request.
+  TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        # Empty unless the run was started by hand: the commit of the event.
+        ref: ${{ inputs.tag }}
+        submodules: recursive
+
+    - name: Setup MSVC developer environment
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install Qt6
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: windows
+        target: desktop
+        arch: win64_msvc2022_64
+        cache: true
+
+    - name: Configure CMake
+      run: cmake -S . -B ${{ github.workspace }}/build
+
+    - name: Read the version of the project
+      shell: pwsh
+      run: |
+        $match = Select-String -Path build/CMakeCache.txt -Pattern '^CMAKE_PROJECT_VERSION:STATIC=(.+)$'
+        $version = $match.Matches[0].Groups[1].Value
+        # A tag that is not the version would publish binaries and a package that tell another one.
+        if ($env:TAG -and $version -ne $env:TAG) {
+          Write-Error "The tag $env:TAG is not the version of the project: project(AppForge VERSION $version)"
+          exit 1
+        }
+        "PACKAGE=AppForge-$version-$env:PLATFORM" >> $env:GITHUB_ENV
+
+    - name: Build
+      run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+
+    - name: Install the package
+      shell: pwsh
+      run: |
+        $prefix = "${{ github.workspace }}/dist/$env:PACKAGE"
+        cmake --install build --config $env:BUILD_TYPE --prefix $prefix
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        # Not installed by the build: the licenses the files of the package are under, and how to use them.
+        Copy-Item LICENSE, README.md -Destination $prefix
+        Copy-Item CMakeUtils/LICENSE -Destination "$prefix/Core/cmake/CMakeUtils"
+
+    - name: Zip the package
+      working-directory: dist
+      run: cmake -E tar cf "${{ env.PACKAGE }}.zip" --format=zip "${{ env.PACKAGE }}"
+
+    - name: Upload the package (pull request)
+      if: env.TAG == ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PACKAGE }}
+        path: dist/${{ env.PACKAGE }}.zip
+
+    - name: Publish the release
+      if: env.TAG != ''
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $zip = "dist/$($env:PACKAGE).zip"
+        gh release view $env:TAG *> $null
+        if ($LASTEXITCODE -eq 0) {
+          # Published already, by hand or by an earlier run: only its package is replaced.
+          gh release upload $env:TAG $zip --clobber
+        } else {
+          $notes = "docs/release-notes/$($env:TAG).md"
+          if (Test-Path $notes) { $notesArguments = '--notes-file', $notes } else { $notesArguments = '--generate-notes' }
+          gh release create $env:TAG $zip --verify-tag --title "AppForge $env:TAG" @notesArguments
+        }

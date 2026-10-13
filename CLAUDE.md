@@ -16,6 +16,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
 | `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
+| `docs/release-notes/` | — | Notes de chaque version, `<x.y.z>.md` : le texte de sa release GitHub |
 | `CFmake/` | non suivi, dépôt à part | Ne fait pas partie du build : ne pas y toucher |
 
 ## Build
@@ -30,7 +31,9 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - Sorties : `<build>/bin[/<config>]`, plugins dans `plugins/` à côté. Extension `.afdl`, seule scannée.
 - `add_dependencies(Forge ExamplePlugin ExternalPlugin)`, de même pour `ExampleForgeApp` : construire l'un reconstruit
   les plugins du dépôt.
-- Pas de cible de test. CI : Windows, MSVC 2022, Qt 6.8, Release.
+- Pas de cible de test. CI : Windows, MSVC 2022, Qt 6.8, Release. `release.yml` fait la même compilation sur un tag
+  de version (`0.2.0`) et publie la release (voir Process) ; sur une PR qui le modifie, il s'exécute sans rien publier et dépose le zip
+  en artefact.
 - C++ récent requis (concepts, `std::ranges`, initialiseurs désignés, `std::type_identity_t`).
 - Paquet : CMakeUtils installe chaque target dans `<préfixe>/<target>/` (mode `TARGET`) et copie le résultat dans
   `<build>/package` après chaque build. `cmu_add_cmake_files(TARGET Core …)` y livre `AppForgePlugin.cmake`,
@@ -212,3 +215,14 @@ Il ne fusionne jamais sans qu'on le lui demande.
 
 Quand une demande sort du cycle, Claude le dit avant de continuer et propose d'y revenir : un changement demandé sans
 issue, un commit ou un push sur `main`, une fusion sans PR, ou une demande sans rapport avec la branche en cours.
+
+**Livraison d'une version** : le même cycle, puis un tag.
+
+1. Une PR passe `project(AppForge VERSION x.y.z)` et les `find_package(AppForge x.y …)` du README à la nouvelle
+   version, et ajoute `docs/release-notes/<x.y.z>.md`, en anglais puis en français.
+2. Une fois la PR fusionnée, le tag `<x.y.z>`, les trois nombres de la version sans préfixe `v`, est posé sur ce
+   commit de `main` et poussé, à la demande de l'utilisateur. `release.yml` compile alors en Release, refuse un tag
+   qui n'est pas la version du projet, installe le paquet, y ajoute les licences et le README, et publie la release
+   GitHub avec le zip et ces notes.
+3. Un tag ne se déplace pas. Si c'est le workflow du tag qui est en cause, il se corrige par une PR puis se relance à
+   la main depuis `main` (`workflow_dispatch`, entrée `tag`), qui compile le commit du tag avec le fichier corrigé.
