@@ -1,7 +1,12 @@
 # Conventions de codage
 
-Ce que suit le code d'AppForge, à trois règles de nommage près, signalées plus bas. `.clang-format` et `.clang-tidy`,
-à la racine, en appliquent une partie ; le reste tient à la relecture. Une règle qui ne convient plus se change ici d'abord, puis dans le code.
+Ce que suit le code d'AppForge aujourd'hui. `.clang-format` et `.clang-tidy`, à la racine, en appliquent une partie ;
+le reste tient à la relecture. Une règle qui ne convient plus se change ici d'abord, puis dans le code.
+
+La base est celle de Qt, son [Coding Style](https://wiki.qt.io/Qt_Coding_Style) et ses
+[Coding Conventions](https://wiki.qt.io/Coding_Conventions) : du `camelCase`, pas de `snake_case`. Pour l'usage du
+langage, ce sont les [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines). Ce document
+dit ce qu'AppForge en retient et ce qu'il précise ; ce qu'il ne dit pas se décide d'après eux.
 
 ## Mise en forme
 
@@ -43,22 +48,13 @@ que ce dont il a besoin entier.
 | Classe, structure, énumération | `PascalCase` | `ComponentFactory`, `InterfaceInfo` |
 | Interface | `I` + `PascalCase` | `IComponent`, `IGreeter` |
 | Fonction, méthode | `camelCase` | `bindInterface()`, `refreshInterfaces()` |
-| Variable locale | `camelCase` | `componentId`, `provider` |
-| Paramètre de fonction | `p` + `PascalCase` | `pComponentId`, `pProvider` |
-| Variable membre | `m` + `PascalCase` | `mComponent`, `mLinkSource` |
-| Constante | `MAJUSCULES`, mots séparés par `_` | `GRID_STEP`, `PROJECT_VERSION` |
-| Valeur d'énumération | `PascalCase` | `ComponentState::Ready` |
+| Variable, paramètre | `camelCase` | `componentId`, `provider` |
+| Membre | `m_` + `camelCase` | `m_component`, `m_linkSource` |
+| Constante, valeur d'énumération | `PascalCase` | `GridStep`, `ComponentState::Ready` |
 | Catégorie de journalisation | `lc` + `PascalCase` | `lcComponents` |
 | Espace de noms | `PascalCase` | `AppForge`, `AppForge::Generated` |
 | Macro | `APPFORGE_` + `MAJUSCULES` | `APPFORGE_REGISTER_COMPONENT` |
 | Fonction CMake | `snake_case` préfixée | `appforge_add_plugin()` |
-
-Le préfixe dit d'où vient un nom : `m` pour un membre de la classe, `p` pour un paramètre de la fonction, rien pour
-une variable déclarée dans le bloc.
-
-> Les formes des variables membres, des paramètres et des constantes ont été décidées avec ce document. Le code
-> existant ne les suit pas encore : il écrit `m_component`, des paramètres sans préfixe et des constantes en
-> `PascalCase`. Tant qu'il n'est pas renommé, un fichier garde la forme qu'il a déjà plutôt que d'en mélanger deux.
 
 - Un accesseur porte le nom de ce qu'il renvoie, sans `get` : `color()`, `setColor()`. Un booléen se lit comme une
   question : `isRunning()`, `canLinkTo()`.
@@ -73,7 +69,7 @@ une variable déclarée dans le bloc.
 - `[[nodiscard]]` sur les accesseurs et sur toute fonction dont ignorer le résultat est une erreur.
 - `const` partout où c'est possible : variables locales, méthodes, paramètres passés par référence.
 - `constexpr` pour les constantes, plutôt que `#define` ou `const` ; pas de nombre sans nom dans le code quand il a
-  un sens : `constexpr qreal PADDING = 8;`.
+  un sens : `constexpr qreal Padding = 8;`.
 - Une macro seulement là où le langage n'offre rien d'autre, comme l'enregistrement d'un composant dans son plugin.
 - `enum class`, avec son type quand il est petit : `enum class Kind : std::uint8_t`.
 - `auto` quand le type est écrit à droite ou sans intérêt : `auto* layout = new QVBoxLayout(this);`,
