@@ -39,7 +39,7 @@ It enables developers to construct software systems by combining reusable buildi
 
 ## 🔌 Writing a Plugin
 
-A plugin is declared with `appforge_add_plugin`, available once `Core` is added. CMake generates its root object and its metadata; the plugin only declares its class, which builds its components (see below).
+A plugin is declared with `appforge_add_plugin`, available once `Core` is added, or found in an installed AppForge (see [Building a plugin outside AppForge](#building-a-plugin-outside-appforge)). CMake generates its root object and its metadata; the plugin only declares its class, which builds its components (see below).
 
 ```cmake
 appforge_add_plugin(
@@ -75,6 +75,27 @@ qInfo() << plugins.plugin(QStringLiteral("FabienDG.AppForge.Network"))->buildDat
 `scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. `addFile(filePath)` adds a single plugin, anywhere on the disk, with the same checks; it tells why a file cannot be added through `errorString()`. Loading a plugin registers its components. `unload(pluginId)` forgets them and destroys its plugin class: none of its components may still be instantiated then, which `ForgeApplication::unloadPlugin()` sees to. A `PluginManager` unloads the plugins it loaded when it is destroyed: it has to outlive their components, as the one of a `ForgeApplication` does. An unloaded plugin can be loaded again, but its library stays in memory until the application exits: its file cannot be replaced meanwhile, and loading it again does not read the file again.
 
 The [exemple](exemple/) folder holds `ExamplePlugin`, a plugin providing the `Greeter` component, and `ExampleApp`, which loads the plugins next to it, lists their components and runs a `Greeter`, whose interface it follows: run it from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+
+### Building a plugin outside AppForge
+
+An installed AppForge comes with `appforge_add_plugin`, its templates and the CMakeUtils it relies on: a project of its own only has to find the package.
+
+```cmake
+cmake_minimum_required(VERSION 3.19)
+project(Acme VERSION 1.0.0 LANGUAGES CXX)
+
+set(cmu_organization "AcmeCorp")   # first part of the plugin ids: AcmeCorp.Acme.Network
+
+find_package(AppForge 0.1 REQUIRED COMPONENTS Core)
+
+add_subdirectory(Network)          # appforge_add_plugin(NAME Network), its sources in Network/src
+```
+
+Point `CMAKE_PREFIX_PATH` at the package: `<build>/package`, staged after each build of AppForge, or the prefix `cmake --install` wrote it to. `find_package` defines `AppForge::Core` and `appforge_add_plugin`, and includes CMakeUtils unless the project already did: call it after `project()`, in the root `CMakeLists.txt`, with the `cmu_*` variables set before it. Qt is found as in any project, through `CMAKE_PREFIX_PATH` or the `QTDIR` environment variable.
+
+The plugin is written to `<build>/bin/plugins` (`<build>/bin/<config>/plugins` with Visual Studio): copy it to `plugins/` next to an application, or open it from Forge with **Open plugin...**. Its `coreVersion` is the version of the installed `Core`, whatever the version of its project. Build it in a configuration AppForge was installed in: Qt does not load a `Debug` plugin into a `Release` application, nor the other way round.
+
+Installed with `-Dcmu_install_mode=PACKAGE`, AppForge is a single prefix whose package has no components: `find_package(AppForge 0.1 REQUIRED)`.
 
 ---
 

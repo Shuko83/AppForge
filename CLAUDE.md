@@ -9,7 +9,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | Dossier | Cible | Rôle |
 | --- | --- | --- |
 | `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin}/`, sources dans `src/` |
-| `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in` |
+| `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; tout est dans `Forge/src/`, sans namespace |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
 | `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`) et `Window` (consomme `content` : `QWidget`) |
@@ -32,6 +32,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   les plugins du dépôt.
 - Pas de cible de test. CI : Windows, MSVC 2022, Qt 6.8, Release.
 - C++ récent requis (concepts, `std::ranges`, initialiseurs désignés, `std::type_identity_t`).
+- Paquet : CMakeUtils installe chaque target dans `<préfixe>/<target>/` (mode `TARGET`) et copie le résultat dans
+  `<build>/package` après chaque build. `cmu_add_cmake_files(TARGET Core …)` y livre `AppForgePlugin.cmake`,
+  `Template/` et CMakeUtils dans `Core/cmake/`, que `CoreConfig.cmake` inclut : un projet tiers n'a besoin que de
+  `find_package(AppForge COMPONENTS Core)` pour appeler `appforge_add_plugin()`.
 
 ## Core
 
@@ -140,7 +144,8 @@ Les chaînes affichées passent par `tr()`, en anglais.
 - Pas d'annulation : un composant supprimé l'est sans confirmation, avec ses propriétés et ses liens.
 - Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
   chemin d'erreur de `start()` n'a pas été exercé.
-- Pas de tests automatisés.
+- Pas de tests automatisés. Le paquet non plus n'est vérifié par rien : ni projet tiers d'exemple dans le dépôt, ni
+  étape de CI qui en compile un.
 
 ## Pièges
 
@@ -152,6 +157,10 @@ Les chaînes affichées passent par `tr()`, en anglais.
 - Un `QGraphicsTextItem` qui a le focus fait défiler la vue pour montrer son curseur, et la vue rejoue alors le dernier
   événement souris comme un déplacement : un item encore tenu par le double-clic qui a lancé l'édition suivrait le
   défilement. `ComponentItem::mouseMoveEvent` ignore donc les déplacements tant que son nom est édité.
+- `AppForgePlugin.cmake` s'exécute aussi chez un projet tiers, inclus par `find_package` depuis le paquet :
+  `PROJECT_NAME` et `PROJECT_VERSION` y sont ceux de ce projet, `CMAKE_CURRENT_LIST_DIR` le dossier installé. La
+  version de Core (`coreVersion`) y vient donc de `AppForge_VERSION`, et rien ne doit y lire l'arbre de sources. Un
+  changement de ce fichier se vérifie avec un projet jetable qui fait `find_package` sur `<build>/package`.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
 - Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
