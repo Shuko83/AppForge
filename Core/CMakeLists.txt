@@ -12,3 +12,10 @@ cmu_add_shared_library(
 
 # appforge_add_plugin(): plugins built against this Core.
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/AppForgePlugin.cmake)
+# And against the installed one: find_package(AppForge COMPONENTS Core) includes it, after the CMakeUtils it calls.
+cmu_add_cmake_files(
+    TARGET Core
+    INCLUDE cmake/AppForgePlugin.cmake
+    DIRECTORIES cmake/Template
+    CMAKEUTILS
+)

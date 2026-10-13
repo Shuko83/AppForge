@@ -5,8 +5,12 @@ include_guard(GLOBAL)
 
 # appforge_add_plugin runs in its caller's directory: what it needs from here is kept in global properties.
 set_property(GLOBAL PROPERTY APPFORGE_PLUGIN_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
-# Version of Core the plugins are built against: same rule as cmu_add_target for CoreInfo::version.
-if(PROJECT_VERSION)
+# Version of Core the plugins are built against. Installed, this file is included by find_package(AppForge), which
+# sets the version of the package: PROJECT_VERSION is then the one of the project that builds the plugins.
+if(CMAKE_FIND_PACKAGE_NAME STREQUAL "AppForge" AND AppForge_VERSION)
+    set_property(GLOBAL PROPERTY APPFORGE_CORE_VERSION "${AppForge_VERSION}")
+# In the source tree: same rule as cmu_add_target for CoreInfo::version.
+elseif(PROJECT_VERSION)
     set_property(GLOBAL PROPERTY APPFORGE_CORE_VERSION "${PROJECT_VERSION}")
 else()
     set_property(GLOBAL PROPERTY APPFORGE_CORE_VERSION "0.0.0")
