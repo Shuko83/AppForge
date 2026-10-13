@@ -73,6 +73,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
   (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`. `rename(instance, nom)` renomme en
   gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
+  `remove(instance)` l'arrête puis la détruit ; ses liens tombent à sa destruction (`releaseInterfaces()` pour ce
+  qu'elle consomme, signal `destroyed` pour ceux qui consomment ce qu'elle fournit).
 - Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
   qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
   `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
@@ -95,7 +97,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `openPlugin()` ; rafraîchit les modèles après un chargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec bouton **Load** (signal `loadRequested`) |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur), `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
 | `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
@@ -123,8 +125,9 @@ Les chaînes affichées passent par `tr()`, en anglais.
 
 ## Pas encore fait
 
-- Pas de suppression d'instance ni de lien dans Forge (`unbindInterface` n'y est pas utilisé) ; seules les zones se
-  suppriment.
+- Pas de suppression d'un lien seul dans Forge (`unbindInterface` n'y est pas utilisé) : un lien ne part qu'avec
+  l'un de ses composants, ou remplacé par un autre.
+- Pas d'annulation : un composant supprimé l'est sans confirmation, avec ses propriétés et ses liens.
 - Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
   chemin d'erreur de `start()` n'a pas été exercé.
 - Pas de tests automatisés.

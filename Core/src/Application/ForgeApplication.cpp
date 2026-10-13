@@ -309,6 +309,18 @@ bool ForgeApplication::rename(Component& instance, const QString& name)
     return true;
 }
 
+void ForgeApplication::remove(Component& instance)
+{
+    const auto found = std::ranges::find_if(m_components, [&instance](const std::unique_ptr<Component>& owned)
+                                            { return owned.get() == &instance; });
+    if(found == m_components.end())
+    {
+        return;
+    }
+    instance.stop(); // Does nothing to one that does not run
+    m_components.erase(found);
+}
+
 const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
 {
     return m_components;

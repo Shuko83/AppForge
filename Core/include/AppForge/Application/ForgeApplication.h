@@ -58,6 +58,9 @@ class CORE_EXPORT ForgeApplication : public QObject
     // Names instance, one of its components, name: what component() finds it by, and a project holds it as. Returns
     // false, changing nothing, when name is empty or the name of another instance.
     bool rename(Component& instance, const QString& name);
+    // Stops instance, one of its components, and destroys it: nothing may refer to it any longer. What was bound to
+    // its interfaces is unbound from them. Does nothing when it is not one of its components.
+    void remove(Component& instance);
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one named name; nullptr when none is.
