@@ -24,6 +24,8 @@ class ForgeApplication;
 // meanwhile, the interfaces it cannot be bound to are dimmed. Its context menu adds a zone, which groups components,
 // see ZoneItem, and renames, recolors or removes the one under the cursor; it renames and recolors the component under
 // the cursor too, see ComponentItem. A component keeps a name no other one of the application has: see refused().
+// The same menu removes the component under the cursor from the application, with its links, and the Delete key
+// removes the selected ones.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -57,6 +59,8 @@ class EditionScene : public QGraphicsScene
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
+    // Delete removes the selected components, unless a name is edited: the key is for what is typed then.
+    void keyPressEvent(QKeyEvent* event) override;
     // A grid, and a hint while nothing is in the edition zone.
     void drawBackground(QPainter* painter, const QRectF& rect) override;
 
@@ -73,6 +77,8 @@ class EditionScene : public QGraphicsScene
     [[nodiscard]] ComponentItem* componentAt(const QPointF& position) const;
     // Names component name, as typed in place of its name; tells why through refused() when it cannot be.
     void rename(AppForge::Component& component, const QString& name);
+    // Removes item, with the links of its interfaces, and its component from the application.
+    void remove(ComponentItem& item);
     // Empties the edition zone, while the components it shows still exist.
     void removeItems();
     // Binds the consumed one to the provided one, whichever is which, and draws their link, in place of the one the

@@ -7,6 +7,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QHash>
 #include <QJsonArray>
+#include <QKeyEvent>
 #include <QList>
 #include <QMenu>
 #include <QMimeData>
@@ -207,6 +208,10 @@ void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
     ComponentItem* item = showComponent(*component, event->scenePos());
     clearSelection();
     item->setSelected(true);
+    if(event->widget() != nullptr)
+    {
+        event->widget()->setFocus(); // The view: the keys are for what was just dropped, as Delete is
+    }
     event->setDropAction(Qt::CopyAction);
     event->accept();
 }
@@ -282,12 +287,14 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* renameComponent = nullptr;
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
+    const QAction* removeComponent = nullptr;
     if(component != nullptr)
     {
         renameComponent = menu.addAction(tr("Rename component"));
         recolorComponent = menu.addAction(tr("Change component color..."));
         uncolorComponent = menu.addAction(tr("Reset component color"));
         uncolorComponent->setEnabled(component->color().isValid());
+        removeComponent = menu.addAction(tr("Remove component"));
         menu.addSeparator();
     }
     const QAction* add = menu.addAction(tr("Add zone"));
@@ -327,6 +334,10 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         component->setColor({});
     }
+    else if(chosen == removeComponent)
+    {
+        remove(*component);
+    }
     else if(chosen == add)
     {
         addZone(event->scenePos(), ZoneSize, tr("Zone"))->editTitle(); // Named at once
@@ -348,6 +359,32 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
         delete zone; // Not what is in it
         update(HintRect);
     }
+}
+
+void EditionScene::keyPressEvent(QKeyEvent* event)
+{
+    // Not while a link is drawn or an item is dragged either: what is dragged would be removed from under the cursor.
+    if(event->key() != Qt::Key_Delete || focusItem() != nullptr || m_linkSource != nullptr ||
+       mouseGrabberItem() != nullptr)
+    {
+        QGraphicsScene::keyPressEvent(event);
+        return;
+    }
+    QList<ComponentItem*> removed;
+    const QList<QGraphicsItem*> selected = selectedItems();
+    for(QGraphicsItem* item : selected)
+    {
+        if(auto* component = qobject_cast<ComponentItem*>(item->toGraphicsObject()))
+        {
+            removed.append(component);
+        }
+    }
+    clearSelection(); // Told once, rather than as each of them goes
+    for(ComponentItem* component : std::as_const(removed))
+    {
+        remove(*component);
+    }
+    event->accept();
 }
 
 InterfaceItem* EditionScene::interfaceAt(const QPointF& position) const
@@ -412,6 +449,15 @@ void EditionScene::rename(AppForge::Component& component, const QString& name)
     {
         emit refused(tr("%1 is not renamed: another component is named %2").arg(component.objectName(), name));
     }
+}
+
+void EditionScene::remove(ComponentItem& item)
+{
+    AppForge::Component& component = item.component();
+    item.setSelected(false); // Who listens lets go of the component before it goes
+    delete &item;            // With its interfaces, and their links
+    m_application.remove(component);
+    update(HintRect); // Shown again once nothing is left
 }
 
 void EditionScene::removeItems()
