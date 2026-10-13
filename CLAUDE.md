@@ -23,8 +23,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - `cmu_add_*` trouve les sources par `GLOB_RECURSE CONFIGURE_DEPENDS` dans `src/` et `include/` : aucun fichier à
   lister dans les `CMakeLists.txt`. Il génère `<NAME>_export.h` (`CORE_EXPORT`) et `<NAME>_info.h`
   (`CoreInfo::version`, `<Nom>Info::buildDate`).
-- `cmu_organization` vaut `FabienDG` : les ids réels sont `FabienDG.AppForge.<Plugin>.<Composant>`. Le README écrit
-  encore `Shuko83.…` dans ses exemples ; seul l'IID `Shuko83.AppForge.IPlugin/2.0` porte ce nom dans le code.
+- `cmu_organization` vaut `FabienDG`, défini avant l'inclusion de CMakeUtils, qui en tire son copyright par défaut :
+  les ids sont `FabienDG.AppForge.<Plugin>.<Composant>` et l'IID `FabienDG.AppForge.IPlugin/2.0`. `Shuko83` reste le
+  compte GitHub : adresse du dépôt, du sous-module CMakeUtils, et `organizationDomain` (valeur par défaut de
+  CMakeUtils).
 - Sorties : `<build>/bin[/<config>]`, plugins dans `plugins/` à côté. Extension `.afdl`, seule scannée.
 - `add_dependencies(Forge ExamplePlugin ExternalPlugin)`, de même pour `ExampleForgeApp` : construire l'un reconstruit
   les plugins du dépôt.

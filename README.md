@@ -52,7 +52,7 @@ It accepts every keyword of `cmu_add_target` ([CMakeUtils](CMakeUtils/README.md)
 
 | Key           | Value                                                                        |
 | ------------- | ---------------------------------------------------------------------------- |
-| `id`          | `<cmu_organization>.<PROJECT_NAME>.<NAME>`, e.g. `Shuko83.AppForge.Network`  |
+| `id`          | `<cmu_organization>.<PROJECT_NAME>.<NAME>`, e.g. `FabienDG.AppForge.Network` |
 | `name`        | `NAME`                                                                       |
 | `description` | `DESCRIPTION`, empty when not given                                          |
 | `version`     | `VERSION`, else `PROJECT_VERSION`, else `0.0.0`                              |
@@ -68,8 +68,8 @@ for(const AppForge::PluginInfo& info : plugins.scan()) // <application dir>/plug
 {
     qInfo() << info.id << info.version << info.description;
 }
-plugins.load(QStringLiteral("Shuko83.AppForge.Network"));
-qInfo() << plugins.plugin(QStringLiteral("Shuko83.AppForge.Network"))->buildDate;
+plugins.load(QStringLiteral("FabienDG.AppForge.Network"));
+qInfo() << plugins.plugin(QStringLiteral("FabienDG.AppForge.Network"))->buildDate;
 ```
 
 `scan()` skips, with a warning, the files that are not AppForge plugins, the plugins built against another major version of `Core` or a newer one, and the ids already found. `addFile(filePath)` adds a single plugin, anywhere on the disk, with the same checks; it tells why a file cannot be added through `errorString()`. Loading a plugin registers its components. `unload(pluginId)` forgets them and destroys its plugin class: none of its components may still be instantiated then, which `ForgeApplication::unloadPlugin()` sees to. A `PluginManager` unloads the plugins it loaded when it is destroyed: it has to outlive their components, as the one of a `ForgeApplication` does. An unloaded plugin can be loaded again, but its library stays in memory until the application exits: its file cannot be replaced meanwhile, and loading it again does not read the file again.
@@ -118,7 +118,7 @@ The plugin class is created when its plugin is loaded, after its components are 
 
 | Info          | Value                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
-| `id`          | `<plugin id>.<name>`, e.g. `Shuko83.AppForge.ExamplePlugin.Greeter`      |
+| `id`          | `<plugin id>.<name>`, e.g. `FabienDG.AppForge.ExamplePlugin.Greeter`     |
 | `name`        | Class name, without its namespace                                        |
 | `description` | `Q_CLASSINFO("description", ...)`, empty when not given                  |
 | `category`    | `Q_CLASSINFO("category", ...)`, empty when not given                     |
@@ -128,7 +128,7 @@ The factory is the only way to instantiate a component, which it has its plugin 
 
 ```cpp
 std::unique_ptr<AppForge::Component> greeter =
-    AppForge::ComponentFactory::instance().create(QStringLiteral("Shuko83.AppForge.ExamplePlugin.Greeter"));
+    AppForge::ComponentFactory::instance().create(QStringLiteral("FabienDG.AppForge.ExamplePlugin.Greeter"));
 greeter->setProperty("recipient", QStringLiteral("AppForge")); // Initializing: being configured
 greeter->initialize();                                          // Ready
 greeter->start();                                               // Running

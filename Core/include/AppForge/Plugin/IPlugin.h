@@ -24,6 +24,6 @@ class IPlugin
 } // namespace AppForge
 
 // Versioned: PluginManager skips a plugin built against another version of IPlugin.
-#define APPFORGE_PLUGIN_IID "Shuko83.AppForge.IPlugin/2.0"
+#define APPFORGE_PLUGIN_IID "FabienDG.AppForge.IPlugin/2.0"
 
 Q_DECLARE_INTERFACE(AppForge::IPlugin, APPFORGE_PLUGIN_IID)
