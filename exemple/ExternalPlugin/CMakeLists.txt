@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 # A plugin outside <application directory>/plugins: not found when an application starts, Forge opens it with
 # "Open plugin...". Its class (APPFORGE_PLUGIN) and its components are in src/.
 # Empty: not installed in plugins/ next to the applications either.

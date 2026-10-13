@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 cmake_minimum_required(VERSION 3.19)
 
 project(AppForge VERSION 0.1.0)

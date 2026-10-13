@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fabien Di Grande
+// SPDX-License-Identifier: MPL-2.0
+
 #include "EditionScene.h"
 
 #include <QColorDialog>

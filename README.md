@@ -317,3 +317,20 @@ The [exemple](exemple/) folder holds `ExampleForgeApp`, which runs the project g
 ## 🤝 Contributing
 
 The coding conventions the code follows, from formatting and naming to commits and pull requests, are described in [CONVENTIONS.md](CONVENTIONS.md) (in French).
+
+---
+
+## 📄 License
+
+AppForge is licensed under the [Mozilla Public License 2.0](LICENSE). Copyright (C) 2026 Fabien Di Grande.
+
+- Anyone may use, modify and distribute AppForge, in a product of any kind, commercial or not.
+- A plugin or an application built on AppForge keeps the license its author chooses, open or closed.
+- A file of AppForge stays under the MPL, modified or not: whoever distributes AppForge, as source or as binaries, says where the source of these files is found, with the changes made to them.
+- The header `appforge_add_plugin()` generates for a plugin comes from a file of AppForge and stays under the MPL too; the sources of the plugin do not.
+
+This summary does not replace the [license](LICENSE). Each source file carries a two-line notice (copyright and `SPDX-License-Identifier: MPL-2.0`); for the files that cannot, such as `plugin.json.in`, the notice is this one:
+
+> This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+The license covers the files of this repository: Qt and the `CMakeUtils` submodule are separate works, under their own terms.

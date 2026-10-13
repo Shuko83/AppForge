@@ -26,7 +26,17 @@ Elle est celle de `.clang-format` : formater un fichier avant de le commiter suf
 - Les en-têtes publics de Core sont dans `Core/include/AppForge/<Module>/` et s'incluent par ce chemin :
   `#include "AppForge/Component/Component.h"`. Ses sources sont dans `Core/src/<Module>/`.
 - Forge et les exemples gardent en-têtes et sources côte à côte dans `src/`.
-- `#pragma once` en tête de chaque en-tête, sans garde `#ifndef`.
+- Chaque source, en-tête, gabarit et fichier CMake commence par l'en-tête de licence, suivi d'une ligne vide, avec
+  `#` à la place de `//` dans un fichier CMake :
+
+  ```cpp
+  // Copyright (C) 2026 Fabien Di Grande
+  // SPDX-License-Identifier: MPL-2.0
+  ```
+
+  L'année est celle de la création du fichier. Un fichier qui ne peut pas porter de commentaire, comme un JSON, s'en
+  passe : [LICENSE](LICENSE) et la section « License » du README le couvrent.
+- `#pragma once` en tête de chaque en-tête, après l'en-tête de licence, sans garde `#ifndef`.
 - Les fichiers ne sont pas listés dans les `CMakeLists.txt` : `cmu_add_*` les trouve dans `src/` et `include/`.
 
 ## Inclusions
@@ -36,7 +46,7 @@ Triées par `.clang-format`, en deux groupes séparés par une ligne vide :
 1. les en-têtes de Qt et de la bibliothèque standard, entre chevrons ;
 2. ceux du projet, entre guillemets.
 
-Une source inclut d'abord son propre en-tête, seul sur la première ligne.
+Une source inclut d'abord son propre en-tête, seul sur la première ligne après l'en-tête de licence.
 
 Un en-tête déclare par avance (`class QLabel;`) ce dont il n'utilise qu'un pointeur ou une référence, et n'inclut
 que ce dont il a besoin entier.

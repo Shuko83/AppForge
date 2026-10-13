@@ -173,6 +173,9 @@ règle change. L'essentiel :
 - `.clang-format` : base LLVM, 4 espaces, 120 colonnes, accolades Allman, `if(` sans espace, `T* p`. `.clang-tidy`
   actif (bugprone, performance, readability, modernize…).
 - Membres `m_camelCase`, `[[nodiscard]]` sur les accesseurs, `#pragma once`, `QStringLiteral` / `u"…"`.
+- Licence MPL-2.0 ([LICENSE](LICENSE)) : tout nouveau fichier source, en-tête, gabarit ou CMake commence par
+  `// Copyright (C) <année> Fabien Di Grande` puis `// SPDX-License-Identifier: MPL-2.0` (`#` en CMake), et une
+  ligne vide.
 - Commentaires en anglais, au-dessus de la déclaration, qui disent le pourquoi ou le contrat.
 - Commits en français, préfixés : `feat(Forge): …`, `fix(Forge): …`, `refactor: …`.
 - Toute nouvelle fonctionnalité visible est décrite dans le README (sections Plugin, Component, Forge).

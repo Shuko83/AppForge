@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 # Its root object and its metadata are generated.
 # Its class (APPFORGE_PLUGIN) and its components, each registered in it with APPFORGE_REGISTER_COMPONENT, are in src/.
 appforge_add_plugin(

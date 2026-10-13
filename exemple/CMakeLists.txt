@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Fabien Di Grande
+# SPDX-License-Identifier: MPL-2.0
+
 # A plugin and an application that lists the plugins next to it.
 add_subdirectory(ExamplePlugin)
 add_subdirectory(ExampleApp)
