@@ -3,12 +3,14 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QIcon>
 
 #include "MainWindow.h"
 
 int main(int argc, char* argv[])
 {
     const QApplication app(argc, argv);
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/forge.png"))); // Of all its windows, and on the taskbar
 
     QCommandLineParser parser;
     parser.addHelpOption();

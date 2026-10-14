@@ -10,7 +10,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | --- | --- | --- |
 | `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin}/`, sources dans `src/` |
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
-| `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; tout est dans `Forge/src/`, sans namespace |
+| `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; le code est dans `Forge/src/`, sans namespace, son logo dans `Forge/resources/` |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
 | `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
@@ -123,6 +123,12 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; suit les signaux NOTIFY et `propertyObjectsChanged` |
 
 Les chaînes affichées passent par `tr()`, en anglais.
+
+**Logo** (`Forge/resources/`) : `forge.svg` est la source ; `forge.png` (256 px) et `forge.ico` (16 à 256 px, entrées
+PNG) en sont rendus et se refont quand il change. `forge.png`, par `forge.qrc` (AUTORCC, nommé dans `SOURCES`), est
+l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de `main.cpp`. `forge.ico`, par `forge.rc`
+(`IDI_ICON1`, ajouté sous Windows seulement, à côté de la ressource de version de CMakeUtils), est celle de
+`Forge.exe`. Pas de Qt Svg : il n'y a que des PNG à lire.
 
 **Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
 - Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
