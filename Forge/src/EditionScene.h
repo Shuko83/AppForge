@@ -26,8 +26,9 @@ class ForgeApplication;
 // instantiated in the application, and shown where it was dropped. Dragging from the dot of an interface to the dot of
 // one it can be bound to, a provided and a consumed one of the same type, binds them and draws a link between them;
 // meanwhile, the interfaces it cannot be bound to are dimmed. Its context menu adds a zone, which groups components,
-// see ZoneItem, and renames, recolors or removes the one under the cursor; it renames and recolors the component under
-// the cursor too, see ComponentItem. A component keeps a name no other one of the application has: see refused().
+// see ZoneItem, unless it is opened on a component, and renames, recolors or removes the one under the cursor; it
+// renames and recolors the component under the cursor too, see ComponentItem. A component keeps a name no other one of
+// the application has: see refused().
 // The same menu removes the component under the cursor from the application, with its links, and the Delete key
 // removes the selected ones.
 class EditionScene : public QGraphicsScene
