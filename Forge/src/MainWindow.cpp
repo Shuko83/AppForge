@@ -5,19 +5,24 @@
 
 #include <QAction>
 #include <QCloseEvent>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsView>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonDocument>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSaveFile>
+#include <QShortcut>
+#include <QSortFilterProxyModel>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTreeView>
@@ -126,12 +131,47 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     pluginListLayout->addWidget(openButton, 0, Qt::AlignLeft);
     pluginListLayout->addWidget(m_pluginView);
 
-    QTreeView* componentView = createView(*m_componentModel);
+    // The components whose name, or description, as chosen next to the search bar, holds what is typed there, whatever
+    // its case. The proxy hands what is dragged over to the model, which makes the data.
+    auto* componentFilter = new QSortFilterProxyModel(this);
+    componentFilter->setSourceModel(m_componentModel);
+    componentFilter->setFilterKeyColumn(ComponentModel::Name);
+    componentFilter->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    auto* search = new QLineEdit;
+    search->setPlaceholderText(tr("Search components"));
+    search->setClearButtonEnabled(true);
+    connect(search, &QLineEdit::textChanged, componentFilter, &QSortFilterProxyModel::setFilterFixedString);
+    // The role the text is looked for in: the description of a component is its tool tip, in every column.
+    auto* searchField = new QComboBox;
+    searchField->addItem(tr("Name"), Qt::DisplayRole);
+    searchField->addItem(tr("Description"), Qt::ToolTipRole);
+    searchField->setToolTip(tr("Where the text is looked for"));
+    connect(searchField, &QComboBox::currentIndexChanged, componentFilter,
+            [componentFilter, searchField] { componentFilter->setFilterRole(searchField->currentData().toInt()); });
+    auto* findShortcut = new QShortcut(QKeySequence::Find, this);
+    connect(findShortcut, &QShortcut::activated, search,
+            [search]
+            {
+                search->setFocus(Qt::ShortcutFocusReason);
+                search->selectAll(); // Even when it already had the focus: what is typed replaces the last search
+            });
+
+    QTreeView* componentView = createView(*componentFilter);
     componentView->setDragEnabled(true);
     componentView->setDragDropMode(QAbstractItemView::DragOnly);
+    // Also when the search hides the selected component: the view selects one of those left, none when none is.
     connect(componentView->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
             [this](const QModelIndex& current)
             { m_componentViewer->setComponentId(current.data(ComponentModel::IdRole).toString()); });
+
+    auto* searchBar = new QHBoxLayout;
+    searchBar->addWidget(search, 1);
+    searchBar->addWidget(searchField);
+    auto* componentList = new QWidget;
+    auto* componentListLayout = new QVBoxLayout(componentList);
+    componentListLayout->setContentsMargins({});
+    componentListLayout->addLayout(searchBar);
+    componentListLayout->addWidget(componentView);
 
     m_scene = new EditionScene(m_application, AppForge::ComponentFactory::instance(), this);
     m_editionView = new QGraphicsView(m_scene);
@@ -158,7 +198,7 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->addWidget(createPanel(tr("Plugins"), pluginList, m_pluginViewer));
     splitter->addWidget(edition);
-    splitter->addWidget(createPanel(tr("Components"), componentView, m_componentViewer));
+    splitter->addWidget(createPanel(tr("Components"), componentList, m_componentViewer));
     splitter->setStretchFactor(1, 1);
     splitter->setSizes({320, 760, 360});
     setCentralWidget(splitter);
