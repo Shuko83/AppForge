@@ -19,10 +19,11 @@ class QGraphicsView;
 class QTreeView;
 
 // Lists the plugins of <application directory>/plugins and the components of the loaded ones, each with a viewer of
-// the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk. Between them, the edition
-// zone, where a component dropped from its list is instantiated, above the editor of the properties of the one
-// selected there. Its File menu saves what is in the edition zone to a project file, and opens it again; its Run menu
-// starts the application assembled there, and stops it.
+// the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk, and the components are
+// searched for by a part of their name or of their description (Ctrl+F). Between them, the edition zone, where a
+// component dropped from its list is instantiated, above the editor of the properties of the one selected there. Its
+// File menu saves what is in the edition zone to a project file, and opens it again; its Run menu starts the
+// application assembled there, and stops it.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
