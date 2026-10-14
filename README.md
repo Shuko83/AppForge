@@ -242,6 +242,8 @@ For now, it lists:
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 
+Its logo, a component forged on an anvil, is the icon of its windows and of their buttons on the taskbar, and, on Windows, the one of `Forge.exe` in the file explorer and where it is pinned. It is drawn in `Forge/resources/forge.svg`.
+
 ---
 
 ## 📁 Project File
