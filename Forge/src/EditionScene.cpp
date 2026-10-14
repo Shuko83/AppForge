@@ -310,6 +310,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
     const QAction* removeComponent = nullptr;
+    const QAction* add = nullptr;
     if(component != nullptr)
     {
         renameComponent = menu.addAction(tr("Rename component"));
@@ -317,9 +318,12 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
         uncolorComponent = menu.addAction(tr("Reset component color"));
         uncolorComponent->setEnabled(component->color().isValid());
         removeComponent = menu.addAction(tr("Remove component"));
-        menu.addSeparator();
     }
-    const QAction* add = menu.addAction(tr("Add zone"));
+    else
+    {
+        // Not on a component: right-clicking it is about it, and about the zone it is in.
+        add = menu.addAction(tr("Add zone"));
+    }
     const QAction* renameZone = nullptr;
     const QAction* recolorZone = nullptr;
     const QAction* removeZone = nullptr;
