@@ -5,8 +5,10 @@ cmake_minimum_required(VERSION 3.19)
 
 project(AppForge VERSION 0.2.0)
 
-# Before CMakeUtils is included: it builds its default copyright from the organization.
+# Before CMakeUtils is included, which writes them in the info files of each target. The copyright is the one of the
+# license, not the one CMakeUtils would build from the organization.
 set(cmu_organization "FabienDG")
+set(cmu_copyright "Copyright (C) 2026 Fabien Di Grande")
 
 include(${CMAKE_CURRENT_LIST_DIR}/CMakeUtils/CMakeUtils.cmake)
 

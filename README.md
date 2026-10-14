@@ -223,7 +223,11 @@ Forge then edits the properties the object declares with `Q_PROPERTY`, base clas
 
 ## 🔨 Forge
 
-`Forge` is the application that assembles applications from the components of the plugins, live. For now, it lists:
+`Forge` is the application that assembles applications from the components of the plugins, live.
+
+It starts with a splash screen, in the colors of the system: the version of AppForge, the Qt and the compiler Forge was built with and when, its copyright and its license. Its main window takes its place after two seconds, or as soon as it is clicked.
+
+For now, it lists:
 
 - the plugins of `plugins/` next to it, with a viewer of the selected one: its metadata, its state, a **Load** button and an **Unload** one; **Open plugin...** loads a plugin from anywhere on the disk. Unloading a plugin takes its components off the list of components. When instances of them are in the edition zone, Forge names them and asks first: they are removed with the plugin, with their links, or nothing is done. A plugin is not unloaded while the application runs: **Unload** is disabled until it is stopped. An unloaded plugin is loaded again with **Load**, or by opening a project that needs it; its file stays in use until Forge is closed, so a plugin built again is only read by the next Forge;
 - the components of the loaded plugins, with a viewer of the selected one: what it is and its properties;
@@ -242,7 +246,7 @@ It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next t
 
 ## 📁 Project File
 
-Forge saves what is in its edition zone to a `.afp` (AppForge Project) file, and opens it again, from its **File** menu: **New**, **Open...**, **Save** and **Save As...**. Unless another directory is chosen, the projects are saved to, and looked for in, `scene/` next to Forge, created the first time one is saved: `<build>/bin/scene` (`<build>/bin/<config>/scene` with Visual Studio). A project that has a file is saved and looked for next to it instead. A project file given on its command line is opened at once: `Forge my.afp`. Before the application is replaced, or Forge closed, it asks whether to save it when it changed since it was saved or opened.
+Forge saves what is in its edition zone to a `.afp` (AppForge Project) file, and opens it again, from its **File** menu: **New**, **Open...**, **Save** and **Save As...**. Unless another directory is chosen, the projects are saved to, and looked for in, `scene/` next to Forge, created the first time one is saved: `<build>/bin/scene` (`<build>/bin/<config>/scene` with Visual Studio). A project that has a file is saved and looked for next to it instead. A project file given on its command line is opened as soon as its main window shows: `Forge my.afp`. Before the application is replaced, or Forge closed, it asks whether to save it when it changed since it was saved or opened.
 
 A project file is a JSON object:
 

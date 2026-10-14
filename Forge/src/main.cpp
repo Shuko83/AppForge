@@ -5,6 +5,7 @@
 #include <QCommandLineParser>
 
 #include "MainWindow.h"
+#include "SplashScreen.h"
 
 int main(int argc, char* argv[])
 {
@@ -23,12 +24,24 @@ int main(int argc, char* argv[])
                                  QStringLiteral("[project]"));
     parser.process(app);
 
+    // Shown while the plugins are scanned, then until it is read.
+    SplashScreen splash;
+    splash.show();
+    // Painted before the scan; a click waits for it to end, when read() can be received.
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
     MainWindow window(parser.value(pluginRoot));
-    window.show();
-    // A project file given on the command line is opened at once.
-    if(const QStringList projects = parser.positionalArguments(); !projects.isEmpty())
-    {
-        window.openProjectFile(projects.constFirst());
-    }
+    const QStringList projects = parser.positionalArguments();
+    QObject::connect(&splash, &SplashScreen::read, &window,
+                     [&splash, &window, &projects]
+                     {
+                         window.show();
+                         splash.finish(&window);
+                         // A project file given on the command line is opened as soon as the window shows.
+                         if(!projects.isEmpty())
+                         {
+                             window.openProjectFile(projects.constFirst());
+                         }
+                     });
     return QApplication::exec();
 }

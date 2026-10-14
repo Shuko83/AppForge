@@ -24,10 +24,12 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - `cmu_add_*` trouve les sources par `GLOB_RECURSE CONFIGURE_DEPENDS` dans `src/` et `include/` : aucun fichier à
   lister dans les `CMakeLists.txt`. Il génère `<NAME>_export.h` (`CORE_EXPORT`) et `<NAME>_info.h`
   (`CoreInfo::version`, `<Nom>Info::buildDate`).
-- `cmu_organization` vaut `FabienDG`, défini avant l'inclusion de CMakeUtils, qui en tire son copyright par défaut :
-  les ids sont `FabienDG.AppForge.<Plugin>.<Composant>` et l'IID `FabienDG.AppForge.IPlugin/2.0`. `Shuko83` reste le
-  compte GitHub : adresse du dépôt, du sous-module CMakeUtils, et `organizationDomain` (valeur par défaut de
-  CMakeUtils).
+- `cmu_organization` vaut `FabienDG`, défini avant l'inclusion de CMakeUtils : les ids sont
+  `FabienDG.AppForge.<Plugin>.<Composant>` et l'IID `FabienDG.AppForge.IPlugin/2.0`. `cmu_copyright`, défini au même
+  endroit, vaut `Copyright (C) 2026 Fabien Di Grande`, celui de la licence, à la place de celui que CMakeUtils
+  tirerait de l'organisation : il est écrit dans les fichiers d'infos (`<NAME>_info.h`, ressources Windows) et
+  affiché par le splash de Forge. `Shuko83` reste le compte GitHub : adresse du dépôt, du sous-module CMakeUtils, et
+  `organizationDomain` (valeur par défaut de CMakeUtils).
 - Sorties : `<build>/bin[/<config>]`, plugins dans `plugins/` à côté. Extension `.afdl`, seule scannée.
 - `add_dependencies(Forge ExamplePlugin ExternalPlugin)`, de même pour `ExampleForgeApp` : construire l'un reconstruit
   les plugins du dépôt.
@@ -107,10 +109,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 ## Forge
 
-`main.cpp` → `MainWindow` : trois panneaux dans un splitter horizontal.
+`main.cpp` → `SplashScreen`, puis `MainWindow` : trois panneaux dans un splitter horizontal.
 
 | Classe | Rôle |
 | --- | --- |
+| `SplashScreen` | `QSplashScreen` dont l'image est peinte aux couleurs de la palette depuis `Forge_info.h` (produit, version, Qt, compilateur, date de build, copyright) et la licence ; `read()` est émis une fois, deux secondes après son premier affichage ou au premier clic. `main.cpp` le montre (`processEvents()` sans les entrées utilisateur, pour qu'un clic attende la connexion), construit `MainWindow`, puis sur `read()` montre la fenêtre, appelle `finish()` et ouvre le projet passé en argument |
 | `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé |
