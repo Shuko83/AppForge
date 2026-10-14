@@ -27,6 +27,8 @@
 #include <QStatusBar>
 #include <QTreeView>
 #include <QVBoxLayout>
+#include <array>
+#include <cstddef>
 #include <optional>
 
 #include "AppForge/Component/ComponentFactory.h"
@@ -42,6 +44,21 @@ namespace
 
 // How long the status bar tells what the edition zone refused, in milliseconds.
 constexpr int RefusalDuration = 8000;
+
+// What the components can be searched by: a column of ComponentModel, and the role of its data the text is looked
+// for in. The description of a component is its tool tip, in every column.
+struct SearchField
+{
+    const char* name; // Translated in the context of MainWindow
+    int column;
+    int role;
+};
+
+constexpr std::array SearchFields{
+    SearchField{QT_TRANSLATE_NOOP("MainWindow", "Name"), ComponentModel::Name, Qt::DisplayRole},
+    SearchField{QT_TRANSLATE_NOOP("MainWindow", "Description"), ComponentModel::Name, Qt::ToolTipRole},
+    SearchField{QT_TRANSLATE_NOOP("MainWindow", "Category"), ComponentModel::Category, Qt::DisplayRole},
+};
 
 // Where the project files are saved and looked for unless told otherwise: scene/ next to Forge.
 QString defaultProjectDirectory()
@@ -131,23 +148,29 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     pluginListLayout->addWidget(openButton, 0, Qt::AlignLeft);
     pluginListLayout->addWidget(m_pluginView);
 
-    // The components whose name, or description, as chosen next to the search bar, holds what is typed there, whatever
-    // its case. The proxy hands what is dragged over to the model, which makes the data.
+    // The components whose name, description or category, as chosen next to the search bar, holds what is typed there,
+    // whatever its case. The proxy hands what is dragged over to the model, which makes the data.
     auto* componentFilter = new QSortFilterProxyModel(this);
     componentFilter->setSourceModel(m_componentModel);
-    componentFilter->setFilterKeyColumn(ComponentModel::Name);
     componentFilter->setFilterCaseSensitivity(Qt::CaseInsensitive);
     auto* search = new QLineEdit;
     search->setPlaceholderText(tr("Search components"));
     search->setClearButtonEnabled(true);
     connect(search, &QLineEdit::textChanged, componentFilter, &QSortFilterProxyModel::setFilterFixedString);
-    // The role the text is looked for in: the description of a component is its tool tip, in every column.
     auto* searchField = new QComboBox;
-    searchField->addItem(tr("Name"), Qt::DisplayRole);
-    searchField->addItem(tr("Description"), Qt::ToolTipRole);
+    for(const SearchField& field : SearchFields)
+    {
+        searchField->addItem(tr(field.name));
+    }
     searchField->setToolTip(tr("Where the text is looked for"));
-    connect(searchField, &QComboBox::currentIndexChanged, componentFilter,
-            [componentFilter, searchField] { componentFilter->setFilterRole(searchField->currentData().toInt()); });
+    const auto searchBy = [componentFilter](int index)
+    {
+        const SearchField& field = SearchFields.at(static_cast<std::size_t>(index));
+        componentFilter->setFilterKeyColumn(field.column);
+        componentFilter->setFilterRole(field.role);
+    };
+    searchBy(searchField->currentIndex());
+    connect(searchField, &QComboBox::currentIndexChanged, componentFilter, searchBy);
     auto* findShortcut = new QShortcut(QKeySequence::Find, this);
     connect(findShortcut, &QShortcut::activated, search,
             [search]
