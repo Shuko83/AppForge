@@ -25,7 +25,10 @@ Elle est celle de `.clang-format` : formater un fichier avant de le commiter suf
   porte le préfixe `I` : `IComponent.h`.
 - Les en-têtes publics de Core sont dans `Core/include/AppForge/<Module>/` et s'incluent par ce chemin :
   `#include "AppForge/Component/Component.h"`. Ses sources sont dans `Core/src/<Module>/`.
-- Forge et les exemples gardent en-têtes et sources côte à côte dans `src/`.
+- Forge et les exemples gardent en-têtes et sources côte à côte dans `src/`. Les classes d'une même fonctionnalité
+  peuvent y avoir leur sous-dossier, nommé comme un module de Core : `Forge/src/Settings/`. Elles s'incluent alors par
+  ce chemin depuis `src/` : `#include "Settings/SettingsItem.h"` ; une source inclut son propre en-tête par son seul
+  nom.
 - Chaque source, en-tête, gabarit et fichier CMake commence par l'en-tête de licence, suivi d'une ligne vide, avec
   `#` à la place de `//` dans un fichier CMake :
 

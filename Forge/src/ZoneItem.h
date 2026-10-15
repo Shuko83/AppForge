@@ -11,9 +11,9 @@
 class NameEditor;
 
 // A colored zone of the edition zone, under a title: it groups the components placed in it, by what they are for, say.
-// Dragged by its title, it moves with what is in it then: the components whose center is, and the zones that entirely
-// are. Dragging an edge, or a corner, resizes it, and double-clicking its title edits it in place. Only its title and
-// its edges take the mouse: what is between them is reached as if the zone were not there.
+// Dragged by its title, it moves with what is in it then: the components and the settings files whose center is, and
+// the zones that entirely are. Dragging an edge, or a corner, resizes it, and double-clicking its title edits it in
+// place. Only its title and its edges take the mouse: what is between them is reached as if the zone were not there.
 class ZoneItem : public QGraphicsItem
 {
   public:
@@ -53,7 +53,7 @@ class ZoneItem : public QGraphicsItem
     [[nodiscard]] QRectF titleRect() const;
     // The edges dragging from position resizes it by: both of a corner near it, none between its edges.
     [[nodiscard]] Qt::Edges edgesAt(const QPointF& position) const;
-    // What is in it: the components whose center is, and the zones that entirely are.
+    // What is in it: the components and the settings files whose center is, and the zones that entirely are.
     [[nodiscard]] QList<QGraphicsItem*> content() const;
     // Moves the edges being dragged to scenePosition, as far as its minimum size lets them.
     void resize(const QPointF& scenePosition);

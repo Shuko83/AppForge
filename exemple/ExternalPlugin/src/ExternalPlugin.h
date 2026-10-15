@@ -5,6 +5,7 @@
 
 #include "AppForge/Plugin/Plugin.h"
 
+class ProfileSelector;
 class Ticker;
 class Window;
 
@@ -12,6 +13,7 @@ class Window;
 class ExternalPlugin : public AppForge::Plugin
 {
   public:
+    void build(ProfileSelector& selector);
     void build(Ticker& ticker);
     void build(Window& window);
 };

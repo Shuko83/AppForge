@@ -18,18 +18,22 @@ namespace AppForge
 {
 class Component;
 class ComponentFactory;
+class ForgeApplication;
 } // namespace AppForge
 
 // Edits the properties of a component instantiated in the application, then those of the objects it added with
 // Component::addPropertiesForQObject(): with its own when they were added without a name, under the name they were
 // added with otherwise, one group per name. It only shows the properties it can edit: they can be written and their
 // type has an editor. It follows the changes the component and its objects notify, and the objects it adds or loses.
+// The name of a property a settings file of the application holds is in italics: its value is the default one.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT
 
   public:
-    explicit PropertyEditor(const AppForge::ComponentFactory& factory, QWidget* parent = nullptr);
+    // The components are those of application.
+    PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+                   QWidget* parent = nullptr);
 
     // Shows the editable properties of component; none when it is nullptr.
     void setComponent(AppForge::Component* component);
@@ -54,6 +58,7 @@ class PropertyEditor : public QWidget
     // Writes the value edited in item to its property.
     void write(const QTableWidgetItem* item);
 
+    const AppForge::ForgeApplication& m_application;
     const AppForge::ComponentFactory& m_factory;
     QPointer<AppForge::Component> m_component;
     QList<Row> m_rows; // One per row of m_table

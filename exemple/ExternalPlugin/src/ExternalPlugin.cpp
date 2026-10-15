@@ -3,12 +3,19 @@
 
 #include "ExternalPlugin.h"
 
+#include "ProfileSelector.h"
+#include "ProfileSelectorLogic.h"
 #include "Ticker.h"
 #include "TickerLogic.h"
 #include "Window.h"
 #include "WindowLogic.h"
 
 APPFORGE_PLUGIN(ExternalPlugin);
+
+void ExternalPlugin::build(ProfileSelector& selector)
+{
+    new ProfileSelectorLogic(selector);
+}
 
 void ExternalPlugin::build(Ticker& ticker)
 {
