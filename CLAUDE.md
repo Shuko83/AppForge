@@ -14,7 +14,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
 | `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`), `ProfileSelector` (fournit `display` : la `QComboBox` de ses `profiles`, où l'utilisateur choisit `profile`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
-| `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
+| `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : options de `ForgeApplication::addCommandLineOptions()`, `applyCommandLine()`, `open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
 | `docs/release-notes/` | — | Notes de chaque version, `<x.y.z>.md` : le texte de sa release GitHub |
 | `CFmake/` | non suivi, dépôt à part | Ne fait pas partie du build : ne pas y toucher |
@@ -97,7 +97,12 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
   `propertyObjects()`, retrouvés à l'ouverture par nom puis par ordre d'ajout) et `bindings`.
 - Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
-  chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits.
+  chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits. À
+  l'ouverture, un plugin est d'abord cherché par son id parmi ceux connus, son fichier n'est qu'un recours.
+- Ligne de commande : `addCommandLineOptions(parser)` (statique) ajoute `--plugin-dir` (répétable) et `--plugin-root`,
+  `applyCommandLine(parser)` scanne chaque dossier après `plugins/`, dans l'ordre (un id déjà connu est sauté par
+  `PluginManager::scan()`), puis fixe la racine. Forge (par `MainWindow`, avant de remplir ses modèles) et
+  `ExampleForgeApp` s'en servent, avant toute ouverture de projet.
 - Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
 - Exécution : `start()` initialise tout ce qui est `Initializing`, puis démarre tout ce qui est `Ready`, dans l'ordre
   d'instanciation ; au premier refus il arrête ce que cet appel a démarré. Rappelé pendant l'exécution, il démarre ce
@@ -165,7 +170,8 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
   associé pour que **Save** n'écrase pas ce qui manque.
 - « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `m_scene->save()` à `m_savedProject`, mémorisé
   par `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `EditionScene::save()`.
-- `Forge [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage (options analysées dans `main.cpp`).
+- `Forge [--plugin-dir <dossier>]... [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage (options
+  déclarées par `ForgeApplication::addCommandLineOptions()` dans `main.cpp`, appliquées par `MainWindow`).
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
 - Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus ; il

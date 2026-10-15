@@ -17,6 +17,8 @@
 #include "AppForge/Settings/SettingsFile.h"
 #include "Core_export.h"
 
+class QCommandLineParser;
+
 namespace AppForge
 {
 
@@ -43,6 +45,14 @@ class CORE_EXPORT ForgeApplication : public QObject
     // The directory the files of the plugins are relative to in a project: the one of the application until it is set.
     [[nodiscard]] QString pluginRoot() const;
     void setPluginRoot(const QString& directory);
+
+    // Adds to parser, before it processes the command line, the options every application assembled with it
+    // understands: --plugin-dir <directory>, as many times as needed, and --plugin-root <directory>.
+    static void addCommandLineOptions(QCommandLineParser& parser);
+    // Does what the options addCommandLineOptions() added to parser ask, once it processed the command line: scans
+    // each --plugin-dir after plugins/, in their order, skipping with a warning one that is not a directory, then sets
+    // the plugin root to --plugin-root when it is given. Before a project is loaded, for its plugins to be found there.
+    void applyCommandLine(const QCommandLineParser& parser);
 
     // The project the file filePath holds; nullopt, with error set, when it cannot be read or is not a project of the
     // version this Core reads.

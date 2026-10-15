@@ -3,10 +3,13 @@
 
 #include "AppForge/Application/ForgeApplication.h"
 
+#include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <QMetaProperty>
 #include <QSignalBlocker>
 #include <algorithm>
@@ -25,8 +28,14 @@ namespace
 using ProjectJson::writableProperties;
 using ProjectJson::writeProperty;
 
+Q_LOGGING_CATEGORY(lcPlugins, "appforge.plugins")
+
 // The version of the projects written, the only one read.
 constexpr int ProjectVersion = 1;
+
+// The names of the options addCommandLineOptions() adds.
+const QString PluginDirOption = QStringLiteral("plugin-dir");
+const QString PluginRootOption = QStringLiteral("plugin-root");
 
 // entry as a project holds it: the name of its component, the key of its object when it is not the component, see
 // ProjectJson::ObjectKey, its "index" only when it is not the first object of its name, and its property.
@@ -78,6 +87,38 @@ QString ForgeApplication::pluginRoot() const
 void ForgeApplication::setPluginRoot(const QString& directory)
 {
     m_pluginRoot.setPath(directory);
+}
+
+void ForgeApplication::addCommandLineOptions(QCommandLineParser& parser)
+{
+    parser.addOption(
+        {PluginDirOption,
+         QStringLiteral("Directory of plugins to scan, after plugins/ next to the application. Can be given "
+                        "several times: the directories are scanned in their order, and a plugin found "
+                        "again is skipped."),
+         QStringLiteral("directory")});
+    parser.addOption({PluginRootOption,
+                      QStringLiteral("Directory the files of the plugins are relative to in a project file (default: "
+                                     "the directory of the application)."),
+                      QStringLiteral("directory")});
+}
+
+void ForgeApplication::applyCommandLine(const QCommandLineParser& parser)
+{
+    for(const QString& directory : parser.values(PluginDirOption))
+    {
+        if(!QFileInfo(directory).isDir())
+        {
+            qCWarning(lcPlugins).noquote()
+                << "Skipping" << QDir::toNativeSeparators(directory) << "- it is not a directory";
+            continue;
+        }
+        m_plugins.scan(directory);
+    }
+    if(parser.isSet(PluginRootOption))
+    {
+        setPluginRoot(parser.value(PluginRootOption));
+    }
 }
 
 std::optional<QJsonObject> ForgeApplication::read(const QString& filePath, QString& error)

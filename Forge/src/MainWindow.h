@@ -15,23 +15,25 @@ class EditionScene;
 class PluginModel;
 class PluginViewer;
 class PropertyEditor;
+class QCommandLineParser;
 class QGraphicsView;
 class QTreeView;
 
-// Lists the plugins of <application directory>/plugins and the components of the loaded ones, each with a viewer of
-// the one selected; a plugin is loaded from its viewer, or opened from anywhere on the disk, and the components are
-// searched for by a part of their name, of their description or of their category (Ctrl+F). Between them, the edition
-// zone, where a component dropped from its list is instantiated, above the editor of the properties of the one
-// selected there. Its File menu saves what is in the edition zone to a project file, and opens it again; its Run menu
-// starts the application assembled there, and stops it.
+// Lists the plugins of <application directory>/plugins, and of the directories given on its command line, and the
+// components of the loaded ones, each with a viewer of the one selected; a plugin is loaded from its viewer, or opened
+// from anywhere on the disk, and the components are searched for by a part of their name, of their description or of
+// their category (Ctrl+F). Between them, the edition zone, where a component dropped from its list is instantiated,
+// above the editor of the properties of the one selected there. Its File menu saves what is in the edition zone to a
+// project file, and opens it again; its Run menu starts the application assembled there, and stops it.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
   public:
-    // pluginRoot is the directory the files of the plugins are relative to in a project file: the one of Forge when
-    // it is empty.
-    explicit MainWindow(const QString& pluginRoot = {}, QWidget* parent = nullptr);
+    // commandLine, when there is one, is the command line of Forge, processed by a parser it was given to
+    // ForgeApplication::addCommandLineOptions(): the plugins of its directories are listed with those of plugins/,
+    // and its plugin root is the one of the project files.
+    explicit MainWindow(const QCommandLineParser* commandLine = nullptr, QWidget* parent = nullptr);
     ~MainWindow() override;
 
     // Replaces the application with the one of the project file filePath, whose plugins it loads, and tells what
