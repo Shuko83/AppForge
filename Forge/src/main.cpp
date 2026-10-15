@@ -15,12 +15,7 @@ int main(int argc, char* argv[])
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    const QCommandLineOption pluginRoot(
-        QStringLiteral("plugin-root"),
-        QCoreApplication::translate("main", "Directory the files of the plugins are relative to in a project file "
-                                            "(default: the directory of Forge)."),
-        QCoreApplication::translate("main", "directory"));
-    parser.addOption(pluginRoot);
+    AppForge::ForgeApplication::addCommandLineOptions(parser);
     parser.addPositionalArgument(QStringLiteral("project"),
                                  QCoreApplication::translate("main", "Project file to open."),
                                  QStringLiteral("[project]"));
@@ -32,7 +27,7 @@ int main(int argc, char* argv[])
     // Painted before the scan; a click waits for it to end, when read() can be received.
     QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
-    MainWindow window(parser.value(pluginRoot));
+    MainWindow window(&parser);
     const QStringList projects = parser.positionalArguments();
     QObject::connect(&splash, &SplashScreen::read, &window,
                      [&splash, &window, &projects]

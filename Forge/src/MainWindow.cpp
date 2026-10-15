@@ -97,7 +97,7 @@ QWidget* createPanel(const QString& title, QWidget* view, QWidget* viewer)
 
 } // namespace
 
-MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
+MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     : QMainWindow(parent), m_pluginModel(new PluginModel(m_application.plugins(), this)),
       m_pluginViewer(new PluginViewer(m_application.plugins())),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
@@ -123,9 +123,9 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
                 m_pluginViewer->setUnloadAllowed(!running); // What runs keeps its plugin
             });
 
-    if(!pluginRoot.isEmpty())
+    if(commandLine != nullptr)
     {
-        m_application.setPluginRoot(pluginRoot);
+        m_application.applyCommandLine(*commandLine);
     }
     m_openDirectory = AppForge::PluginManager::defaultDirectory();
     m_pluginModel->refresh();
