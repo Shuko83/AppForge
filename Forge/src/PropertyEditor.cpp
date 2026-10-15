@@ -15,6 +15,7 @@
 #include <optional>
 #include <utility>
 
+#include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/Component.h"
 #include "AppForge/Component/ComponentFactory.h"
 
@@ -53,9 +54,13 @@ bool isEditable(const QMetaProperty& property)
 
 } // namespace
 
-PropertyEditor::PropertyEditor(const AppForge::ComponentFactory& factory, QWidget* parent)
-    : QWidget(parent), m_factory(factory)
+PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+                               QWidget* parent)
+    : QWidget(parent), m_application(application), m_factory(factory)
 {
+    // Which properties are in italics.
+    connect(&m_application, &AppForge::ForgeApplication::settingsFilesChanged, this, &PropertyEditor::rebuild);
+
     m_placeholder = new QLabel;
     m_placeholder->setAlignment(Qt::AlignCenter);
 
@@ -190,6 +195,15 @@ void PropertyEditor::rebuild()
         auto* name = new QTableWidgetItem(QString::fromLatin1(shown.property.name()));
         name->setFlags(Qt::ItemIsEnabled);
         name->setToolTip(QString::fromLatin1(shown.property.typeName()));
+        const AppForge::SettingsEntry entry{.component = m_component, .object = shown.object, .property = name->text()};
+        if(const AppForge::SettingsFile* file = m_application.settingsFile(entry))
+        {
+            QFont font = name->font();
+            font.setItalic(true);
+            name->setFont(font);
+            name->setToolTip(tr("%1\nDefault value: the user keeps the one they give it in %2")
+                                 .arg(name->toolTip(), file->fileName()));
+        }
         m_table->setItem(row, NameColumn, name);
         m_table->setItem(row, ValueColumn, new QTableWidgetItem); // Editable, as an item is by default
 

@@ -14,6 +14,7 @@
 #include <ranges>
 
 #include "AppForge/Component/ComponentFactory.h"
+#include "ProjectJson.h"
 
 namespace AppForge
 {
@@ -21,44 +22,28 @@ namespace AppForge
 namespace
 {
 
+using ProjectJson::writableProperties;
+using ProjectJson::writeProperty;
+
 // The version of the projects written, the only one read.
 constexpr int ProjectVersion = 1;
 
-// value as a project holds it; nullopt when it would not be read back as it is, its type being one JSON has nothing
-// for.
-std::optional<QJsonValue> toJson(const QVariant& value)
-{
-    const QJsonValue json = QJsonValue::fromVariant(value);
-    QVariant read = json.toVariant();
-    if(!read.convert(value.metaType()) || read != value)
-    {
-        return std::nullopt;
-    }
-    return json;
-}
-
-// The properties of object a project holds, by name: those of properties that can be written.
-QJsonObject writableProperties(const QObject& object, const QList<QMetaProperty>& properties)
+// entry as a project holds it: the name of its component, the key of its object when it is not the component, see
+// ProjectJson::ObjectKey, its "index" only when it is not the first object of its name, and its property.
+QJsonObject entryJson(const SettingsEntry& entry)
 {
     QJsonObject json;
-    for(const QMetaProperty& property : properties)
+    json.insert(u"component", entry.component->objectName());
+    if(const std::optional<ProjectJson::ObjectKey> key = ProjectJson::objectKey(*entry.component, entry.object))
     {
-        const std::optional<QJsonValue> value = property.isWritable() ? toJson(property.read(&object)) : std::nullopt;
-        if(value)
+        json.insert(u"object", key->name);
+        if(key->index > 0)
         {
-            json.insert(QLatin1StringView(property.name()), *value);
+            json.insert(u"index", key->index);
         }
     }
+    json.insert(u"property", entry.property);
     return json;
-}
-
-// Sets the property name of object, one of properties, to value; false when it is none of them or cannot be set.
-bool writeProperty(QObject& object, const QList<QMetaProperty>& properties, const QString& name,
-                   const QJsonValue& value)
-{
-    const auto property = std::ranges::find(properties, name, [](const QMetaProperty& known)
-                                            { return QString::fromLatin1(known.name()); });
-    return property != properties.end() && property->write(&object, value.toVariant());
 }
 
 } // namespace
@@ -205,6 +190,42 @@ QStringList ForgeApplication::load(const QJsonObject& project)
                                 .arg(consumedName, consumerName, providedName, providerName));
         }
     }
+
+    const QJsonArray settings = project.value(u"settings").toArray();
+    for(const QJsonValue& value : settings)
+    {
+        const QJsonObject json = value.toObject();
+        SettingsFile& file = addSettingsFile();
+        const QString fileName = json.value(u"file").toString();
+        // Not the name of one read before: they would be written over each other.
+        if(!fileName.isEmpty() && !file.setFileName(fileName))
+        {
+            problems.append(QStringLiteral("The settings file %1 is named %2: another one has its name")
+                                .arg(fileName, file.fileName()));
+        }
+        file.setDirectory(json.value(u"directory").toString());
+        const QJsonArray entries = json.value(u"entries").toArray();
+        for(const QJsonValue& entryValue : entries)
+        {
+            const QJsonObject entry = entryValue.toObject();
+            const QString property = entry.value(u"property").toString();
+            QString owner = entry.value(u"component").toString(); // What the property is of, as it is told
+            Component* instance = component(owner);
+            QObject* object = instance;
+            if(entry.contains(u"object"))
+            {
+                const ProjectJson::ObjectKey key{.name = entry.value(u"object").toString(),
+                                                 .index = entry.value(u"index").toInteger()};
+                object = instance != nullptr ? ProjectJson::object(*instance, key) : nullptr;
+                owner = QStringLiteral("the object %1 of %2").arg(key.name, owner);
+            }
+            if(object == nullptr || !file.add({.component = instance, .object = object, .property = property}))
+            {
+                problems.append(
+                    QStringLiteral("The property %1 of %2 is not held by %3").arg(property, owner, file.fileName()));
+            }
+        }
+    }
     return problems;
 }
 
@@ -281,11 +302,30 @@ QJsonObject ForgeApplication::save() const
         plugins.append(plugin);
     }
 
+    QJsonArray settings;
+    for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles)
+    {
+        QJsonObject json;
+        json.insert(u"file", file->fileName());
+        json.insert(u"directory", file->directory());
+        QJsonArray entries;
+        for(const SettingsEntry& entry : file->entries())
+        {
+            entries.append(entryJson(entry));
+        }
+        json.insert(u"entries", entries);
+        settings.append(json);
+    }
+
     QJsonObject project;
     project.insert(u"version", ProjectVersion);
     project.insert(u"plugins", plugins);
     project.insert(u"components", components);
     project.insert(u"bindings", bindings);
+    if(!settings.isEmpty()) // Only for those who use them: the others are written as they were
+    {
+        project.insert(u"settings", settings);
+    }
     return project;
 }
 
@@ -353,16 +393,91 @@ void ForgeApplication::clear()
 {
     stop();
     m_components.clear();
+    if(!m_settingsFiles.empty())
+    {
+        m_settingsFiles.clear();
+        emit settingsFilesChanged();
+    }
+}
+
+SettingsFile& ForgeApplication::addSettingsFile()
+{
+    // Not made with std::make_unique: its constructor is only for the application.
+    SettingsFile& file = *m_settingsFiles.emplace_back(new SettingsFile(*this, newSettingsFileName()));
+    connect(&file, &SettingsFile::changed, this, &ForgeApplication::settingsFilesChanged);
+    connect(&file, &SettingsFile::failed, this, &ForgeApplication::settingsFileFailed);
+    emit settingsFilesChanged();
+    return file;
+}
+
+void ForgeApplication::removeSettingsFile(SettingsFile& file)
+{
+    const auto found = std::ranges::find_if(m_settingsFiles, [&file](const std::unique_ptr<SettingsFile>& owned)
+                                            { return owned.get() == &file; });
+    if(found == m_settingsFiles.end())
+    {
+        return;
+    }
+    if(m_running)
+    {
+        file.stop();
+    }
+    m_settingsFiles.erase(found);
+    emit settingsFilesChanged();
+}
+
+const std::vector<std::unique_ptr<SettingsFile>>& ForgeApplication::settingsFiles() const
+{
+    return m_settingsFiles;
+}
+
+SettingsFile* ForgeApplication::settingsFile(const SettingsEntry& entry) const
+{
+    const auto found = std::ranges::find_if(m_settingsFiles, [&entry](const std::unique_ptr<SettingsFile>& file)
+                                            { return file->contains(entry); });
+    return found != m_settingsFiles.end() ? found->get() : nullptr;
+}
+
+SettingsFile* ForgeApplication::settingsFile(const QString& fileName) const
+{
+    // Whatever its case: two names that only differ by it are the same file where file names do not tell it apart.
+    const auto found = std::ranges::find_if(m_settingsFiles, [&fileName](const std::unique_ptr<SettingsFile>& file)
+                                            { return file->fileName().compare(fileName, Qt::CaseInsensitive) == 0; });
+    return found != m_settingsFiles.end() ? found->get() : nullptr;
 }
 
 bool ForgeApplication::start()
 {
+    // Once, from the moment it starts: when it runs already, the properties have the values of the user, not those of
+    // the project.
+    const bool starting = !m_running;
+    if(starting)
+    {
+        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles)
+        {
+            file->start();
+        }
+    }
+    // The properties have their default values again when it does not run.
+    const auto stopSettings = [this, starting]
+    {
+        if(!starting)
+        {
+            return;
+        }
+        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
+        {
+            file->stop();
+        }
+    };
+
     // All of them before any is started: one that starts can count on the others being ready.
     for(const std::unique_ptr<Component>& instance : m_components)
     {
         if(instance->state() == ComponentState::Initializing && !instance->initialize())
         {
             m_errorString = QStringLiteral("%1 could not be initialized").arg(instance->objectName());
+            stopSettings();
             return false;
         }
     }
@@ -380,6 +495,7 @@ bool ForgeApplication::start()
             {
                 running->stop();
             }
+            stopSettings();
             return false;
         }
         started.push_back(instance.get());
@@ -422,6 +538,14 @@ void ForgeApplication::stop()
     for(const std::unique_ptr<Component>& instance : m_components | std::views::reverse)
     {
         instance->stop(); // Does nothing to one that does not run
+    }
+    // Once the components no longer run: what they changed last is written.
+    if(m_running)
+    {
+        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
+        {
+            file->stop();
+        }
     }
     setRunning(false);
 }
@@ -473,6 +597,16 @@ QString ForgeApplication::newName(const QString& componentName) const
             return name;
         }
     }
+}
+
+QString ForgeApplication::newSettingsFileName() const
+{
+    QString name = QStringLiteral("settings.json");
+    for(int number = 2; settingsFile(name) != nullptr; ++number)
+    {
+        name = QStringLiteral("settings%1.json").arg(number);
+    }
+    return name;
 }
 
 void ForgeApplication::setRunning(bool running)

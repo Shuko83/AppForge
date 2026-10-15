@@ -42,8 +42,8 @@
 namespace
 {
 
-// How long the status bar tells what the edition zone refused, in milliseconds.
-constexpr int RefusalDuration = 8000;
+// How long the status bar tells what the edition zone refused or did, in milliseconds.
+constexpr int MessageDuration = 8000;
 
 // What the components can be searched by: a column of ComponentModel, and the role of its data the text is looked
 // for in. The description of a component is its tool tip, in every column.
@@ -102,7 +102,7 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
       m_pluginViewer(new PluginViewer(m_application.plugins())),
       m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
       m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance())),
-      m_propertyEditor(new PropertyEditor(AppForge::ComponentFactory::instance()))
+      m_propertyEditor(new PropertyEditor(m_application, AppForge::ComponentFactory::instance()))
 {
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(tr("&New"), QKeySequence::New, this, &MainWindow::newProject);
@@ -204,8 +204,11 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     connect(m_scene, &QGraphicsScene::selectionChanged, this,
             [this] { m_propertyEditor->setComponent(m_scene->selectedComponent()); });
     // In the status bar rather than in a box, which would open in the middle of the click that ends an edition.
-    connect(m_scene, &EditionScene::refused, this,
-            [this](const QString& why) { statusBar()->showMessage(why, RefusalDuration); });
+    const auto tell = [this](const QString& message) { statusBar()->showMessage(message, MessageDuration); };
+    connect(m_scene, &EditionScene::refused, this, tell);
+    connect(m_scene, &EditionScene::told, this, tell);
+    // Nor in the middle of a run, which goes on without the file.
+    connect(&m_application, &AppForge::ForgeApplication::settingsFileFailed, this, tell);
 
     // The properties of the component selected in the edition zone, under it; the zone takes the room.
     auto* editionSplitter = new QSplitter(Qt::Vertical);

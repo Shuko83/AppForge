@@ -23,6 +23,9 @@ It enables developers to construct software systems by combining reusable buildi
 - 💾 **Project serialization**  
   Save and load full application state using `.afp` files.
 
+- 🗂️ **User settings**  
+  Keep the values the user of an application gives some properties, from one run to the next, in settings files.
+
 ---
 
 ## 🧠 Core Concepts
@@ -34,6 +37,7 @@ It enables developers to construct software systems by combining reusable buildi
 | Instance   | A runtime instantiation of a component |
 | Binding    | A connection between components |
 | Project    | A full application definition |
+| Settings file | The properties of instances whose values the user keeps from one run to the next |
 
 ---
 
@@ -235,10 +239,11 @@ For now, it lists:
 - an instance is renamed and colored there too. Double-clicking its names, or **Rename component** in its context menu, edits its name in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. An instance keeps a name no other one has, the one a project and `ForgeApplication::component()` know it by: a name already taken is refused, which the status bar tells, and so is no name at all. **Change component color...**, in the same menu, colors its names, which tells it from the others at a glance: the color is chosen with its opacity, and lets the instance show through as much as it is translucent. **Reset component color** gives it back the colors of the style.
 - an instance is removed there as well: **Remove component**, in its context menu, removes the one under the cursor from the application, and the Delete key removes the selected ones, all of them when several are; while a name is edited, the key is for what is typed. Its links go with it: what consumed its interfaces is no longer bound to anything. An instance is removed at once, without a question, even while the application runs: it is stopped first.
 - in the edition zone too, colored zones that group instances, by what they are for, say: **Add zone**, in its context menu, adds one where it was right-clicked, under a title typed at once; the menu of an instance does not offer it. Dragging a zone by its title moves it with what is in it then: the instances whose center is in it, and the zones that are entirely in it. Dragging an edge or a corner resizes it. Double-clicking its title edits it, and right-clicking anywhere in a zone renames it, changes its color or removes it, which leaves what is in it. Between its title and its edges, a zone lets the mouse through: instances are selected there as anywhere else.
-- under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component. The properties of the objects the component added with `addPropertiesForQObject()` are edited there as well, after its own, those of a named object in a group under its name: selecting a `Ticker` shows its `interval`, then the properties of its display under **Display**.
-- in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits until it is started: **Start** stays enabled while the application runs and starts the instances that do not run yet, and **Start component**, in the context menu of an instance, starts that one alone; it is only enabled while the application runs, on an instance that does not. A refusal is told in a message box, and what ran goes on. Opening a project, or **New**, stops it.
+- in the edition zone as well, the settings files of the application, which keep the values its user gives some properties, the profile they chose, say, from one run to the next; the value the project gives such a property becomes its default value. **Add settings file**, in the context menu of the edition zone, adds one where it was right-clicked, a sheet titled with the name of its file, and opens its dialog at once: the name of its file, `settings.json` unless another one is given, or `settings2.json`, `settings3.json`... when another file has that name, its directory, the configuration directory of the user unless another one is given, then the properties it holds, checked among those of the instances, and of their objects, that a project saves. A property is held by a single file: one another file holds is listed with the name of that file, and cannot be checked. Several instances can keep their properties in the same file, and an application can have several files, each of its own name: the dialog is not accepted with the name of another file, whatever its case and their directories, as the two would be written over each other. Dashed lines join a file to the instances whose properties it holds, and its tooltip tells where it is written and what it holds. Double-clicking it, or **Edit settings file...** in its context menu, opens its dialog again; **Write default values** writes the values of the project to the file, in place of those of the user, to start trials over or to make the file to deliver, but not while the application runs; **Remove settings file**, or the Delete key, removes it. Removing an instance removes its properties from the files; renaming it keeps them, but the values its user gave it stay under its former name in the file.
+- under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component. The properties of the objects the component added with `addPropertiesForQObject()` are edited there as well, after its own, those of a named object in a group under its name: selecting a `Ticker` shows its `interval`, then the properties of its display under **Display**. The name of a property a settings file holds is in italics: its value is the default one.
+- in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits until it is started: **Start** stays enabled while the application runs and starts the instances that do not run yet, and **Start component**, in the context menu of an instance, starts that one alone; it is only enabled while the application runs, on an instance that does not. A refusal is told in a message box, and what ran goes on. Opening a project, or **New**, stops it. While it runs, the properties the settings files hold have the values of the user, and what changes them is written to their files; **Stop** gives them back their default values, so that the project saved is the same. The status bar tells when a file cannot be read or written.
 
-`ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window.
+`ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window. Its `ProfileSelector` provides a `display` too, the list of its `profiles` in which the user chooses its `profile`: once a settings file holds that `profile`, the application shows the one chosen the next time it runs.
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
 
@@ -275,6 +280,18 @@ A project file is a JSON object:
     "bindings": [
         { "consumer": "Window1", "consumed": "content", "provider": "Ticker1", "provided": "display" }
     ],
+    "settings": [
+        {
+            "file": "user.json",
+            "directory": "",
+            "x": 200,
+            "y": 360,
+            "entries": [
+                { "component": "Ticker1", "property": "interval" },
+                { "component": "Ticker1", "object": "Display", "property": "digitCount" }
+            ]
+        }
+    ],
     "zones": [
         { "title": "Display", "color": "#59a14f", "x": 100, "y": 60, "width": 560, "height": 240 }
     ]
@@ -287,9 +304,23 @@ A project file is a JSON object:
 | `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
 | `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, their properties and those of their objects |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
+| `settings`   | Its settings files, written when it has some: the name of the `file`, its `directory`, where it is in the edition zone, and its `entries`, the properties it holds |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
 `x`, `y`, `color` and `zones` are only for Forge: an application runs without them. The `color` of a component is written `#aarrggbb`, its opacity first: `#804e79a7` is half translucent; `#rrggbb` is read too, as an opaque color.
+
+An entry of a settings file is a property of a `component`, or of one of its objects, given by the `object` name it was added with and, when it is not the first object of the component added with that name, its `index` among them, from 0. The `file` of each is its own: a second file of the same name, whatever its case, is reported when the project is opened, and keeps the name it was given then. The `directory` of the file is the configuration directory of the user when it is empty, `QStandardPaths::AppConfigLocation` of the application that runs (under `%LOCALAPPDATA%` on Windows), and is read from the directory of the application when it is relative. The file holds the values of the user under the names of the components, as a project holds them:
+
+```json
+{
+    "Ticker1": {
+        "properties": { "interval": 250 },
+        "objects": [ { "name": "Display", "properties": { "digitCount": 8 } } ]
+    }
+}
+```
+
+What else the file holds is kept, so that applications can share one. Run from Forge, an application writes its files with an empty directory to the one of Forge, not to the one of the application delivered: what is tried in Forge does not change what its users have.
 
 The plugin root is the directory of Forge unless another one is given on its command line: `Forge --plugin-root <directory> my.afp`; it is the directory of the application that runs a project unless `ForgeApplication::setPluginRoot()` sets it. The files of the plugins are written relative to it, so that a project is opened again wherever Forge and its plugins are moved to together, or wherever the plugins alone are, given their root. A file on another drive than the root cannot be relative to it and is written whole; a file written whole is read as it is.
 
@@ -328,17 +359,19 @@ It links to `AppForge::Core` only: the plugins of the project are loaded when it
 
 | Function                | What it does                                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `open(filePath)`        | Loads the plugins of the project, instantiates its components, sets their properties and binds their interfaces. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
-| `start()`               | Initializes the components that are not yet, all of them first, then starts them, in the order of the project. Called again while it runs, it starts those instantiated meanwhile. `false`, with `errorString()` set, when one refuses: those this call started are stopped again, those that ran already go on |
+| `open(filePath)`        | Loads the plugins of the project, instantiates its components, sets their properties, binds their interfaces and reads its settings files. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
+| `start()`               | Gives the properties its settings files hold the values of the user, unless it runs already, then initializes the components that are not yet, all of them first, then starts them, in the order of the project. Called again while it runs, it starts those instantiated meanwhile. `false`, with `errorString()` set, when one refuses: those this call started are stopped again, those that ran already go on, and its settings files are stopped too when it did not run |
 | `start(component)`      | While it runs, initializes one of its components unless it is already, then starts it unless it runs: one instantiated meanwhile, say. `false`, with `errorString()` set, when the application does not run, nothing being started then, and when the component refuses |
-| `stop()`                | Stops the components that run, the last one first. They can be started again                               |
+| `stop()`                | Stops the components that run, the last one first, then gives the properties its settings files hold their default values again. They can be started again |
 | `isRunning()`           | Whether it was started and not stopped since; `runningChanged()` is emitted when it changes               |
 | `components()`, `component(name)` | Its instances, to reach one from the `main`: `application.component(QStringLiteral("Greeter1"))` |
 | `setPluginRoot(directory)` | The directory the files of the plugins are relative to in a project; the directory of the application by default |
 
 An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `rename(component, name)` names it, unless the name is empty or the one of another instance, `Component::bindInterface()` binds it, `remove(component)` stops it and destroys it, which unbinds what was bound to its interfaces, `unloadPlugin(pluginId)` removes the components of a plugin, those `componentsOf(pluginId)` lists, then unloads it, unless the application runs, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
 
-The [exemple](exemple/) folder holds `ExampleForgeApp`, which runs the project given on its command line until its last window is closed: assemble a `Ticker` and a `Window` in Forge, save them as `scene/clock.afp`, then run `ExampleForgeApp scene/clock.afp` from `<build>/bin` (`<build>/bin/<config>` with Visual Studio).
+Its settings files, `settingsFiles()`, keep the values the user gives some properties, from one run to the next; `AppForge::SettingsFile` is one of them. When the application starts, before any of its components is initialized, each file gives the properties it holds the values it has for them; a file that does not exist yet is first written with the values of the project, their default values, and a file that cannot be read is set aside, a `.bak` added to its name, then written again. While the application runs, what changes these properties is written to their files, changes made together being written once; when it stops, each file is written a last time, then the properties have their default values again, which `save()` writes. `settingsFileFailed()` tells when a file cannot be read or written: the application runs all the same. `addSettingsFile()` adds a file, named `settings.json`, or `settings2.json`, `settings3.json`... when another file has that name, `settingsFile(entry)` tells which one holds a property, `settingsFile(fileName)` which one has a name, whatever its case, and `removeSettingsFile()` removes one; a `SettingsFile` has its `setFileName()`, which refuses the name of another file of the application, whatever its case, `setDirectory()`, `add({component, object, property})`, the object being the component itself or one of its objects, `remove()`, and `writeDefaults()`, which writes the values of the project to its file while the application does not run.
+
+The [exemple](exemple/) folder holds `ExampleForgeApp`, which runs the project given on its command line until its last window is closed: assemble a `Ticker` and a `Window` in Forge, save them as `scene/clock.afp`, then run `ExampleForgeApp scene/clock.afp` from `<build>/bin` (`<build>/bin/<config>` with Visual Studio). With a `ProfileSelector` in place of the `Ticker`, and a settings file that holds its `profile`, the profile chosen in the window is the one it shows the next time.
 
 ---
 

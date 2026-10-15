@@ -4,6 +4,7 @@
 #include "EditionScene.h"
 
 #include <QColorDialog>
+#include <QDir>
 #include <QGraphicsPathItem>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
@@ -21,7 +22,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <memory>
 #include <optional>
+#include <vector>
 
 #include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/ComponentFactory.h"
@@ -29,6 +33,8 @@
 #include "ComponentModel.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
+#include "Settings/SettingsDialog.h"
+#include "Settings/SettingsItem.h"
 #include "ZoneItem.h"
 
 namespace
@@ -97,6 +103,7 @@ AppForge::Component* EditionScene::selectedComponent() const
 QJsonObject EditionScene::save() const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name
+    QHash<const AppForge::SettingsFile*, const SettingsItem*> shownSettings;
     QJsonArray zones;
     // From the first one added: load() adds them in this order, which is then the same again.
     const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
@@ -105,6 +112,10 @@ QJsonObject EditionScene::save() const
         if(const auto* componentItem = qobject_cast<const ComponentItem*>(item->toGraphicsObject()))
         {
             shown.insert(componentItem->component().objectName(), componentItem);
+        }
+        else if(const auto* settingsItem = qobject_cast<const SettingsItem*>(item->toGraphicsObject()))
+        {
+            shownSettings.insert(&settingsItem->file(), settingsItem);
         }
         else if(const auto* zone = qgraphicsitem_cast<const ZoneItem*>(item))
         {
@@ -134,6 +145,23 @@ QJsonObject EditionScene::save() const
         component = json;
     }
     project.insert(u"components", components);
+
+    // In the order of the files of the application, as it wrote them.
+    QJsonArray settings = project.value(u"settings").toArray();
+    const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
+    for(qsizetype index = 0; index < settings.size(); ++index)
+    {
+        QJsonObject json = settings.at(index).toObject();
+        if(const SettingsItem* item = shownSettings.value(files.at(static_cast<std::size_t>(index)).get()))
+        {
+            writePosition(json, item->pos());
+        }
+        settings.replace(index, json);
+    }
+    if(!settings.isEmpty())
+    {
+        project.insert(u"settings", settings);
+    }
     project.insert(u"zones", zones);
     return project;
 }
@@ -172,6 +200,13 @@ QStringList EditionScene::load(const QJsonObject& project)
                 addItem(new LinkItem(*provided, *consumed));
             }
         }
+    }
+    // Once the components they are joined to are shown: one per file of the project, in its order.
+    const QJsonArray settings = project.value(u"settings").toArray();
+    const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
+    for(std::size_t index = 0; index < files.size(); ++index)
+    {
+        showSettings(*files.at(index), readPosition(settings.at(static_cast<qsizetype>(index)).toObject()));
     }
 
     const QJsonArray zones = project.value(u"zones").toArray();
@@ -297,6 +332,18 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     event->accept();
 }
 
+void EditionScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
+{
+    SettingsItem* settings = event->button() == Qt::LeftButton ? settingsAt(event->scenePos()) : nullptr;
+    if(settings == nullptr)
+    {
+        QGraphicsScene::mouseDoubleClickEvent(event);
+        return;
+    }
+    editSettings(*settings, event->widget());
+    event->accept();
+}
+
 void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
 {
     // Not while a link is drawn or an item is dragged: what is dragged could be removed from under the cursor.
@@ -305,6 +352,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
         return;
     }
     ComponentItem* component = componentAt(event->scenePos());
+    SettingsItem* settings = component == nullptr ? settingsAt(event->scenePos()) : nullptr;
     ZoneItem* zone = zoneAt(event->scenePos());
     QMenu menu(event->widget());
     QAction* startComponent = nullptr;
@@ -312,7 +360,11 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
     const QAction* removeComponent = nullptr;
+    const QAction* editSettingsFile = nullptr;
+    QAction* writeDefaultValues = nullptr;
+    const QAction* removeSettingsFile = nullptr;
     const QAction* add = nullptr;
+    const QAction* addSettingsFile = nullptr;
     if(component != nullptr)
     {
         // Only while the application runs: one dropped meanwhile; otherwise, Start starts them all.
@@ -326,10 +378,20 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
         uncolorComponent->setEnabled(component->color().isValid());
         removeComponent = menu.addAction(tr("Remove component"));
     }
+    else if(settings != nullptr)
+    {
+        editSettingsFile = menu.addAction(tr("Edit settings file..."));
+        writeDefaultValues = menu.addAction(tr("Write default values"));
+        writeDefaultValues->setToolTip(
+            tr("Writes the values of the project to the file, in place of those of the user"));
+        writeDefaultValues->setEnabled(!m_application.isRunning()); // The properties have the values of the user
+        removeSettingsFile = menu.addAction(tr("Remove settings file"));
+    }
     else
     {
         // Not on a component: right-clicking it is about it, and about the zone it is in.
         add = menu.addAction(tr("Add zone"));
+        addSettingsFile = menu.addAction(tr("Add settings file"));
     }
     const QAction* renameZone = nullptr;
     const QAction* recolorZone = nullptr;
@@ -379,9 +441,26 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         remove(*component);
     }
+    else if(chosen == editSettingsFile)
+    {
+        editSettings(*settings, event->widget());
+    }
+    else if(chosen == writeDefaultValues)
+    {
+        writeDefaults(*settings);
+    }
+    else if(chosen == removeSettingsFile)
+    {
+        remove(*settings);
+    }
     else if(chosen == add)
     {
         addZone(event->scenePos(), ZoneSize, tr("Zone"))->editTitle(); // Named at once
+    }
+    else if(chosen == addSettingsFile)
+    {
+        // What it holds chosen at once.
+        editSettings(*showSettings(m_application.addSettingsFile(), event->scenePos()), event->widget());
     }
     else if(chosen == renameZone)
     {
@@ -412,6 +491,7 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
         return;
     }
     QList<ComponentItem*> removed;
+    QList<SettingsItem*> removedSettings;
     const QList<QGraphicsItem*> selected = selectedItems();
     for(QGraphicsItem* item : selected)
     {
@@ -419,8 +499,17 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
         {
             removed.append(component);
         }
+        else if(auto* settings = qobject_cast<SettingsItem*>(item->toGraphicsObject()))
+        {
+            removedSettings.append(settings);
+        }
     }
     clearSelection(); // Told once, rather than as each of them goes
+    // The files first: they would otherwise join themselves again to what is left as each of their components goes.
+    for(SettingsItem* settings : std::as_const(removedSettings))
+    {
+        remove(*settings);
+    }
     for(ComponentItem* component : std::as_const(removed))
     {
         remove(*component);
@@ -552,6 +641,51 @@ ZoneItem* EditionScene::addZone(const QPointF& position, const QSizeF& size, con
     return zone;
 }
 
+SettingsItem* EditionScene::showSettings(AppForge::SettingsFile& file, const QPointF& position)
+{
+    auto* item = new SettingsItem(file);
+    item->setPos(position);
+    addItem(item);
+    update(HintRect); // Hidden once anything is in the edition zone
+    return item;
+}
+
+SettingsItem* EditionScene::settingsAt(const QPointF& position) const
+{
+    QGraphicsItem* item = itemAt(position, QTransform()); // The topmost one
+    return item != nullptr ? qobject_cast<SettingsItem*>(item->toGraphicsObject()) : nullptr;
+}
+
+void EditionScene::editSettings(const SettingsItem& item, QWidget* parent)
+{
+    // Not run here: the event that opens it ends first, while it blocks the window.
+    auto* dialog = new SettingsDialog(item.file(), m_application, m_factory, parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->open();
+}
+
+void EditionScene::writeDefaults(const SettingsItem& item)
+{
+    AppForge::SettingsFile& file = item.file();
+    if(file.writeDefaults())
+    {
+        emit told(tr("The default values are written to %1").arg(QDir::toNativeSeparators(file.filePath())));
+    }
+    else
+    {
+        emit refused(tr("The default values are not written: %1").arg(file.errorString()));
+    }
+}
+
+void EditionScene::remove(SettingsItem& item)
+{
+    AppForge::SettingsFile& file = item.file();
+    item.setSelected(false);
+    delete &item; // With its links
+    m_application.removeSettingsFile(file);
+    update(HintRect); // Shown again once nothing is left
+}
+
 void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
 {
     QGraphicsScene::drawBackground(painter, rect);
@@ -576,7 +710,7 @@ void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
         painter->setPen(palette().color(QPalette::PlaceholderText));
         painter->drawText(HintRect, Qt::AlignLeft | Qt::AlignVCenter,
                           tr("Drag a component from the list of components and drop it here to instantiate it\n"
-                             "Right-click to add a zone, which groups components"));
+                             "Right-click to add a zone, which groups components, or a settings file"));
     }
     painter->restore();
 }

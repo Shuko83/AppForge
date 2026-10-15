@@ -13,6 +13,7 @@
 class ComponentItem;
 class InterfaceItem;
 class QGraphicsPathItem;
+class SettingsItem;
 class ZoneItem;
 
 namespace AppForge
@@ -20,6 +21,7 @@ namespace AppForge
 class Component;
 class ComponentFactory;
 class ForgeApplication;
+class SettingsFile;
 } // namespace AppForge
 
 // The zone where the application is assembled: a component dragged from a ComponentModel and dropped here is
@@ -31,6 +33,8 @@ class ForgeApplication;
 // the application has: see refused().
 // The same menu removes the component under the cursor from the application, with its links, and the Delete key
 // removes the selected ones. While the application runs, it also starts that component, unless it runs already.
+// The menu adds a settings file of the application as well, see SettingsItem, whose properties are chosen at once, and
+// again when it is double-clicked or from its own menu, which writes its default values or removes it.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -43,7 +47,7 @@ class EditionScene : public QGraphicsScene
     [[nodiscard]] AppForge::Component* selectedComponent() const;
 
     // The application as a project file holds it, see README.md: what ForgeApplication::save() writes, with where its
-    // components are in the edition zone and the color they were given, and its zones.
+    // components and its settings files are in the edition zone, the color its components were given, and its zones.
     [[nodiscard]] QJsonObject save() const;
     // Replaces the application with the one project holds, as save() wrote it, see ForgeApplication::load(), and shows
     // it as it was. Returns what could not be restored, a sentence each: none when everything was.
@@ -56,6 +60,8 @@ class EditionScene : public QGraphicsScene
   signals:
     // What was just asked of it is not done; why is a sentence to show.
     void refused(const QString& why);
+    // What was just asked of it is done, which is worth telling; what is a sentence to show.
+    void told(const QString& what);
 
   protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent* event) override;
@@ -65,8 +71,11 @@ class EditionScene : public QGraphicsScene
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
+    // Double-clicking a settings file edits it.
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
-    // Delete removes the selected components, unless a name is edited: the key is for what is typed then.
+    // Delete removes the selected components and settings files, unless a name is edited: the key is for what is
+    // typed then.
     void keyPressEvent(QKeyEvent* event) override;
     // A grid, and a hint while nothing is in the edition zone.
     void drawBackground(QPainter* painter, const QRectF& rect) override;
@@ -95,6 +104,16 @@ class EditionScene : public QGraphicsScene
     [[nodiscard]] ZoneItem* zoneAt(const QPointF& position) const;
     // Adds a zone, its top left corner at position; of the next color when color is not valid.
     ZoneItem* addZone(const QPointF& position, const QSizeF& size, const QString& title, const QColor& color = {});
+    // Shows file, one of the application, at position.
+    SettingsItem* showSettings(AppForge::SettingsFile& file, const QPointF& position);
+    // The settings file at position, unless something is shown over it there; nullptr when there is none.
+    [[nodiscard]] SettingsItem* settingsAt(const QPointF& position) const;
+    // Edits the file of item in a dialog of parent, see SettingsDialog, which is left open once this returns.
+    void editSettings(const SettingsItem& item, QWidget* parent);
+    // Writes the default values of the file of item to it, and tells whether it could.
+    void writeDefaults(const SettingsItem& item);
+    // Removes item, with its links, and its file from the application.
+    void remove(SettingsItem& item);
 
     AppForge::ForgeApplication& m_application;
     const AppForge::ComponentFactory& m_factory;

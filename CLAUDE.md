@@ -8,11 +8,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Dossier | Cible | Rôle |
 | --- | --- | --- |
-| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin}/`, sources dans `src/` |
+| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin,Settings}/`, sources dans `src/` |
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
-| `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; le code est dans `Forge/src/`, sans namespace, son logo dans `Forge/resources/` |
+| `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; le code est dans `Forge/src/`, sans namespace, celui des fichiers de réglages dans `Forge/src/Settings/`, son logo dans `Forge/resources/` |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
-| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`) et `Window` (consomme `content` : `QWidget`) |
+| `exemple/ExternalPlugin` | `.afdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`), `ProfileSelector` (fournit `display` : la `QComboBox` de ses `profiles`, où l'utilisateur choisit `profile`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
 | `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : `ForgeApplication::open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
@@ -106,25 +106,45 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend d'être démarré.
 - Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
   appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
+- Fichiers de réglages (module `Settings` : `include/AppForge/Settings/SettingsFile.h`, `src/Settings/`) : ce que
+  l'utilisateur de l'application change et retrouve au lancement suivant. `addSettingsFile()` / `removeSettingsFile()`
+  / `settingsFiles()`, possédés par l'application (constructeur privé), écrits dans le projet (`settings`, seulement
+  s'il y en a). Un `SettingsFile` a `fileName`, unique dans l'application sans tenir compte de la casse ni du dossier
+  (`settingsFile(nom)`, `setFileName()` renvoie `false` sur un nom pris ; `addSettingsFile()` donne `settings.json`,
+  puis `settings2.json`…, et `load()` signale un doublon, qui garde ce nom-là), `directory` (vide = `AppConfigLocation`
+  de l'exécutable qui tourne, relatif = depuis son dossier)
+  et des `SettingsEntry {component, object, property}`, `object` étant le composant ou un de ses `propertyObjects()` ;
+  une propriété n'est que dans un fichier (`ForgeApplication::settingsFile(entry)`), seulement celles qu'un projet
+  enregistre (`canHold()`), et une entrée part à la destruction de son objet (`destroyed`). `start()` (à la transition
+  vers « en cours » seulement) lit chaque fichier avant le premier `initialize()`, l'écrit avec les valeurs du projet
+  s'il manque ou est incomplet, met de côté en `.bak` un fichier illisible, puis suit les NOTIFY (écriture regroupée
+  par `QTimer::singleShot(0)`) ; `stop()` écrit une dernière fois et remet les valeurs du projet, mémorisées au
+  `start()`. Le contenu inconnu d'un fichier est conservé. Problèmes : `SettingsFile::failed` →
+  `ForgeApplication::settingsFileFailed`, journal `appforge.settings`. `src/Application/ProjectJson.*` (privé,
+  inclus depuis `src/Settings/` par `"Application/ProjectJson.h"`) : l'écriture JSON des propriétés et la clé d'un
+  objet (nom, puis rang parmi ceux de ce nom), partagées avec `ForgeApplication`.
 - Messages d'erreur de Core en anglais, non traduits (`QStringLiteral`), comme ceux de `PluginManager`.
 
 ## Forge
 
-`main.cpp` → `SplashScreen`, puis `MainWindow` : trois panneaux dans un splitter horizontal.
+`main.cpp` → `SplashScreen`, puis `MainWindow` : trois panneaux dans un splitter horizontal. `SettingsItem`,
+`SettingsLinkItem` et `SettingsDialog` sont dans `src/Settings/`, inclus par `"Settings/SettingsItem.h"`.
 
 | Classe | Rôle |
 | --- | --- |
 | `SplashScreen` | `QSplashScreen` dont l'image est peinte aux couleurs de la palette depuis `Forge_info.h` (produit, version, Qt, compilateur, date de build, copyright) et la licence ; `read()` est émis une fois, deux secondes après son premier affichage ou au premier clic. `main.cpp` le montre (`processEvents()` sans les entrées utilisateur, pour qu'un clic attende la connexion), construit `MainWindow`, puis sur `read()` montre la fenêtre, appelle `finish()` et ouvre le projet passé en argument |
-| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
+| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Barre d'état : `refused` et `told` de la scène, `settingsFileFailed` de l'application. Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin ; la description en infobulle), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé. La vue la montre à travers un `QSortFilterProxyModel` créé par `MainWindow` : barre de recherche (Ctrl+F), sans casse, sur la colonne et le rôle de la liste déroulante à côté (`SearchFields` dans `MainWindow.cpp`) : Name en `DisplayRole` (nom), Name en `ToolTipRole` (description), Category en `DisplayRole` (catégorie). Un rôle d'index de la vue se lit donc à travers le proxy (`data()`), pas de `row()` à passer au modèle |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, des fichiers de réglages (**Add settings file** ouvre aussitôt sa fenêtre ; sur l'un d'eux : éditer, **Write default values** sauf pendant l'exécution, supprimer) et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), double-clic sur un fichier de réglages = `SettingsDialog` (ouvert par `open()`, pas `exec()`), touche Suppr = suppression des composants et fichiers sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()` / `removeSettingsFile()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signaux `refused(why)` quand un nom est refusé ou un fichier non écrit, `told(what)` quand il l'est, affichés par `MainWindow` dans la barre d'état |
 | `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
-| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu, redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; suit les signaux NOTIFY et `propertyObjectsChanged` |
+| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants et fichiers de réglages par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
+| `SettingsItem` / `SettingsLinkItem` | `QGraphicsObject` d'un `SettingsFile` : feuille au coin plié, nom du fichier, infobulle (chemin, propriétés tenues) ; refait ses `SettingsLinkItem` (traits pointillés de centre à centre, Z = -1, dans la scène et non enfants, détruits avec lui) sur `SettingsFile::changed` et à son ajout à la scène, et les suit par `xChanged` / `yChanged` des deux items |
+| `SettingsDialog` | Nom, dossier (chemin résultant affiché, ou pourquoi le nom est refusé : vide, ou celui d'un autre fichier, OK alors grisé) et arbre composant → groupe d'objet → propriétés que `SettingsFile::canHold()` accepte, à cocher ; celles d'un autre fichier sont désactivées avec son nom ; les groupes d'objets ne sont ouverts que s'ils ont une propriété tenue ; appliqué au `accepted` |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged` |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
@@ -136,9 +156,10 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 
 **Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
 - Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
-  et `color` (`#aarrggbb`, seulement si une couleur a été choisie) dans chaque composant (retrouvé par son nom) et
-  `zones` ; `EditionScene::load()` retire ses items, appelle `ForgeApplication::load()`, puis recrée un
-  `ComponentItem` par composant et un `LinkItem` par `binding()`.
+  et `color` (`#aarrggbb`, seulement si une couleur a été choisie) dans chaque composant (retrouvé par son nom),
+  `x` / `y` dans chaque fichier de `settings` (par rang, dans l'ordre de `settingsFiles()`) et `zones` ;
+  `EditionScene::load()` retire ses items, appelle `ForgeApplication::load()`, puis recrée un `ComponentItem` par
+  composant, un `LinkItem` par `binding()` et un `SettingsItem` par fichier de réglages.
 - `MainWindow::openProjectFile()` : `ForgeApplication::read()`, puis `m_scene->load()`, puis rafraîchit les modèles.
   Les problèmes sont affichés dans une seule boîte ; après une ouverture partielle, le projet n'a plus de fichier
   associé pour que **Save** n'écrase pas ce qui manque.
@@ -149,7 +170,8 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
 - Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus ; il
   reste actif pendant l'exécution pour démarrer ce qui a été déposé entre-temps. **Stop** (Maj+F5) appelle `stop()` ;
-  son activation suit `runningChanged`.
+  son activation suit `runningChanged`. Comme `stop()` remet les valeurs du projet aux propriétés tenues par un
+  fichier de réglages, celles-ci ne rendent pas le projet « modifié ».
 
 ## Pas encore fait
 
@@ -160,6 +182,9 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
   chemin d'erreur de `start()` n'a pas été exercé.
 - Pas de tests automatisés. Le paquet non plus n'est vérifié par rien : ni projet tiers d'exemple dans le dépôt, ni
   étape de CI qui en compile un.
+- Fichiers de réglages : pas de fenêtre « Préférences » générique où l'utilisateur final éditerait tout un fichier
+  (chaque composant montre les siens), pas de partage d'une même valeur entre deux instances, et le cas de plusieurs
+  objets de même nom dans un composant (`index` d'une entrée) n'a été exercé par aucun exemple.
 
 ## Pièges
 
@@ -178,7 +203,12 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
 - Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
-  `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ».
+  `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ». C'est aussi ce que
+  propose la fenêtre d'un fichier de réglages : toutes les propriétés d'un `QWidget`.
+- Un fichier de réglages range les valeurs sous le nom des instances : renommer une instance laisse ce que
+  l'utilisateur lui avait donné sous l'ancien nom, et elle repart des valeurs du projet. Lancée depuis Forge, une
+  application dont le fichier n'a pas de dossier écrit dans `AppConfigLocation` de Forge, pas dans celui de
+  l'application livrée.
 - Deux `ForgeApplication` (ou deux `MainWindow`) dans un même processus ont chacune leur `PluginManager` mais
   partagent `ComponentFactory::instance()` : la seconde instancie des composants dont elle ne connaît pas le plugin,
   qui manque alors dans le projet enregistré. Ces instances survivent aussi au plugin quand la première le décharge
