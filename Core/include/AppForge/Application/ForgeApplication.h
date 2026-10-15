@@ -74,11 +74,17 @@ class CORE_EXPORT ForgeApplication : public QObject
     void clear();
 
     // Initializes the components that are not yet, then starts those that do not run, in the order they were
-    // instantiated. Returns false, with errorString() set, when one refuses: those it started are stopped again.
+    // instantiated: called again while it runs, it starts those instantiated meanwhile. Returns false, with
+    // errorString() set, when one refuses: those this call started are stopped again, those that ran already go on.
     bool start();
+    // While it runs, initializes instance, one of its components, unless it is already, then starts it unless it
+    // runs: one instantiated meanwhile, say. Returns false, with errorString() set, when it does not run, nothing being
+    // started then, when instance refuses, or is not one of its components.
+    bool start(Component& instance);
     // Stops the components that run, the last one instantiated first.
     void stop();
-    // Whether it was started, and not stopped since. A component instantiated meanwhile waits for the next start().
+    // Whether start() was called with success, and stop() not since. A component instantiated meanwhile waits until
+    // it is started, by start() again or start(instance).
     [[nodiscard]] bool isRunning() const;
 
     // Removes its components of the plugin pluginId, as remove() does, then unloads it, see PluginManager::unload().
@@ -86,7 +92,7 @@ class CORE_EXPORT ForgeApplication : public QObject
     // unloaded, its components being removed all the same.
     bool unloadPlugin(const QString& pluginId);
 
-    // Why open(), start() or unloadPlugin() returned false.
+    // Why open(), one of the start() or unloadPlugin() returned false.
     [[nodiscard]] QString errorString() const;
 
   signals:

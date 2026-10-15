@@ -100,9 +100,10 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits.
 - Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
 - Exécution : `start()` initialise tout ce qui est `Initializing`, puis démarre tout ce qui est `Ready`, dans l'ordre
-  d'instanciation ; au premier refus il arrête ce qu'il a démarré. `stop()` arrête dans l'ordre inverse. `isRunning()`
-  / `runningChanged`. `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend
-  le `start()` suivant.
+  d'instanciation ; au premier refus il arrête ce que cet appel a démarré. Rappelé pendant l'exécution, il démarre ce
+  qui a été instancié entre-temps, sans toucher à ce qui tourne. `start(instance)` initialise puis démarre une seule
+  instance, et refuse quand l'application ne tourne pas. `stop()` arrête dans l'ordre inverse. `isRunning()` / `runningChanged`.
+  `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend d'être démarré.
 - Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
   appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
 - Messages d'erreur de Core en anglais, non traduits (`QStringLiteral`), comme ceux de `PluginManager`.
@@ -117,7 +118,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin ; la description en infobulle), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé. La vue la montre à travers un `QSortFilterProxyModel` créé par `MainWindow` : barre de recherche (Ctrl+F), sans casse, sur la colonne et le rôle de la liste déroulante à côté (`SearchFields` dans `MainWindow.cpp`) : Name en `DisplayRole` (nom), Name en `ToolTipRole` (description), Category en `DisplayRole` (catégorie). Un rôle d'index de la vue se lit donc à travers le proxy (`data()`), pas de `row()` à passer au modèle |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), touche Suppr = suppression des composants sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signal `refused(why)` quand un nom est refusé, affiché par `MainWindow` dans la barre d'état |
 | `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
@@ -146,8 +147,9 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 - `Forge [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage (options analysées dans `main.cpp`).
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
-- Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus,
-  **Stop** (Maj+F5) appelle `stop()` ; leur activation suit `runningChanged`.
+- Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus ; il
+  reste actif pendant l'exécution pour démarrer ce qui a été déposé entre-temps. **Stop** (Maj+F5) appelle `stop()` ;
+  son activation suit `runningChanged`.
 
 ## Pas encore fait
 

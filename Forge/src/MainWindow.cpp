@@ -110,16 +110,15 @@ MainWindow::MainWindow(const QString& pluginRoot, QWidget* parent)
     fileMenu->addAction(tr("&Save"), QKeySequence::Save, this, &MainWindow::saveProject);
     fileMenu->addAction(tr("Save &As..."), QKeySequence::SaveAs, this, &MainWindow::saveProjectAs);
 
-    // One of them at a time: what the application can be told.
+    // Start stays enabled while it runs: it starts what was dropped meanwhile.
     QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
-    QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
+    runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
     QAction* stopAction = runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application,
                                              &AppForge::ForgeApplication::stop);
     stopAction->setEnabled(false);
     connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
-            [this, startAction, stopAction](bool running)
+            [this, stopAction](bool running)
             {
-                startAction->setEnabled(!running);
                 stopAction->setEnabled(running);
                 m_pluginViewer->setUnloadAllowed(!running); // What runs keeps its plugin
             });
@@ -427,9 +426,11 @@ bool MainWindow::saveProjectAs()
 
 void MainWindow::start()
 {
+    const bool wasRunning = m_application.isRunning(); // Then what ran goes on, whatever the others do
     if(!m_application.start())
     {
-        QMessageBox::warning(this, tr("Start"),
-                             tr("The application cannot be started:\n%1").arg(m_application.errorString()));
+        const QString message = wasRunning ? tr("The components dropped since the start cannot be started:\n%1")
+                                           : tr("The application cannot be started:\n%1");
+        QMessageBox::warning(this, tr("Start"), message.arg(m_application.errorString()));
     }
 }

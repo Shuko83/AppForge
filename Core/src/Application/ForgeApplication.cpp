@@ -389,6 +389,34 @@ bool ForgeApplication::start()
     return true;
 }
 
+bool ForgeApplication::start(Component& instance)
+{
+    if(!std::ranges::any_of(m_components,
+                            [&instance](const std::unique_ptr<Component>& owned) { return owned.get() == &instance; }))
+    {
+        m_errorString = QStringLiteral("%1 is not a component of the application").arg(instance.objectName());
+        return false;
+    }
+    if(!m_running)
+    {
+        m_errorString =
+            QStringLiteral("%1 cannot be started while the application does not run").arg(instance.objectName());
+        return false;
+    }
+    if(instance.state() == ComponentState::Initializing && !instance.initialize())
+    {
+        m_errorString = QStringLiteral("%1 could not be initialized").arg(instance.objectName());
+        return false;
+    }
+    if(instance.state() == ComponentState::Ready && !instance.start())
+    {
+        m_errorString = QStringLiteral("%1 could not be started").arg(instance.objectName());
+        return false;
+    }
+    m_errorString.clear();
+    return true;
+}
+
 void ForgeApplication::stop()
 {
     for(const std::unique_ptr<Component>& instance : m_components | std::views::reverse)
