@@ -397,6 +397,12 @@ bool ForgeApplication::start(Component& instance)
         m_errorString = QStringLiteral("%1 is not a component of the application").arg(instance.objectName());
         return false;
     }
+    if(!m_running)
+    {
+        m_errorString =
+            QStringLiteral("%1 cannot be started while the application does not run").arg(instance.objectName());
+        return false;
+    }
     if(instance.state() == ComponentState::Initializing && !instance.initialize())
     {
         m_errorString = QStringLiteral("%1 could not be initialized").arg(instance.objectName());
@@ -408,7 +414,6 @@ bool ForgeApplication::start(Component& instance)
         return false;
     }
     m_errorString.clear();
-    setRunning(true);
     return true;
 }
 

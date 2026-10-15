@@ -77,14 +77,14 @@ class CORE_EXPORT ForgeApplication : public QObject
     // instantiated: called again while it runs, it starts those instantiated meanwhile. Returns false, with
     // errorString() set, when one refuses: those this call started are stopped again, those that ran already go on.
     bool start();
-    // Initializes instance, one of its components, unless it is already, then starts it unless it runs: the
-    // application runs from then on, and stop() stops it with the others. Returns false, with errorString() set, when
-    // it refuses, or is not one of its components.
+    // While it runs, initializes instance, one of its components, unless it is already, then starts it unless it
+    // runs: one instantiated meanwhile, say. Returns false, with errorString() set, when it does not run, nothing being
+    // started then, when instance refuses, or is not one of its components.
     bool start(Component& instance);
     // Stops the components that run, the last one instantiated first.
     void stop();
-    // Whether one of the start() was called with success, and stop() not since. A component instantiated meanwhile
-    // waits until it is started.
+    // Whether start() was called with success, and stop() not since. A component instantiated meanwhile waits until
+    // it is started, by start() again or start(instance).
     [[nodiscard]] bool isRunning() const;
 
     // Removes its components of the plugin pluginId, as remove() does, then unloads it, see PluginManager::unload().

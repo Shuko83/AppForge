@@ -315,8 +315,10 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* add = nullptr;
     if(component != nullptr)
     {
+        // Only while the application runs: one dropped meanwhile; otherwise, Start starts them all.
         startComponent = menu.addAction(tr("Start component"));
-        startComponent->setEnabled(component->component().state() != AppForge::ComponentState::Running);
+        startComponent->setEnabled(m_application.isRunning() &&
+                                   component->component().state() != AppForge::ComponentState::Running);
         menu.addSeparator();
         renameComponent = menu.addAction(tr("Rename component"));
         recolorComponent = menu.addAction(tr("Change component color..."));
