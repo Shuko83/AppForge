@@ -13,6 +13,7 @@
 #include <QKeyEvent>
 #include <QList>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
@@ -306,6 +307,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     ComponentItem* component = componentAt(event->scenePos());
     ZoneItem* zone = zoneAt(event->scenePos());
     QMenu menu(event->widget());
+    QAction* startComponent = nullptr;
     const QAction* renameComponent = nullptr;
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
@@ -313,6 +315,9 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* add = nullptr;
     if(component != nullptr)
     {
+        startComponent = menu.addAction(tr("Start component"));
+        startComponent->setEnabled(component->component().state() != AppForge::ComponentState::Running);
+        menu.addSeparator();
         renameComponent = menu.addAction(tr("Rename component"));
         recolorComponent = menu.addAction(tr("Change component color..."));
         uncolorComponent = menu.addAction(tr("Reset component color"));
@@ -341,7 +346,15 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
-    if(chosen == renameComponent)
+    if(chosen == startComponent)
+    {
+        if(!m_application.start(component->component()))
+        {
+            QMessageBox::warning(event->widget(), tr("Start"),
+                                 tr("The component cannot be started:\n%1").arg(m_application.errorString()));
+        }
+    }
+    else if(chosen == renameComponent)
     {
         component->editName();
     }

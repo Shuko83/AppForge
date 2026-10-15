@@ -30,7 +30,7 @@ class ForgeApplication;
 // renames and recolors the component under the cursor too, see ComponentItem. A component keeps a name no other one of
 // the application has: see refused().
 // The same menu removes the component under the cursor from the application, with its links, and the Delete key
-// removes the selected ones.
+// removes the selected ones. It also starts that component, unless it runs, which runs the application.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
