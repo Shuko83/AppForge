@@ -20,6 +20,10 @@ class LinkItem : public QGraphicsItem
     // The curve of a link from a provided interface to a consumed one, their dots being there in the scene.
     [[nodiscard]] static QPainterPath curve(const QPointF& provided, const QPointF& consumed);
 
+    // What it joins.
+    [[nodiscard]] InterfaceItem& provided() const;
+    [[nodiscard]] InterfaceItem& consumed() const;
+
     // Draws it between its interfaces again, where they are now.
     void follow();
 

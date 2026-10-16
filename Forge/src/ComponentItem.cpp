@@ -15,7 +15,6 @@
 
 #include "AppForge/Component/Component.h"
 #include "AppForge/Composite/Composite.h"
-#include "AppForge/Composite/Gateway.h"
 #include "Colors.h"
 #include "InterfaceItem.h"
 #include "NameEditor.h"
@@ -56,8 +55,7 @@ QColor nameColor(const QColor& color, const QPalette& palette)
 
 ComponentItem::ComponentItem(AppForge::Component& component, QString componentName)
     : m_component(component), m_componentName(std::move(componentName)),
-      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr),
-      m_gateway(qobject_cast<AppForge::Gateway*>(&component) != nullptr)
+      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
@@ -129,12 +127,7 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         painter->fillPath(outline.intersected(header), m_color);
     }
     // Once it is filled, for its color not to cover the half of its outline that is inside.
-    QPen outlinePen = selected ? QPen(palette.color(QPalette::Highlight), 2) : QPen(palette.color(QPalette::Mid), 1);
-    if(m_gateway)
-    {
-        outlinePen.setStyle(Qt::DashLine);
-    }
-    painter->setPen(outlinePen);
+    painter->setPen(selected ? QPen(palette.color(QPalette::Highlight), 2) : QPen(palette.color(QPalette::Mid), 1));
     painter->setBrush(Qt::NoBrush);
     painter->drawPath(outline);
 
@@ -250,7 +243,8 @@ void ComponentItem::refreshInterfaces()
             if(index == items.size())
             {
                 prepareGeometryChange(); // A row more
-                items.append(new InterfaceItem(kind, interfaces.at(index), Header.width() - 2 * Padding, *this));
+                items.append(
+                    new InterfaceItem(kind, m_component, interfaces.at(index), Header.width() - 2 * Padding, *this));
             }
             items.at(index)->setAvailable(interfaces.at(index).available);
             items.at(index)->setPos(x, row); // Lower than it was when an interface was declared above it

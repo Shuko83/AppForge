@@ -528,6 +528,39 @@ bool ForgeApplication::bind(Component& consumer, const QString& consumed, Compon
     return true;
 }
 
+bool ForgeApplication::unbind(Component& consumer, const QString& consumed)
+{
+    Composite* in = compositeOf(consumer);
+    if(in == nullptr)
+    {
+        consumer.unbindInterface(consumed);
+        return true;
+    }
+    if(!canChange(*in))
+    {
+        return false;
+    }
+    const QString consumerName = consumer.objectName();
+    const QList<Instance> instances = instancesOf(in->filePath());
+    for(const Instance& instance : instances)
+    {
+        if(Component* other = ComponentPaths::find(instance.composite->m_components, consumerName))
+        {
+            other->unbindInterface(consumed);
+        }
+    }
+    QJsonArray& bindings = m_definitions.at(in->filePath()).bindings;
+    for(qsizetype index = bindings.size() - 1; index >= 0; --index)
+    {
+        const QJsonObject binding = bindings.at(index).toObject();
+        if(binding.value(u"consumer").toString() == consumerName && binding.value(u"consumed").toString() == consumed)
+        {
+            bindings.removeAt(index);
+        }
+    }
+    return true;
+}
+
 Gateway* ForgeApplication::expose(Component& component, const QString& interfaceName, const QString& name)
 {
     Composite* in = compositeOf(component);
@@ -565,9 +598,10 @@ Gateway* ForgeApplication::expose(Component& component, const QString& interface
         std::unique_ptr<Gateway> gateway(
             static_cast<Gateway*>(ComponentFactory::instance().create(CorePlugin::gatewayId()).release()));
         gateway->setObjectName(named);
-        gateway->attach(*instance.composite, kind, type);
         Gateway& added = *gateway;
+        // One of its components once its composite tells its interfaces changed.
         instance.composite->m_components.push_back(std::move(gateway));
+        added.attach(*instance.composite, kind, type);
         Component* inner = ComponentPaths::find(instance.composite->m_components, componentName);
         if(instance.bound && inner != nullptr)
         {

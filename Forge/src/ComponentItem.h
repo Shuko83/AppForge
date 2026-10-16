@@ -21,7 +21,6 @@ class Component;
 // corner tells its state: a square once it is initialized, a triangle while it runs. It can be moved and selected.
 // Double-clicking its names edits its name in place, and it can be given a color, which its names are written over.
 // A composite has a last row, which double-clicking opens it from, as anywhere but on its names: see openRequested().
-// A gateway, in the scene of a composite, has a dashed outline.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
@@ -70,7 +69,6 @@ class ComponentItem : public QGraphicsObject
     AppForge::Component& m_component;
     QString m_componentName;
     bool m_composite = false; // Whether its component is a composite, which has its last row
-    bool m_gateway = false;   // Whether its component is a gateway, whose outline is dashed
     QColor m_color;
     // Its children.
     QList<InterfaceItem*> m_consumedInterfaces;

@@ -42,7 +42,9 @@ class SettingsFile;
 // again when it is double-clicked or from its own menu, which writes its default values or removes it.
 // The scene of a composite shows what it is made of, and is worked on alike, but for the settings files and the
 // grouping, which are those of the application: what is placed, bound, renamed or removed there changes the structure
-// of its file, and so every instance of it, see ForgeApplication.
+// of its file, and so every instance of it, see ForgeApplication. What the composite exposes is a single item there,
+// see ExposureItem, chosen when it is double-clicked or from its menu, see ExposureDialog: its gateways are its dots,
+// rather than components of their own.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -123,11 +125,12 @@ class EditionScene : public QGraphicsScene
     void dimLinkTargets(const InterfaceItem* source);
     // Shows component, one of the application, at position.
     ComponentItem* showComponent(AppForge::Component& component, const QPointF& position);
-    // Draws the links of what item consumes, and of what consumes what it provides, that are not drawn.
-    void showLinks(ComponentItem& item);
-    // Exposes the interface of dot, of a component of its composite, through a gateway, shown next to the component,
-    // whose name is edited at once.
-    void expose(InterfaceItem& dot);
+    // Draws the links between the dots it shows, those of components and of what its composite exposes, as they are
+    // bound now: those that are not drawn yet, and no longer those that are no longer bound.
+    void showLinks();
+    // Has what its composite exposes chosen in a dialog of parent, see ExposureDialog, which is left open once this
+    // returns.
+    void editExposure(QWidget* parent);
     // The component shown at position, or whose interface is; nullptr when there is none.
     [[nodiscard]] ComponentItem* componentAt(const QPointF& position) const;
     // Names component name, as typed in place of its name; tells why through refused() when it cannot be.

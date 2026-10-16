@@ -4,11 +4,7 @@
 #include "PropertyEditor.h"
 
 #include <QHeaderView>
-#include <QInputDialog>
 #include <QLabel>
-#include <QLineEdit>
-#include <QMenu>
-#include <QMessageBox>
 #include <QMetaMethod>
 #include <QSignalBlocker>
 #include <QStackedWidget>
@@ -58,7 +54,7 @@ bool isEditable(const QMetaProperty& property)
 
 } // namespace
 
-PropertyEditor::PropertyEditor(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
                                QWidget* parent)
     : QWidget(parent), m_application(application), m_factory(factory)
 {
@@ -76,8 +72,6 @@ PropertyEditor::PropertyEditor(AppForge::ForgeApplication& application, const Ap
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setEditTriggers(QAbstractItemView::AllEditTriggers); // A click on a value edits it
     connect(m_table, &QTableWidget::itemChanged, this, &PropertyEditor::write);
-    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_table, &QTableWidget::customContextMenuRequested, this, &PropertyEditor::showMenu);
 
     m_stack = new QStackedWidget;
     m_stack->addWidget(m_placeholder);
@@ -291,57 +285,4 @@ void PropertyEditor::write(const QTableWidgetItem* item)
     }
     edited.property.write(edited.object, item->data(Qt::EditRole));
     refreshValues(); // What the object made of it: it can adjust a value, or refuse it
-}
-
-void PropertyEditor::showMenu(const QPoint& position)
-{
-    const int row = m_table->rowAt(position.y());
-    // In the scene of a composite only, which exposes the properties of its components.
-    if(row < 0 || m_composite == nullptr || m_component == nullptr || !m_rows.at(row).property.isValid())
-    {
-        return;
-    }
-    const Row& shown = m_rows.at(row);
-    // A property of the component, or of one of its objects; one a composite exposes in turn, as it exposes it.
-    QObject* object = shown.exposed.isEmpty() ? shown.object.data() : m_component.data();
-    const QString property = shown.exposed.isEmpty() ? QString::fromLatin1(shown.property.name()) : shown.exposed;
-    const QString exposedAs = m_application.exposedName(*m_component, object, property);
-
-    QMenu menu(this);
-    QAction* expose = menu.addAction(tr("Expose"));
-    expose->setEnabled(exposedAs.isEmpty());
-    QAction* unexpose = menu.addAction(tr("Unexpose"));
-    unexpose->setEnabled(!exposedAs.isEmpty());
-    QAction* rename = menu.addAction(tr("Rename exposed property..."));
-    rename->setEnabled(!exposedAs.isEmpty());
-    const QAction* chosen = menu.exec(m_table->viewport()->mapToGlobal(position));
-    // What the menu was about can be gone once it is closed.
-    if(chosen == nullptr || m_composite == nullptr || m_component == nullptr)
-    {
-        return;
-    }
-    if(chosen == expose)
-    {
-        if(m_application.exposeProperty(*m_component, object, property).isEmpty())
-        {
-            QMessageBox::warning(this, tr("Expose"), m_application.errorString());
-        }
-    }
-    else if(chosen == unexpose)
-    {
-        m_application.unexposeProperty(*m_composite, exposedAs);
-    }
-    else if(chosen == rename)
-    {
-        const QString newName = QInputDialog::getText(
-            this, tr("Rename exposed property"), tr("Name %1 exposes %2 as:").arg(m_composite->objectName(), property),
-            QLineEdit::Normal, exposedAs);
-        if(!newName.isEmpty() && newName != exposedAs && m_composite != nullptr &&
-           !m_application.renameExposedProperty(*m_composite, exposedAs, newName))
-        {
-            QMessageBox::warning(this, tr("Rename exposed property"),
-                                 tr("%1 is not renamed: %2 exposes another property as %3")
-                                     .arg(exposedAs, m_composite->objectName(), newName));
-        }
-    }
 }

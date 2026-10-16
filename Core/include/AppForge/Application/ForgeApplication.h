@@ -109,6 +109,9 @@ class CORE_EXPORT ForgeApplication : public QObject
     // two components of the application, or of one of its composites. Returns false, changing nothing, when they cannot
     // be bound, or are not of the same composite.
     bool bind(Component& consumer, const QString& consumed, Component& provider, const QString& provided);
+    // Unbinds consumed, which consumer, a component of the application or of one of its composites, consumes, see
+    // Component::unbindInterface(). Returns false, changing nothing, when the composite cannot be changed.
+    bool unbind(Component& consumer, const QString& consumed);
     // Adds to the structure of the composite of component a gateway of interfaceName, which component provides or
     // consumes, bound to it: the composite provides what component provides, or consumes what component consumes, under
     // the name of the gateway, see Gateway. It is named name, or after the interface when name cannot name it, see

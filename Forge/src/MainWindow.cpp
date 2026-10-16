@@ -563,6 +563,10 @@ QJsonObject MainWindow::compositeContent(const QString& filePath) const
         component = json;
     }
     content.insert(u"components", components);
+    if(laidOut.contains(u"exposure")) // Where what it exposes is shown
+    {
+        content.insert(u"exposure", laidOut.value(u"exposure"));
+    }
     content.insert(u"zones", laidOut.value(u"zones").toArray());
     return content;
 }

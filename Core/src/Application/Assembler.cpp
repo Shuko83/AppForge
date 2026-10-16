@@ -250,8 +250,10 @@ bool Assembler::load(Components& components, const QJsonObject& document, const 
             problem(QStringLiteral("%1 is named %2: its name is empty, holds a %3 or is the one of another component")
                         .arg(prefix + name, prefix + gateway->objectName(), ComponentPaths::Separator));
         }
-        gateway->attach(*owner, kindName == ProvidedName ? GatewayKind::Provided : GatewayKind::Consumed, type);
+        // One of its components once its composite tells its interfaces changed.
+        Gateway& added = *gateway;
         components.push_back(std::move(gateway));
+        added.attach(*owner, kindName == ProvidedName ? GatewayKind::Provided : GatewayKind::Consumed, type);
     }
 
     if(bound)

@@ -15,6 +15,7 @@
 
 #include "Colors.h"
 #include "ComponentItem.h"
+#include "Composite/ExposureItem.h"
 #include "NameEditor.h"
 #include "Settings/SettingsItem.h"
 
@@ -234,9 +235,10 @@ QList<QGraphicsItem*> ZoneItem::content() const
     for(QGraphicsItem* item : scene()->items(bounds, Qt::IntersectsItemBoundingRect))
     {
         const QRectF itemBounds = item->sceneBoundingRect();
-        // A settings file as a component.
+        // A settings file, or what a composite exposes, as a component.
         const bool component = qobject_cast<const ComponentItem*>(item->toGraphicsObject()) != nullptr ||
-                               qobject_cast<const SettingsItem*>(item->toGraphicsObject()) != nullptr;
+                               qobject_cast<const SettingsItem*>(item->toGraphicsObject()) != nullptr ||
+                               qobject_cast<const ExposureItem*>(item->toGraphicsObject()) != nullptr;
         const bool zone = item != this && item->type() == Type;
         if((component && bounds.contains(itemBounds.center())) || (zone && bounds.contains(itemBounds)))
         {

@@ -11,6 +11,7 @@
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsView>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -37,6 +38,8 @@
 #include "AppForge/Composite/Gateway.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
+#include "Composite/ExposureDialog.h"
+#include "Composite/ExposureItem.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
 #include "Settings/SettingsDialog.h"
@@ -81,13 +84,6 @@ void writePosition(QJsonObject& json, const QPointF& position)
 QPointF readPosition(const QJsonObject& json)
 {
     return {json.value(u"x").toDouble(), json.value(u"y").toDouble()};
-}
-
-// The one of interfaces named name; nullptr when none is.
-InterfaceItem* interfaceNamed(const QList<InterfaceItem*>& interfaces, const QString& name)
-{
-    const auto found = std::ranges::find(interfaces, name, &InterfaceItem::name);
-    return found != interfaces.end() ? *found : nullptr;
 }
 
 } // namespace
@@ -137,6 +133,7 @@ QJsonObject EditionScene::save(const QString& directory) const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name
     QHash<const AppForge::SettingsFile*, const SettingsItem*> shownSettings;
+    const ExposureItem* exposure = nullptr;
     QJsonArray zones;
     // From the first one added: load() adds them in this order, which is then the same again.
     const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
@@ -145,6 +142,10 @@ QJsonObject EditionScene::save(const QString& directory) const
         if(const auto* componentItem = qobject_cast<const ComponentItem*>(item->toGraphicsObject()))
         {
             shown.insert(componentItem->component().objectName(), componentItem);
+        }
+        else if(const auto* exposureItem = qobject_cast<const ExposureItem*>(item->toGraphicsObject()))
+        {
+            exposure = exposureItem;
         }
         else if(const auto* settingsItem = qobject_cast<const SettingsItem*>(item->toGraphicsObject()))
         {
@@ -196,6 +197,12 @@ QJsonObject EditionScene::save(const QString& directory) const
     {
         project.insert(u"settings", settings);
     }
+    if(exposure != nullptr)
+    {
+        QJsonObject json;
+        writePosition(json, exposure->pos());
+        project.insert(u"exposure", json);
+    }
     project.insert(u"zones", zones);
     return project;
 }
@@ -223,29 +230,46 @@ void EditionScene::showDocument(const QJsonObject& document)
         const QJsonObject json = value.toObject();
         saved.insert(json.value(u"name").toString(), json);
     }
-    QHash<const AppForge::Component*, ComponentItem*> shown;
+    QRectF bounds; // Of the components shown
     for(const std::unique_ptr<AppForge::Component>& component : this->components())
     {
+        // Those of a gateway are on the item of what its composite exposes.
+        if(qobject_cast<AppForge::Gateway*>(component.get()) != nullptr)
+        {
+            continue;
+        }
         const QJsonObject json = saved.value(component->objectName());
         ComponentItem* item = showComponent(*component, readPosition(json));
         item->setColor(QColor::fromString(json.value(u"color").toString())); // Not valid when it has none
-        shown.insert(component.get(), item);
+        bounds |= item->sceneBoundingRect();
+    }
+    if(m_composite != nullptr)
+    {
+        // Where its file put it; otherwise next to the components, on the side its links leave from: on the right of
+        // them when it mostly takes what they provide, on their left when it mostly gives them what they consume.
+        qsizetype giving = 0;
+        for(const std::unique_ptr<AppForge::Component>& component : m_composite->components())
+        {
+            const auto* gateway = qobject_cast<const AppForge::Gateway*>(component.get());
+            giving += gateway == nullptr ? 0 : gateway->kind() == AppForge::GatewayKind::Consumed ? 1 : -1;
+        }
+        const QJsonObject json = document.value(u"exposure").toObject();
+        QPointF position = readPosition(json);
+        if(json.isEmpty())
+        {
+            const qreal x =
+                giving > 0 ? std::max(bounds.left() - 14 * GridStep, 6 * GridStep) : bounds.right() + 10 * GridStep;
+            position = bounds.isNull() ? QPointF(12 * GridStep, 6 * GridStep) : QPointF(x, bounds.top() + 2 * GridStep);
+        }
+        auto* exposure = new ExposureItem(*m_composite);
+        exposure->setPos(position);
+        addItem(exposure);
+        connect(exposure, &ExposureItem::interfacesRebuilt, this, &EditionScene::showLinks);
+        connect(exposure, &ExposureItem::editRequested, this,
+                [this] { editExposure(views().isEmpty() ? nullptr : views().constFirst()); });
     }
     // The links of what the application bound, once every component is shown.
-    for(const std::unique_ptr<AppForge::Component>& component : this->components())
-    {
-        for(InterfaceItem* consumed : shown.value(component.get())->consumedInterfaces())
-        {
-            const AppForge::InterfaceBinding bound = component->binding(consumed->name());
-            const ComponentItem* provider = shown.value(bound.provider);
-            InterfaceItem* provided =
-                provider != nullptr ? interfaceNamed(provider->providedInterfaces(), bound.providedName) : nullptr;
-            if(provided != nullptr)
-            {
-                addItem(new LinkItem(*provided, *consumed));
-            }
-        }
-    }
+    showLinks();
     // Once the components they are joined to are shown: one per file of the project, in its order. Those of the
     // application, in its scene.
     if(m_composite == nullptr)
@@ -422,18 +446,16 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
-    // The dot of an interface, in the scene of a composite: exposed through a gateway, but those of gateways.
-    InterfaceItem* dot = m_composite != nullptr ? interfaceAt(event->scenePos()) : nullptr;
-    if(dot != nullptr && qobject_cast<AppForge::Gateway*>(&dot->component()) == nullptr)
+    // What its composite exposes: chosen in a dialog.
+    QGraphicsItem* under = itemAt(event->scenePos(), QTransform());
+    if(under != nullptr && qobject_cast<ExposureItem*>(under->topLevelItem()->toGraphicsObject()) != nullptr)
     {
-        QMenu dotMenu(event->widget());
-        QAction* exposeAction = dotMenu.addAction(tr("Expose..."));
-        exposeAction->setToolTip(tr("Makes %1 an interface of %2, through a gateway")
-                                     .arg(dot->name(), QFileInfo(m_composite->filePath()).completeBaseName()));
+        QMenu exposureMenu(event->widget());
+        const QAction* choose = exposureMenu.addAction(tr("Choose what is exposed..."));
         event->accept();
-        if(dotMenu.exec(event->screenPos()) == exposeAction)
+        if(exposureMenu.exec(event->screenPos()) == choose)
         {
-            expose(*dot);
+            editExposure(event->widget());
         }
         return;
     }
@@ -669,21 +691,12 @@ void EditionScene::dimLinkTargets(const InterfaceItem* source)
 
 ComponentItem* EditionScene::showComponent(AppForge::Component& component, const QPointF& position)
 {
-    // What it is an instance of: its component, its composite file, or a gateway.
+    // What it is an instance of: its component, or its composite file.
     auto* composite = qobject_cast<AppForge::Composite*>(&component);
-    const auto* gateway = qobject_cast<const AppForge::Gateway*>(&component);
     const std::optional<AppForge::ComponentInfo> info = m_factory.component(component.componentId());
-    QString componentName = info ? info->name : QString();
-    if(composite != nullptr)
-    {
-        componentName = QFileInfo(composite->filePath()).completeBaseName();
-    }
-    else if(gateway != nullptr)
-    {
-        componentName =
-            gateway->kind() == AppForge::GatewayKind::Provided ? tr("Provided gateway") : tr("Consumed gateway");
-    }
-    auto* item = new ComponentItem(component, componentName);
+    auto* item = new ComponentItem(component, composite != nullptr ? QFileInfo(composite->filePath()).completeBaseName()
+                                              : info               ? info->name
+                                                                   : QString());
     item->setPos(position);
     addItem(item);
     update(HintRect); // Hidden once anything is in the edition zone
@@ -693,67 +706,65 @@ ComponentItem* EditionScene::showComponent(AppForge::Component& component, const
     {
         connect(item, &ComponentItem::openRequested, this, [this, composite] { emit openRequested(*composite); });
     }
-    connect(item, &ComponentItem::interfacesRebuilt, this, [this, item] { showLinks(*item); });
+    connect(item, &ComponentItem::interfacesRebuilt, this, &EditionScene::showLinks);
     return item;
 }
 
-void EditionScene::expose(InterfaceItem& dot)
+void EditionScene::showLinks()
 {
-    if(!canChange())
-    {
-        return;
-    }
-    // Next to the component, on the side of the dot, as their link goes.
-    const bool provided = dot.kind() == InterfaceItem::Kind::Provided;
-    const QPointF position = dot.parentItem()->pos() + QPointF(provided ? 12 * GridStep : -12 * GridStep, 0);
-    AppForge::Gateway* gateway = m_application.expose(dot.component(), dot.name());
-    if(gateway == nullptr)
-    {
-        emit refused(tr("%1 is not exposed: %2").arg(dot.name(), m_application.errorString()));
-        return;
-    }
-    ComponentItem* item = showComponent(*gateway, position);
-    showLinks(*item);
-    clearSelection();
-    item->setSelected(true);
-    item->editName(); // Named at once, after the interface until then
-}
-
-void EditionScene::showLinks(ComponentItem& item)
-{
+    // The dots of the scene: those of its components, and of what its composite exposes.
+    QList<InterfaceItem*> dots;
     const QList<QGraphicsItem*> shown = items();
-    for(QGraphicsItem* other : shown)
+    for(QGraphicsItem* item : shown)
     {
-        auto* consumer = qobject_cast<ComponentItem*>(other->toGraphicsObject());
-        if(consumer == nullptr)
+        if(auto* dot = qgraphicsitem_cast<InterfaceItem*>(item))
+        {
+            dots.append(dot);
+        }
+    }
+    for(InterfaceItem* consumed : std::as_const(dots))
+    {
+        if(consumed->kind() != InterfaceItem::Kind::Consumed)
         {
             continue;
         }
-        // What item consumes, and what consumes what item provides.
-        for(InterfaceItem* consumed : consumer->consumedInterfaces())
+        const AppForge::InterfaceBinding bound = consumed->component().binding(consumed->name());
+        // Not those of what it is no longer bound to: it was unbound, or bound to another meanwhile.
+        const QList<LinkItem*> links = consumed->links();
+        for(LinkItem* link : links)
         {
-            const AppForge::InterfaceBinding bound = consumer->component().binding(consumed->name());
-            const bool aboutItem = consumer == &item || bound.provider == &item.component();
-            const auto provider =
-                std::ranges::find_if(shown,
-                                     [&bound](QGraphicsItem* candidate)
-                                     {
-                                         auto* shownItem = qobject_cast<ComponentItem*>(candidate->toGraphicsObject());
-                                         return shownItem != nullptr && &shownItem->component() == bound.provider;
-                                     });
-            if(!aboutItem || provider == shown.end() || !consumed->links().isEmpty())
+            if(&link->provided().component() != bound.provider || link->provided().name() != bound.providedName)
             {
-                continue;
-            }
-            InterfaceItem* provided =
-                interfaceNamed(qobject_cast<ComponentItem*>((*provider)->toGraphicsObject())->providedInterfaces(),
-                               bound.providedName);
-            if(provided != nullptr)
-            {
-                addItem(new LinkItem(*provided, *consumed));
+                delete link;
             }
         }
+        // A consumed interface is bound to one interface at most.
+        if(!consumed->links().isEmpty())
+        {
+            continue;
+        }
+        const auto provided = std::ranges::find_if(dots,
+                                                   [&bound](const InterfaceItem* dot)
+                                                   {
+                                                       return dot->kind() == InterfaceItem::Kind::Provided &&
+                                                              &dot->component() == bound.provider &&
+                                                              dot->name() == bound.providedName;
+                                                   });
+        if(bound.provider != nullptr && provided != dots.end())
+        {
+            addItem(new LinkItem(**provided, *consumed));
+        }
     }
+}
+
+void EditionScene::editExposure(QWidget* parent)
+{
+    // Not run here: the event that opens it ends first, while it blocks the window.
+    auto* dialog = new ExposureDialog(*m_composite, m_application, m_factory, parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // Once what was chosen is given to the composite: its gateways are bound, or unbound.
+    connect(dialog, &QDialog::accepted, this, &EditionScene::showLinks);
+    dialog->open();
 }
 
 ComponentItem* EditionScene::componentAt(const QPointF& position) const
@@ -920,7 +931,7 @@ void EditionScene::groupSelection(QWidget* parent)
     {
         // Where they were, as its scene shows them.
         ComponentItem* item = showComponent(*composite, bounds.center());
-        showLinks(*item); // To what its gateways bound it to
+        showLinks(); // To what its gateways bound it to
         item->setSelected(true);
         emit told(tr("%1 holds them now").arg(QDir::toNativeSeparators(composite->filePath())));
     }

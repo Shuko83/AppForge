@@ -28,15 +28,15 @@ class ForgeApplication;
 // type has an editor. It follows the changes the component and its objects notify, and the objects it adds or loses.
 // The name of a property a settings file of the application holds is in italics: its value is the default one.
 // A composite has the properties it exposes edited, under their exposed names: the same properties, on the same
-// objects. For a component of a composite, the context menu of a property exposes it, or no longer, or renames it as
-// exposed; one exposed is shown with the name it is exposed as.
+// objects. For a component of a composite, a property its composite exposes is shown with the name it is exposed as,
+// see ExposureDialog.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT
 
   public:
     // The components are those of application.
-    PropertyEditor(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+    PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
                    QWidget* parent = nullptr);
 
     // Shows the editable properties of component; none when it is nullptr.
@@ -63,11 +63,8 @@ class PropertyEditor : public QWidget
     void refreshPlaceholder();
     // Writes the value edited in item to its property.
     void write(const QTableWidgetItem* item);
-    // The menu of the property of the row at position, in m_table: exposes it by the composite of m_component, or no
-    // longer, or renames it as exposed.
-    void showMenu(const QPoint& position);
 
-    AppForge::ForgeApplication& m_application;
+    const AppForge::ForgeApplication& m_application;
     const AppForge::ComponentFactory& m_factory;
     QPointer<AppForge::Component> m_component;
     QPointer<AppForge::Composite> m_composite; // The one m_component is of, which exposes its properties

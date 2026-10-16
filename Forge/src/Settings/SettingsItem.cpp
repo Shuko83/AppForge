@@ -18,7 +18,7 @@
 #include "AppForge/Component/Component.h"
 #include "AppForge/Settings/SettingsFile.h"
 #include "ComponentItem.h"
-#include "Settings/SettingsLinkItem.h"
+#include "DashedLinkItem.h"
 
 namespace
 {
@@ -76,11 +76,6 @@ SettingsItem::~SettingsItem()
 AppForge::SettingsFile& SettingsItem::file() const
 {
     return m_file;
-}
-
-void SettingsItem::removeLink(SettingsLinkItem& link)
-{
-    m_links.removeOne(&link);
 }
 
 QRectF SettingsItem::boundingRect() const
@@ -159,7 +154,7 @@ void SettingsItem::refreshLinks()
         // As it moves, as it does too.
         connect(component, &QGraphicsObject::xChanged, this, &SettingsItem::followLinks, Qt::UniqueConnection);
         connect(component, &QGraphicsObject::yChanged, this, &SettingsItem::followLinks, Qt::UniqueConnection);
-        auto* link = new SettingsLinkItem(*this, *component);
+        auto* link = new DashedLinkItem(*this, *component, [this](DashedLinkItem& gone) { m_links.removeOne(&gone); });
         m_links.append(link);
         scene()->addItem(link);
     }
@@ -167,7 +162,7 @@ void SettingsItem::refreshLinks()
 
 void SettingsItem::followLinks()
 {
-    for(SettingsLinkItem* link : std::as_const(m_links))
+    for(DashedLinkItem* link : std::as_const(m_links))
     {
         link->follow();
     }
