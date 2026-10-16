@@ -3,10 +3,28 @@
 
 #include "ComponentModel.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QMimeData>
 #include <algorithm>
 
 #include "AppForge/Component/ComponentFactory.h"
+
+namespace
+{
+
+// The category of the composites, the one Composite declares.
+const QString CompositeCategory = QStringLiteral("Composite");
+
+// Whether the composite file first is listed before second: by name, then by directory.
+bool isBefore(const QString& first, const QString& second)
+{
+    const int byName =
+        QFileInfo(first).completeBaseName().compare(QFileInfo(second).completeBaseName(), Qt::CaseInsensitive);
+    return byName != 0 ? byName < 0 : first < second;
+}
+
+} // namespace
 
 ComponentModel::ComponentModel(const AppForge::ComponentFactory& factory, QObject* parent)
     : QAbstractTableModel(parent), m_factory(factory)
@@ -15,7 +33,7 @@ ComponentModel::ComponentModel(const AppForge::ComponentFactory& factory, QObjec
 
 int ComponentModel::rowCount(const QModelIndex& parent) const
 {
-    return parent.isValid() ? 0 : static_cast<int>(m_components.size());
+    return parent.isValid() ? 0 : static_cast<int>(m_components.size() + m_composites.size());
 }
 
 int ComponentModel::columnCount(const QModelIndex& parent) const
@@ -29,6 +47,26 @@ QVariant ComponentModel::data(const QModelIndex& index, int role) const
     {
         return {};
     }
+    if(index.row() >= m_components.size())
+    {
+        const QString& file = m_composites.at(index.row() - m_components.size());
+        switch(role)
+        {
+        case FileRole:
+            return file;
+        case Qt::ToolTipRole:
+            return QDir::toNativeSeparators(file);
+        case Qt::DisplayRole:
+            if(index.column() == Name)
+            {
+                return QFileInfo(file).completeBaseName();
+            }
+            return index.column() == Category ? CompositeCategory : QVariant();
+        default:
+            return {};
+        }
+    }
+
     const AppForge::ComponentInfo& component = m_components.at(index.row());
     if(role == IdRole)
     {
@@ -82,18 +120,26 @@ Qt::ItemFlags ComponentModel::flags(const QModelIndex& index) const
 
 QStringList ComponentModel::mimeTypes() const
 {
-    return {MimeType};
+    return {MimeType, CompositeMimeType};
 }
 
 QMimeData* ComponentModel::mimeData(const QModelIndexList& indexes) const
 {
-    // The view selects a single row, one index per column: they all hold the same id.
+    // The view selects a single row, one index per column: they all hold the same id, or file.
     if(indexes.isEmpty())
     {
         return nullptr;
     }
     auto* data = new QMimeData;
-    data->setData(MimeType, indexes.first().data(IdRole).toString().toUtf8());
+    const QString file = indexes.first().data(FileRole).toString();
+    if(file.isEmpty())
+    {
+        data->setData(MimeType, indexes.first().data(IdRole).toString().toUtf8());
+    }
+    else
+    {
+        data->setData(CompositeMimeType, file.toUtf8());
+    }
     return data;
 }
 
@@ -122,6 +168,34 @@ void ComponentModel::refresh()
         }
         beginInsertRows({}, static_cast<int>(row), static_cast<int>(row));
         m_components.insert(row, components.at(row));
+        endInsertRows();
+    }
+}
+
+void ComponentModel::setCompositeFiles(const QStringList& files)
+{
+    QStringList sorted = files;
+    sorted.removeDuplicates();
+    std::ranges::sort(sorted, isBefore);
+    // As refresh() does, after the rows of the components.
+    const auto first = static_cast<int>(m_components.size());
+    for(qsizetype index = m_composites.size() - 1; index >= 0; --index)
+    {
+        if(!sorted.contains(m_composites.at(index)))
+        {
+            beginRemoveRows({}, first + static_cast<int>(index), first + static_cast<int>(index));
+            m_composites.removeAt(index);
+            endRemoveRows();
+        }
+    }
+    for(qsizetype index = 0; index < sorted.size(); ++index)
+    {
+        if(index < m_composites.size() && m_composites.at(index) == sorted.at(index))
+        {
+            continue;
+        }
+        beginInsertRows({}, first + static_cast<int>(index), first + static_cast<int>(index));
+        m_composites.insert(index, sorted.at(index));
         endInsertRows();
     }
 }

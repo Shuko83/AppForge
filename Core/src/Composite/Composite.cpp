@@ -61,6 +61,11 @@ bool Composite::onInitialize()
 
 bool Composite::onStart()
 {
+    // Those added since it was initialized as well.
+    if(!onInitialize())
+    {
+        return false;
+    }
     std::vector<Component*> started;
     for(const std::unique_ptr<Component>& component : m_components)
     {

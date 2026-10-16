@@ -20,7 +20,8 @@ class Assembler;
 // composite, places it as many times as it needs, with ForgeApplication::instantiateComposite(), each instance with
 // components of its own. Core provides it itself, as a plugin provides its components.
 // It initializes, starts and stops its components with itself, in their order, the last one first to be stopped: it
-// refuses to be initialized or started as soon as one of them refuses, those it started being stopped again then.
+// refuses to be initialized or started as soon as one of them refuses, those it started being stopped again then. One
+// added to its structure while it runs waits until ForgeApplication::start() starts it.
 class CORE_EXPORT Composite : public Component
 {
     Q_OBJECT
@@ -48,7 +49,8 @@ class CORE_EXPORT Composite : public Component
     void onStop() override;
 
   private:
-    friend class Assembler; // Fills it
+    friend class Assembler;        // Fills it
+    friend class ForgeApplication; // Changes its structure
 
     QString m_filePath;
     std::vector<std::unique_ptr<Component>> m_components;

@@ -28,6 +28,27 @@ QString compositeId()
     return ComponentFactory::corePluginId() + QStringLiteral(".Composite");
 }
 
+// The path of component among components, through the composites among them; empty when it is none of them.
+QString pathAmong(const QList<const Component*>& components, const Component& component)
+{
+    for(const Component* candidate : components)
+    {
+        if(candidate == &component)
+        {
+            return candidate->objectName();
+        }
+        if(const auto* composite = qobject_cast<const Composite*>(candidate))
+        {
+            const QString inner = ComponentPaths::path(composite->components(), component);
+            if(!inner.isEmpty())
+            {
+                return candidate->objectName() + ComponentPaths::Separator + inner;
+            }
+        }
+    }
+    return {};
+}
+
 // Whether Component::bindInterface() would bind consumed, which consumer consumes, to provided, which provider
 // provides: they are two, and their interfaces exist with the same type.
 bool canBind(const Component& consumer, const QString& consumed, const Component& provider, const QString& provided)
@@ -194,14 +215,26 @@ QJsonObject Assembler::document(const ForgeApplication& application, const QStri
 QJsonObject Assembler::save(const Components& components, const QString& directory, const PluginManager& plugins,
                             const QDir& pluginRoot)
 {
+    QList<const Component*> saved;
+    saved.reserve(static_cast<qsizetype>(components.size()));
+    for(const std::unique_ptr<Component>& component : components)
+    {
+        saved.append(component.get());
+    }
+    return save(saved, directory, plugins, pluginRoot);
+}
+
+QJsonObject Assembler::save(const QList<const Component*>& components, const QString& directory,
+                            const PluginManager& plugins, const QDir& pluginRoot)
+{
     std::map<QString, QString> pluginFiles; // By plugin id: each of them once
     QJsonArray entries;
     QJsonArray bindings;
-    for(const std::unique_ptr<Component>& component : components)
+    for(const Component* component : components)
     {
         QJsonObject json = ProjectJson::values(*component);
         json.insert(u"name", component->objectName());
-        if(const auto* composite = qobject_cast<const Composite*>(component.get()))
+        if(const auto* composite = qobject_cast<const Composite*>(component))
         {
             // Relative, for the project to be read wherever it is moved to with its composite files.
             json.insert(u"composite", directory.isEmpty() ? composite->filePath()
@@ -223,8 +256,7 @@ QJsonObject Assembler::save(const Components& components, const QString& directo
         {
             const InterfaceBinding bound = component->binding(consumed.name);
             // Only to one of them: a binding to anything else could not be restored.
-            const QString provider =
-                bound.provider != nullptr ? ComponentPaths::path(components, *bound.provider) : QString();
+            const QString provider = bound.provider != nullptr ? pathAmong(components, *bound.provider) : QString();
             if(!provider.isEmpty())
             {
                 QJsonObject binding;

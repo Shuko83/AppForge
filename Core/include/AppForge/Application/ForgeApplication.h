@@ -83,23 +83,30 @@ class CORE_EXPORT ForgeApplication : public QObject
     // Creates componentId, in the Initializing state; nullptr when it is not registered, or is Composite: a composite
     // is made from its file, see instantiateComposite(). It is named name, as one read from a project is, unless name
     // cannot name it, see rename(): it is named after its component then.
-    Component* instantiate(const QString& componentId, const QString& name = {});
+    // In in, one of its composites, rather than in the application when in is given: that changes the structure of the
+    // composite file of in, see the structure of a composite below.
+    Component* instantiate(const QString& componentId, const QString& name = {}, Composite* in = nullptr);
     // Places an instance of the composite file filePath, in the Initializing state: its components, those of its file
     // with their values, its plugins being loaded when they are not. The file is read the first time one of its
-    // instances is placed, then its structure is the one of every instance. It is named name unless name cannot name
-    // it, see rename(): it is named after its file then, Clock1 for Clock.afc. Returns nullptr, with errorString() set,
-    // when the file cannot be read, is not a composite file, or contains itself, directly or through other composite
-    // files. errorString() tells otherwise what of its file could not be restored the first time it is read, a sentence
-    // a line: empty when everything was.
-    Composite* instantiateComposite(const QString& filePath, const QString& name = {});
-    // Names instance, one of its components, name: what component() finds it by, and a project holds it as. Returns
-    // false, changing nothing, when name is empty, holds a '/', which separates the names of a path, or is the name of
-    // another instance.
+    // instances is placed, see loadComposite(), then its structure is the one of every instance. It is named name
+    // unless name cannot name it, see rename(): it is named after its file then, Clock1 for Clock.afc. Returns nullptr,
+    // with errorString() set, when the file cannot be read, is not a composite file, or contains itself, directly or
+    // through other composite files. errorString() tells otherwise what of its file could not be restored the first
+    // time it is read, a sentence a line: empty when everything was.
+    // In in, as instantiate() does, unless the composite placed is the one of in, or holds it, which it refuses.
+    Composite* instantiateComposite(const QString& filePath, const QString& name = {}, Composite* in = nullptr);
+    // Names instance, one of its components, or of one of its composites, name: what component() finds it by, and a
+    // project holds it as. Returns false, changing nothing, when name is empty, holds a '/', which separates the names
+    // of a path, or is the name of another component of the application, or of the composite instance is one of.
     bool rename(Component& instance, const QString& name);
-    // Stops instance, one of its components, and destroys it, with its components when it is a composite: nothing may
-    // refer to them any longer. What was bound to its interfaces is unbound from them. Does nothing when it is not one
-    // of its components.
+    // Stops instance, one of its components, or of one of its composites, and destroys it, with its components when it
+    // is a composite: nothing may refer to them any longer. What was bound to its interfaces is unbound from them.
+    // Does nothing when it is not one of them.
     void remove(Component& instance);
+    // Binds consumed, which consumer consumes, to provided, which provider provides, see Component::bindInterface():
+    // two components of the application, or of one of its composites. Returns false, changing nothing, when they cannot
+    // be bound, or are not of the same composite.
+    bool bind(Component& consumer, const QString& consumed, Component& provider, const QString& provided);
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one path names: one of its components by its name, or one of a composite by its path, the names that lead
@@ -107,6 +114,42 @@ class CORE_EXPORT ForgeApplication : public QObject
     [[nodiscard]] Component* component(QStringView path) const;
     // The path component() finds component by; empty when it is not one of its components, nor of their composites.
     [[nodiscard]] QString path(const Component& component) const;
+    // The composite component is one of the components of; nullptr when it is one of the application, or none of them.
+    [[nodiscard]] Composite* compositeOf(const Component& component) const;
+
+    // The structure of a composite: what its file holds, its components and their bindings, which all its instances
+    // share, and with which it is written. instantiate(), instantiateComposite(), rename(), remove() and bind() change
+    // it when they are asked about a component of a composite: every instance of its file changes alike, each keeping
+    // the values of its components, and so does what is written to the file, see saveComposite(), whose new components
+    // start with their default values. A composite file whose reading met problems is not changed: those calls return
+    // false, or nullptr, with errorString() set. A component added to an instance that runs waits until it is started,
+    // by start() again or start(instance).
+
+    // Reads the composite file filePath, unless it read it already: its plugins are loaded, but no instance is placed.
+    // Returns false, with errorString() set, when it cannot be read, is not a composite file, or contains itself;
+    // errorString() tells otherwise what of its file could not be restored the first time it is read, a sentence a
+    // line: empty when everything was.
+    bool loadComposite(const QString& filePath);
+    // The composite files it read, absolute and canonical: those of its composites, of the composites they hold, and
+    // those loadComposite() read. Each is read once, until clear() forgets them all.
+    [[nodiscard]] QStringList compositeFiles() const;
+    // What the composite file filePath, one of compositeFiles(), holds now, as its instances share it: its "version",
+    // the "plugins" of its components, its "components", with the values they start with, those of its file for the
+    // components it had when it was read, and their "bindings", the files of its composites being relative to its own.
+    // Empty when it is none of them.
+    [[nodiscard]] QJsonObject saveComposite(const QString& filePath) const;
+    // Whether everything the composite file filePath, one of compositeFiles(), holds could be restored when it was
+    // read. When it could not, what saveComposite() writes would lose what is missing: it is not changed.
+    [[nodiscard]] bool isComplete(const QString& filePath) const;
+    // What a composite file of directory holding components, some of the components of the application, and their
+    // bindings, would hold, as saveComposite() writes it, their values being the ones they start with. nullopt, with
+    // errorString() set, when one of them is not one of the application, or is bound to one that is not among them.
+    [[nodiscard]] std::optional<QJsonObject> compose(const QList<Component*>& components, const QString& directory);
+    // Replaces components, as compose() asked about them, with an instance of the composite file filePath, which holds
+    // what compose() returned: the properties of theirs that settings files held are then held for its components.
+    // Returns nullptr, with errorString() set, when the file cannot be placed, see instantiateComposite(), nothing
+    // being changed then.
+    Composite* group(const QList<Component*>& components, const QString& filePath);
     // Those of its components that are of the plugin pluginId, or are composites holding one, in the order they were
     // instantiated.
     [[nodiscard]] QList<Component*> componentsOf(const QString& pluginId) const;
@@ -129,13 +172,14 @@ class CORE_EXPORT ForgeApplication : public QObject
 
     // Gives the properties its settings files hold their values, unless it runs already, then initializes the
     // components that are not yet, and starts those that do not run, in the order they were instantiated: called
-    // again while it runs, it starts those instantiated meanwhile. Returns false, with errorString() set, when one
-    // refuses: those this call started are stopped again, those that ran already go on; when it did not run, its
-    // settings files are stopped again too.
+    // again while it runs, it starts those instantiated meanwhile, in it or in its composites that run. Returns false,
+    // with errorString() set, when one refuses: those this call started are stopped again, those that ran already go
+    // on; when it did not run, its settings files are stopped again too.
     bool start();
-    // While it runs, initializes instance, one of its components, unless it is already, then starts it unless it
-    // runs: one instantiated meanwhile, say. Returns false, with errorString() set, when it does not run, nothing being
-    // started then, when instance refuses, or is not one of its components.
+    // While it runs, initializes instance, one of its components, or of one of its composites that runs, unless it is
+    // already, then starts it unless it runs: one instantiated meanwhile, say. Returns false, with errorString() set,
+    // when it does not run, or the composite of instance does not, nothing being started then, when instance refuses,
+    // or is none of its components.
     bool start(Component& instance);
     // Stops the components that run, the last one instantiated first, then its settings files: their properties have
     // their default values again.
@@ -150,7 +194,8 @@ class CORE_EXPORT ForgeApplication : public QObject
     // components being removed all the same.
     bool unloadPlugin(const QString& pluginId);
 
-    // Why open(), instantiateComposite(), one of the start() or unloadPlugin() returned false.
+    // Why open(), one of the calls that change components or composite files, one of the start() or unloadPlugin()
+    // returned false, or nullptr.
     [[nodiscard]] QString errorString() const;
 
   signals:
@@ -172,6 +217,27 @@ class CORE_EXPORT ForgeApplication : public QObject
         bool complete = true; // Whether everything it holds could be restored
     };
 
+    // An instance of a composite file: bound, as those of the application are, or unbound, as those of the definitions.
+    struct Instance
+    {
+        Composite* composite = nullptr;
+        bool bound = true;
+    };
+
+    // Every instance of the composite file filePath: those of the application and of its composites, the definition of
+    // filePath, and the instances the other definitions hold.
+    [[nodiscard]] QList<Instance> instancesOf(const QString& filePath) const;
+    // Whether the structure of the composite file of composite can be changed: its reading met no problem. Sets
+    // errorString() when it cannot.
+    bool canChange(const Composite& composite);
+    // Whether the definition of the composite file filePath holds a composite of the file held, at any depth.
+    [[nodiscard]] bool holdsFile(const QString& filePath, const QString& held) const;
+    // Initializes, then starts, those of components that are not yet, and those added to the composites among them
+    // that run, appending to started those it starts. Returns false, with errorString() set, at the first refusal.
+    bool startAll(const std::vector<std::unique_ptr<Component>>& components, std::vector<Component*>& started);
+    // The path of what refused in refused, which just refused to be initialized or started: the one of refused, or the
+    // one of what refused in it when it is a composite.
+    [[nodiscard]] QString refusalIn(const Component& refused) const;
     // settings.json, or settings<n>.json with the first number from 2 no settings file is named with.
     [[nodiscard]] QString newSettingsFileName() const;
     void setRunning(bool running);

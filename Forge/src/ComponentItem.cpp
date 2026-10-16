@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "AppForge/Component/Component.h"
+#include "AppForge/Composite/Composite.h"
 #include "Colors.h"
 #include "InterfaceItem.h"
 #include "NameEditor.h"
@@ -34,6 +35,8 @@ constexpr QRectF NameRect(Names.left() + MarkWidth, Names.top(), Names.width() -
 // How much of the color of its name the name of its component keeps over the color of an item, as it is fainter over
 // the ones of the style.
 constexpr float ComponentNameOpacity = 0.7F;
+// The last row of a composite, under its interfaces, which tells it opens.
+constexpr qreal FooterHeight = InterfaceItem::RowHeight;
 
 // What the name of an item of color is written in: of the style when it has none; read over its color otherwise, as
 // it shows over the item, which it lets through when it is translucent.
@@ -50,7 +53,8 @@ QColor nameColor(const QColor& color, const QPalette& palette)
 } // namespace
 
 ComponentItem::ComponentItem(AppForge::Component& component, QString componentName)
-    : m_component(component), m_componentName(std::move(componentName))
+    : m_component(component), m_componentName(std::move(componentName)),
+      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
@@ -100,7 +104,8 @@ void ComponentItem::editName()
 QRectF ComponentItem::boundingRect() const
 {
     const qsizetype rows = m_consumedInterfaces.size() + m_providedInterfaces.size();
-    return Header.adjusted(0, 0, 0, static_cast<qreal>(rows) * InterfaceItem::RowHeight);
+    return Header.adjusted(0, 0, 0,
+                           static_cast<qreal>(rows) * InterfaceItem::RowHeight + (m_composite ? FooterHeight : 0));
 }
 
 void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -164,6 +169,15 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     painter->setPen(componentInk);
     painter->drawText(componentRect, Qt::AlignCenter,
                       QFontMetricsF(font).elidedText(m_componentName, Qt::ElideRight, componentRect.width()));
+
+    if(m_composite)
+    {
+        const QRectF bounds = boundingRect();
+        const QRectF footer(Names.left(), bounds.bottom() - FooterHeight, Names.width(), FooterHeight);
+        painter->setPen(palette.color(QPalette::PlaceholderText));
+        painter->drawText(footer, Qt::AlignCenter,
+                          QFontMetricsF(font).elidedText(tr("Double-click to open"), Qt::ElideRight, footer.width()));
+    }
 }
 
 void ComponentItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
@@ -179,6 +193,10 @@ void ComponentItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
     if(event->button() == Qt::LeftButton && Header.contains(event->pos()))
     {
         editName();
+    }
+    else if(event->button() == Qt::LeftButton && m_composite)
+    {
+        emit openRequested();
     }
     else
     {

@@ -20,12 +20,14 @@ class Component;
 // InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. A mark in its
 // corner tells its state: a square once it is initialized, a triangle while it runs. It can be moved and selected.
 // Double-clicking its names edits its name in place, and it can be given a color, which its names are written over.
+// A composite has a last row, which double-clicking opens it from, as anywhere but on its names: see openRequested().
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
 
   public:
-    // component, owned by the application, outlives the item.
+    // component, owned by the application, outlives the item. componentName is what it is an instance of: the name of
+    // its component, or of the file of a composite.
     ComponentItem(AppForge::Component& component, QString componentName);
 
     [[nodiscard]] AppForge::Component& component() const;
@@ -45,6 +47,8 @@ class ComponentItem : public QGraphicsObject
   signals:
     // name was typed in place of its name, on one line: its component is still to be named so.
     void nameEdited(const QString& name);
+    // It is a composite, double-clicked elsewhere than on its names: what it is made of is to be shown.
+    void openRequested();
 
   protected:
     // Not moved while its name is edited: the double-click that edits it still holds it, and the view scrolling to
@@ -60,6 +64,7 @@ class ComponentItem : public QGraphicsObject
 
     AppForge::Component& m_component;
     QString m_componentName;
+    bool m_composite = false; // Whether its component is a composite, which has its last row
     QColor m_color;
     // Its children.
     QList<InterfaceItem*> m_consumedInterfaces;

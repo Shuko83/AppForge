@@ -52,9 +52,14 @@ class Assembler
     // contains itself.
     std::unique_ptr<Composite> instantiate(const QString& filePath, QString& error, bool bound = true);
 
+    // The definition of filePath, absolute, read when it is not yet; false, with error set, when it cannot be.
+    bool define(const QString& filePath, QString& error);
+
     // components as a project holds them: the "plugins" they are from, the "components" with their values, and the
-    // "bindings" of what they consume to what they provide. The files of their composites are written relative to
-    // directory, absolute when it is empty; those of their plugins relative to pluginRoot.
+    // "bindings" of what they consume to what they provide among them. The files of their composites are written
+    // relative to directory, absolute when it is empty; those of their plugins relative to pluginRoot.
+    [[nodiscard]] static QJsonObject save(const QList<const Component*>& components, const QString& directory,
+                                          const PluginManager& plugins, const QDir& pluginRoot);
     [[nodiscard]] static QJsonObject save(const Components& components, const QString& directory,
                                           const PluginManager& plugins, const QDir& pluginRoot);
     // The file a composite file name in directory is, as load() finds it: canonical when it exists.
@@ -68,8 +73,6 @@ class Assembler
     // Binds among components what bindings ask, as a project holds them, prefix naming them in the problems as load()
     // does; unbound, only checks they could be. Returns those that could be.
     QJsonArray bind(const Components& components, const QJsonArray& bindings, const QString& prefix, bool bound);
-    // The definition of filePath, read when it is not yet; false, with error set, when it cannot be.
-    bool define(const QString& filePath, QString& error);
     // A composite of filePath, its components being those document holds, bound as load() binds; nullptr, with error
     // set, when one of its composites contains itself.
     std::unique_ptr<Composite> build(const QString& filePath, const QJsonObject& document, QString& error, bool bound);
