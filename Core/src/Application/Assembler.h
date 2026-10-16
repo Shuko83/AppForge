@@ -42,11 +42,12 @@ class Assembler
     void loadPlugins(const QJsonObject& document);
     // Appends to components those document holds, as a project holds them, with their values, then, when bound, binds
     // them as it asks: unbound, its composites are not bound either. The files of its composites are relative to
-    // directory. prefix is put before their names in the problems: the path of the composite they are of, with its
-    // separator, when they are. Returns false when a composite file being read contains itself: none of those being
-    // read can be read then.
+    // directory. owner is the composite they are of, which its gateways are attached to: nullptr for those of the
+    // application, which has none. prefix is put before their names in the problems: the path of the composite they
+    // are of, with its separator, when they are. Returns false when a composite file being read contains itself: none
+    // of those being read can be read then.
     bool load(Components& components, const QJsonObject& document, const QDir& directory, const QString& prefix,
-              bool bound = true);
+              bool bound = true, Composite* owner = nullptr);
     // A new instance of the composite file filePath, absolute, with the structure and the values of its definition,
     // read when it is not yet, bound as load() binds; nullptr, with error set, when the file cannot be read, or
     // contains itself.

@@ -13,6 +13,7 @@
 #include "AppForge/Component/Component.h"
 #include "AppForge/Component/ComponentFactory.h"
 #include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 
 namespace AppForge::ProjectJson
 {
@@ -112,6 +113,10 @@ QJsonObject values(const Component& component)
         QJsonArray components;
         for(const std::unique_ptr<Component>& inner : composite->components())
         {
+            if(qobject_cast<const Gateway*>(inner.get()) != nullptr)
+            {
+                continue; // Nothing of its own to set
+            }
             QJsonObject innerJson = values(*inner);
             innerJson.insert(u"name", inner->objectName());
             components.append(innerJson);

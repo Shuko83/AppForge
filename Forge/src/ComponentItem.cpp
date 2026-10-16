@@ -10,10 +10,12 @@
 #include <QPainterPath>
 #include <QPolygonF>
 #include <QStyleOptionGraphicsItem>
+#include <algorithm>
 #include <utility>
 
 #include "AppForge/Component/Component.h"
 #include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 #include "Colors.h"
 #include "InterfaceItem.h"
 #include "NameEditor.h"
@@ -54,7 +56,8 @@ QColor nameColor(const QColor& color, const QPalette& palette)
 
 ComponentItem::ComponentItem(AppForge::Component& component, QString componentName)
     : m_component(component), m_componentName(std::move(componentName)),
-      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr)
+      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr),
+      m_gateway(qobject_cast<AppForge::Gateway*>(&component) != nullptr)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
@@ -126,7 +129,12 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         painter->fillPath(outline.intersected(header), m_color);
     }
     // Once it is filled, for its color not to cover the half of its outline that is inside.
-    painter->setPen(selected ? QPen(palette.color(QPalette::Highlight), 2) : QPen(palette.color(QPalette::Mid), 1));
+    QPen outlinePen = selected ? QPen(palette.color(QPalette::Highlight), 2) : QPen(palette.color(QPalette::Mid), 1);
+    if(m_gateway)
+    {
+        outlinePen.setStyle(Qt::DashLine);
+    }
+    painter->setPen(outlinePen);
     painter->setBrush(Qt::NoBrush);
     painter->drawPath(outline);
 
@@ -211,6 +219,26 @@ bool ComponentItem::isNameEdited() const
 
 void ComponentItem::refreshInterfaces()
 {
+    const QList<AppForge::InterfaceInfo> consumed = m_component.consumedInterfaces();
+    const QList<AppForge::InterfaceInfo> provided = m_component.providedInterfaces();
+    // Whether items still show the first of interfaces: they do, unless one was renamed or removed.
+    const auto showing = [](const QList<InterfaceItem*>& items, const QList<AppForge::InterfaceInfo>& interfaces)
+    {
+        return items.size() <= interfaces.size() &&
+               std::ranges::equal(items, interfaces.first(items.size()), {}, &InterfaceItem::name,
+                                  &AppForge::InterfaceInfo::name);
+    };
+    const bool rebuilt = !showing(m_consumedInterfaces, consumed) || !showing(m_providedInterfaces, provided);
+    if(rebuilt)
+    {
+        prepareGeometryChange();
+        // With their links.
+        qDeleteAll(m_consumedInterfaces);
+        qDeleteAll(m_providedInterfaces);
+        m_consumedInterfaces.clear();
+        m_providedInterfaces.clear();
+    }
+
     // The rows start in the padding under the names and leave as much under the last one.
     qreal row = Header.bottom() - Padding / 2 + InterfaceItem::RowHeight / 2;
     // items shows interfaces, of kind, down from row, each on the edge at x.
@@ -229,6 +257,10 @@ void ComponentItem::refreshInterfaces()
         }
     };
     // On the edges drawn by paint(), one pixel inside its bounds.
-    refresh(m_consumedInterfaces, m_component.consumedInterfaces(), InterfaceItem::Kind::Consumed, Header.left() + 1);
-    refresh(m_providedInterfaces, m_component.providedInterfaces(), InterfaceItem::Kind::Provided, Header.right() - 1);
+    refresh(m_consumedInterfaces, consumed, InterfaceItem::Kind::Consumed, Header.left() + 1);
+    refresh(m_providedInterfaces, provided, InterfaceItem::Kind::Provided, Header.right() - 1);
+    if(rebuilt)
+    {
+        emit interfacesRebuilt();
+    }
 }

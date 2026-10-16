@@ -21,6 +21,7 @@ class Component;
 // corner tells its state: a square once it is initialized, a triangle while it runs. It can be moved and selected.
 // Double-clicking its names edits its name in place, and it can be given a color, which its names are written over.
 // A composite has a last row, which double-clicking opens it from, as anywhere but on its names: see openRequested().
+// A gateway, in the scene of a composite, has a dashed outline.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
@@ -49,6 +50,9 @@ class ComponentItem : public QGraphicsObject
     void nameEdited(const QString& name);
     // It is a composite, double-clicked elsewhere than on its names: what it is made of is to be shown.
     void openRequested();
+    // Its interfaces were shown again, without their links, as one of them was renamed or removed: those of a
+    // composite, whose gateways changed. The links of what is bound to them are to be drawn again.
+    void interfacesRebuilt();
 
   protected:
     // Not moved while its name is edited: the double-click that edits it still holds it, and the view scrolling to
@@ -59,12 +63,14 @@ class ComponentItem : public QGraphicsObject
   private:
     // Whether its name is being edited in place.
     [[nodiscard]] bool isNameEdited() const;
-    // Shows the interfaces of the component as they are now: it only ever declares more of them.
+    // Shows the interfaces of the component as they are now: those declared since after the others, all of them again
+    // when one was renamed or removed, see interfacesRebuilt().
     void refreshInterfaces();
 
     AppForge::Component& m_component;
     QString m_componentName;
     bool m_composite = false; // Whether its component is a composite, which has its last row
+    bool m_gateway = false;   // Whether its component is a gateway, whose outline is dashed
     QColor m_color;
     // Its children.
     QList<InterfaceItem*> m_consumedInterfaces;

@@ -123,6 +123,11 @@ class EditionScene : public QGraphicsScene
     void dimLinkTargets(const InterfaceItem* source);
     // Shows component, one of the application, at position.
     ComponentItem* showComponent(AppForge::Component& component, const QPointF& position);
+    // Draws the links of what item consumes, and of what consumes what it provides, that are not drawn.
+    void showLinks(ComponentItem& item);
+    // Exposes the interface of dot, of a component of its composite, through a gateway, shown next to the component,
+    // whose name is edited at once.
+    void expose(InterfaceItem& dot);
     // The component shown at position, or whose interface is; nullptr when there is none.
     [[nodiscard]] ComponentItem* componentAt(const QPointF& position) const;
     // Names component name, as typed in place of its name; tells why through refused() when it cannot be.

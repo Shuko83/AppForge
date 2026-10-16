@@ -34,6 +34,7 @@
 #include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/ComponentFactory.h"
 #include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
 #include "InterfaceItem.h"
@@ -421,6 +422,21 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
+    // The dot of an interface, in the scene of a composite: exposed through a gateway, but those of gateways.
+    InterfaceItem* dot = m_composite != nullptr ? interfaceAt(event->scenePos()) : nullptr;
+    if(dot != nullptr && qobject_cast<AppForge::Gateway*>(&dot->component()) == nullptr)
+    {
+        QMenu dotMenu(event->widget());
+        QAction* exposeAction = dotMenu.addAction(tr("Expose..."));
+        exposeAction->setToolTip(tr("Makes %1 an interface of %2, through a gateway")
+                                     .arg(dot->name(), QFileInfo(m_composite->filePath()).completeBaseName()));
+        event->accept();
+        if(dotMenu.exec(event->screenPos()) == exposeAction)
+        {
+            expose(*dot);
+        }
+        return;
+    }
     ComponentItem* component = componentAt(event->scenePos());
     // Those of the application only.
     SettingsItem* settings = component == nullptr && m_composite == nullptr ? settingsAt(event->scenePos()) : nullptr;
@@ -653,12 +669,21 @@ void EditionScene::dimLinkTargets(const InterfaceItem* source)
 
 ComponentItem* EditionScene::showComponent(AppForge::Component& component, const QPointF& position)
 {
-    // What it is an instance of: its component, or its composite file.
+    // What it is an instance of: its component, its composite file, or a gateway.
     auto* composite = qobject_cast<AppForge::Composite*>(&component);
+    const auto* gateway = qobject_cast<const AppForge::Gateway*>(&component);
     const std::optional<AppForge::ComponentInfo> info = m_factory.component(component.componentId());
-    auto* item = new ComponentItem(component, composite != nullptr ? QFileInfo(composite->filePath()).completeBaseName()
-                                              : info               ? info->name
-                                                                   : QString());
+    QString componentName = info ? info->name : QString();
+    if(composite != nullptr)
+    {
+        componentName = QFileInfo(composite->filePath()).completeBaseName();
+    }
+    else if(gateway != nullptr)
+    {
+        componentName =
+            gateway->kind() == AppForge::GatewayKind::Provided ? tr("Provided gateway") : tr("Consumed gateway");
+    }
+    auto* item = new ComponentItem(component, componentName);
     item->setPos(position);
     addItem(item);
     update(HintRect); // Hidden once anything is in the edition zone
@@ -668,7 +693,67 @@ ComponentItem* EditionScene::showComponent(AppForge::Component& component, const
     {
         connect(item, &ComponentItem::openRequested, this, [this, composite] { emit openRequested(*composite); });
     }
+    connect(item, &ComponentItem::interfacesRebuilt, this, [this, item] { showLinks(*item); });
     return item;
+}
+
+void EditionScene::expose(InterfaceItem& dot)
+{
+    if(!canChange())
+    {
+        return;
+    }
+    // Next to the component, on the side of the dot, as their link goes.
+    const bool provided = dot.kind() == InterfaceItem::Kind::Provided;
+    const QPointF position = dot.parentItem()->pos() + QPointF(provided ? 12 * GridStep : -12 * GridStep, 0);
+    AppForge::Gateway* gateway = m_application.expose(dot.component(), dot.name());
+    if(gateway == nullptr)
+    {
+        emit refused(tr("%1 is not exposed: %2").arg(dot.name(), m_application.errorString()));
+        return;
+    }
+    ComponentItem* item = showComponent(*gateway, position);
+    showLinks(*item);
+    clearSelection();
+    item->setSelected(true);
+    item->editName(); // Named at once, after the interface until then
+}
+
+void EditionScene::showLinks(ComponentItem& item)
+{
+    const QList<QGraphicsItem*> shown = items();
+    for(QGraphicsItem* other : shown)
+    {
+        auto* consumer = qobject_cast<ComponentItem*>(other->toGraphicsObject());
+        if(consumer == nullptr)
+        {
+            continue;
+        }
+        // What item consumes, and what consumes what item provides.
+        for(InterfaceItem* consumed : consumer->consumedInterfaces())
+        {
+            const AppForge::InterfaceBinding bound = consumer->component().binding(consumed->name());
+            const bool aboutItem = consumer == &item || bound.provider == &item.component();
+            const auto provider =
+                std::ranges::find_if(shown,
+                                     [&bound](QGraphicsItem* candidate)
+                                     {
+                                         auto* shownItem = qobject_cast<ComponentItem*>(candidate->toGraphicsObject());
+                                         return shownItem != nullptr && &shownItem->component() == bound.provider;
+                                     });
+            if(!aboutItem || provider == shown.end() || !consumed->links().isEmpty())
+            {
+                continue;
+            }
+            InterfaceItem* provided =
+                interfaceNamed(qobject_cast<ComponentItem*>((*provider)->toGraphicsObject())->providedInterfaces(),
+                               bound.providedName);
+            if(provided != nullptr)
+            {
+                addItem(new LinkItem(*provided, *consumed));
+            }
+        }
+    }
 }
 
 ComponentItem* EditionScene::componentAt(const QPointF& position) const
@@ -834,7 +919,9 @@ void EditionScene::groupSelection(QWidget* parent)
     if(composite != nullptr)
     {
         // Where they were, as its scene shows them.
-        showComponent(*composite, bounds.center())->setSelected(true);
+        ComponentItem* item = showComponent(*composite, bounds.center());
+        showLinks(*item); // To what its gateways bound it to
+        item->setSelected(true);
         emit told(tr("%1 holds them now").arg(QDir::toNativeSeparators(composite->filePath())));
     }
     update(HintRect);

@@ -5,6 +5,8 @@
 
 #include <ranges>
 
+#include "AppForge/Composite/Gateway.h"
+
 #include "ComponentPaths.h"
 #include "CorePlugin.h"
 
@@ -17,6 +19,14 @@ Composite::Composite() = default;
 
 Composite::~Composite()
 {
+    // Its gateways no longer pass anything to it: it goes.
+    for(const std::unique_ptr<Component>& component : m_components)
+    {
+        if(auto* gateway = qobject_cast<Gateway*>(component.get()))
+        {
+            gateway->m_composite = nullptr;
+        }
+    }
     // The last one first, as they are stopped: one can consume what one before it provides.
     while(!m_components.empty())
     {

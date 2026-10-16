@@ -17,6 +17,7 @@
 
 #include "AppForge/Component/Component.h"
 #include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 #include "AppForge/Plugin/PluginManager.h"
 #include "AppForge/Settings/SettingsFile.h"
 #include "Core_export.h"
@@ -107,6 +108,14 @@ class CORE_EXPORT ForgeApplication : public QObject
     // two components of the application, or of one of its composites. Returns false, changing nothing, when they cannot
     // be bound, or are not of the same composite.
     bool bind(Component& consumer, const QString& consumed, Component& provider, const QString& provided);
+    // Adds to the structure of the composite of component a gateway of interfaceName, which component provides or
+    // consumes, bound to it: the composite provides what component provides, or consumes what component consumes, under
+    // the name of the gateway, see Gateway. It is named name, or after the interface when name cannot name it, see
+    // rename(). Returns the one of the composite of component; nullptr, with errorString() set, when component is none
+    // of a composite, has no interface of that name, or the composite cannot be changed.
+    // A gateway is renamed, which renames the interface of its composite, and removed, which removes it with what is
+    // bound to it, as a component is.
+    Gateway* expose(Component& component, const QString& interfaceName, const QString& name = {});
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one path names: one of its components by its name, or one of a composite by its path, the names that lead
@@ -142,13 +151,15 @@ class CORE_EXPORT ForgeApplication : public QObject
     // read. When it could not, what saveComposite() writes would lose what is missing: it is not changed.
     [[nodiscard]] bool isComplete(const QString& filePath) const;
     // What a composite file of directory holding components, some of the components of the application, and their
-    // bindings, would hold, as saveComposite() writes it, their values being the ones they start with. nullopt, with
-    // errorString() set, when one of them is not one of the application, or is bound to one that is not among them.
+    // bindings, would hold, as saveComposite() writes it, their values being the ones they start with. A binding of
+    // one of them to one that is not among them is carried by a gateway, named after the interface of theirs, one per
+    // interface they provide. nullopt, with errorString() set, when one of them is not one of the application, or is
+    // bound to a component of a composite that is not among them.
     [[nodiscard]] std::optional<QJsonObject> compose(const QList<Component*>& components, const QString& directory);
     // Replaces components, as compose() asked about them, with an instance of the composite file filePath, which holds
-    // what compose() returned: the properties of theirs that settings files held are then held for its components.
-    // Returns nullptr, with errorString() set, when the file cannot be placed, see instantiateComposite(), nothing
-    // being changed then.
+    // what compose() returned: what they were bound to that is not among them is bound to its gateways, and the
+    // properties of theirs that settings files held are then held for its components. Returns nullptr, with
+    // errorString() set, when the file cannot be placed, see instantiateComposite(), nothing being changed then.
     Composite* group(const QList<Component*>& components, const QString& filePath);
     // Those of its components that are of the plugin pluginId, or are composites holding one, in the order they were
     // instantiated.
@@ -223,6 +234,25 @@ class CORE_EXPORT ForgeApplication : public QObject
         Composite* composite = nullptr;
         bool bound = true;
     };
+
+    // A binding of a component grouped into a composite to one that is not, which a gateway carries then.
+    struct Crossing
+    {
+        Component* inside = nullptr; // One of those grouped
+        QString insideInterface;
+        Component* outside = nullptr; // One that is not
+        QString outsideInterface;
+        bool insideProvides = false; // Whether inside provides what outside consumes, rather than the other way round
+        QString gateway;             // Its name: one per interface inside provides
+    };
+
+    // The bindings between components, some of the application, and those that are not among them, with the gateways
+    // that would carry them; nullopt, with errorString() set, when one of them is bound to a component of a composite
+    // that is not among them.
+    [[nodiscard]] std::optional<QList<Crossing>> crossings(const QList<Component*>& components);
+    // In the definitions that hold instances of the composite file filePath, the bindings to their interface name are
+    // to newName, or are no longer there when newName is empty.
+    void renameBindings(const QString& filePath, const QString& name, const QString& newName);
 
     // Every instance of the composite file filePath: those of the application and of its composites, the definition of
     // filePath, and the instances the other definitions hold.

@@ -12,8 +12,10 @@
 #include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/ComponentFactory.h"
 #include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 #include "AppForge/Plugin/PluginManager.h"
 #include "Composite/ComponentPaths.h"
+#include "Composite/CorePlugin.h"
 #include "ProjectJson.h"
 
 namespace AppForge
@@ -22,10 +24,38 @@ namespace AppForge
 namespace
 {
 
-// The id ComponentFactory registers Composite under, as it registers the component of a plugin: <plugin id>.<class>.
-QString compositeId()
+// The kinds of gateways, as a composite file writes them.
+const QString ProvidedName = QStringLiteral("provided");
+const QString ConsumedName = QStringLiteral("consumed");
+
+// The type of interface named name: the one QMetaType knows by that name, or the one of an interface of components, or
+// of their composites, with that name, as the gateways bound to them pass. Not valid when there is none.
+QMetaType interfaceType(const QString& name, const Assembler::Components& components)
 {
-    return ComponentFactory::corePluginId() + QStringLiteral(".Composite");
+    const QMetaType known = QMetaType::fromName(name.toUtf8());
+    if(known.isValid())
+    {
+        return known;
+    }
+    for(const std::unique_ptr<Component>& component : components)
+    {
+        const QList<InterfaceInfo> interfaces = component->providedInterfaces() + component->consumedInterfaces();
+        for(const InterfaceInfo& declared : interfaces)
+        {
+            if(QLatin1StringView(declared.type.name()) == name)
+            {
+                return declared.type;
+            }
+        }
+        if(const auto* composite = qobject_cast<const Composite*>(component.get()))
+        {
+            if(const QMetaType inner = interfaceType(name, composite->components()); inner.isValid())
+            {
+                return inner;
+            }
+        }
+    }
+    return {};
 }
 
 // The path of component among components, through the composites among them; empty when it is none of them.
@@ -96,8 +126,9 @@ void Assembler::loadPlugins(const QJsonObject& document)
 }
 
 bool Assembler::load(Components& components, const QJsonObject& document, const QDir& directory, const QString& prefix,
-                     bool bound)
+                     bool bound, Composite* owner)
 {
+    QList<QJsonObject> gateways; // Once the components they pass interfaces of, whose types they find there
     const QJsonArray entries = document.value(u"components").toArray();
     for(const QJsonValue& value : entries)
     {
@@ -105,6 +136,11 @@ bool Assembler::load(Components& components, const QJsonObject& document, const 
         const QString name = json.value(u"name").toString();
         std::unique_ptr<Component> component;
         QString base; // What it is named after when it cannot be named name
+        if(json.contains(u"gateway"))
+        {
+            gateways.append(json);
+            continue;
+        }
         if(json.contains(u"composite"))
         {
             const QString filePath = compositeFilePath(directory, json.value(u"composite").toString());
@@ -158,6 +194,38 @@ bool Assembler::load(Components& components, const QJsonObject& document, const 
         }
         components.push_back(std::move(component));
     }
+
+    for(const QJsonObject& json : std::as_const(gateways))
+    {
+        const QString name = json.value(u"name").toString();
+        const QString kindName = json.value(u"gateway").toString();
+        const QString typeName = json.value(u"interface").toString();
+        const QMetaType type = interfaceType(typeName, components);
+        if(owner == nullptr || (kindName != ProvidedName && kindName != ConsumedName) || !type.isValid())
+        {
+            problem(owner == nullptr ? QStringLiteral("%1 is missing: only a composite has gateways").arg(prefix + name)
+                    : !type.isValid()
+                        ? QStringLiteral("%1 is missing: the type of its interface, %2, is unknown")
+                              .arg(prefix + name, typeName)
+                        : QStringLiteral("%1 is missing: a gateway is provided or consumed").arg(prefix + name));
+            continue;
+        }
+        std::unique_ptr<Gateway> gateway(
+            static_cast<Gateway*>(ComponentFactory::instance().create(CorePlugin::gatewayId()).release()));
+        if(ComponentPaths::canName(components, name))
+        {
+            gateway->setObjectName(name);
+        }
+        else
+        {
+            gateway->setObjectName(ComponentPaths::newName(components, QStringLiteral("Gateway")));
+            problem(QStringLiteral("%1 is named %2: its name is empty, holds a %3 or is the one of another component")
+                        .arg(prefix + name, prefix + gateway->objectName(), ComponentPaths::Separator));
+        }
+        gateway->attach(*owner, kindName == ProvidedName ? GatewayKind::Provided : GatewayKind::Consumed, type);
+        components.push_back(std::move(gateway));
+    }
+
     if(bound)
     {
         bind(components, document.value(u"bindings").toArray(), prefix, true);
@@ -232,16 +300,23 @@ QJsonObject Assembler::save(const QList<const Component*>& components, const QSt
     QJsonArray bindings;
     for(const Component* component : components)
     {
-        QJsonObject json = ProjectJson::values(*component);
-        json.insert(u"name", component->objectName());
-        if(const auto* composite = qobject_cast<const Composite*>(component))
+        QJsonObject json;
+        if(const auto* gateway = qobject_cast<const Gateway*>(component))
         {
+            // Nothing of its own to set: what it is.
+            json.insert(u"gateway", gateway->kind() == GatewayKind::Provided ? ProvidedName : ConsumedName);
+            json.insert(u"interface", QString::fromLatin1(gateway->interfaceType().name()));
+        }
+        else if(const auto* composite = qobject_cast<const Composite*>(component))
+        {
+            json = ProjectJson::values(*component);
             // Relative, for the project to be read wherever it is moved to with its composite files.
             json.insert(u"composite", directory.isEmpty() ? composite->filePath()
                                                           : QDir(directory).relativeFilePath(composite->filePath()));
         }
         else
         {
+            json = ProjectJson::values(*component);
             json.insert(u"type", component->componentId());
             const std::optional<ComponentInfo> info = ComponentFactory::instance().component(component->componentId());
             if(const std::optional<PluginInfo> plugin = info ? plugins.plugin(info->pluginId) : std::nullopt)
@@ -249,6 +324,7 @@ QJsonObject Assembler::save(const QList<const Component*>& components, const QSt
                 pluginFiles.emplace(plugin->id, plugin->filePath);
             }
         }
+        json.insert(u"name", component->objectName());
         entries.append(json);
 
         const QList<InterfaceInfo> consumedInterfaces = component->consumedInterfaces();
@@ -349,10 +425,10 @@ std::unique_ptr<Composite> Assembler::build(const QString& filePath, const QJson
 {
     // Created as a component of a plugin is: only ComponentFactory can.
     std::unique_ptr<Composite> composite(
-        static_cast<Composite*>(ComponentFactory::instance().create(compositeId()).release()));
+        static_cast<Composite*>(ComponentFactory::instance().create(CorePlugin::compositeId()).release()));
     composite->m_filePath = filePath;
     loadPlugins(document);
-    if(!load(composite->m_components, document, QFileInfo(filePath).absoluteDir(), {}, bound))
+    if(!load(composite->m_components, document, QFileInfo(filePath).absoluteDir(), {}, bound, composite.get()))
     {
         error = m_cycle;
         return nullptr;

@@ -17,6 +17,7 @@
 #include "AppForge/Component/ComponentFactory.h"
 #include "Assembler.h"
 #include "Composite/ComponentPaths.h"
+#include "Composite/CorePlugin.h"
 #include "ProjectJson.h"
 
 namespace AppForge
@@ -384,13 +385,23 @@ bool ForgeApplication::rename(Component& instance, const QString& name)
     const QList<Instance> instances = instancesOf(in->filePath());
     for(const Instance& other : instances)
     {
-        if(Component* renamed = ComponentPaths::find(other.composite->m_components, former))
+        Component* target = ComponentPaths::find(other.composite->m_components, former);
+        // A gateway with the interface of its composite, which stays bound to what it was.
+        if(auto* gateway = qobject_cast<Gateway*>(target))
         {
-            renamed->setObjectName(name);
+            gateway->rename(name);
+        }
+        else if(target != nullptr)
+        {
+            target->setObjectName(name);
         }
     }
     QJsonArray& bindings = m_definitions.at(in->filePath()).bindings;
     bindings = renamed(bindings, former, name);
+    if(qobject_cast<Gateway*>(&instance) != nullptr)
+    {
+        renameBindings(in->filePath(), former, name);
+    }
     return true;
 }
 
@@ -414,20 +425,31 @@ void ForgeApplication::remove(Component& instance)
         return;
     }
     const QString name = instance.objectName(); // instance is one of those that go
+    const bool gateway = qobject_cast<Gateway*>(&instance) != nullptr;
     const QList<Instance> instances = instancesOf(in->filePath());
     for(const Instance& other : instances)
     {
         Components& components = other.composite->m_components;
         const auto found = std::ranges::find(components, name, [](const std::unique_ptr<Component>& component)
                                              { return component->objectName(); });
-        if(found != components.end())
+        if(found == components.end())
         {
-            (*found)->stop();
-            components.erase(found);
+            continue;
         }
+        // A gateway takes the interface of its composite with it, and what was bound to it.
+        if(auto* removed = qobject_cast<Gateway*>(found->get()))
+        {
+            removed->detach();
+        }
+        (*found)->stop();
+        components.erase(found);
     }
     QJsonArray& bindings = m_definitions.at(in->filePath()).bindings;
     bindings = without(bindings, name);
+    if(gateway)
+    {
+        renameBindings(in->filePath(), name, {});
+    }
 }
 
 bool ForgeApplication::bind(Component& consumer, const QString& consumed, Component& provider, const QString& provided)
@@ -476,6 +498,84 @@ bool ForgeApplication::bind(Component& consumer, const QString& consumed, Compon
     binding.insert(u"provided", provided);
     bindings.append(binding);
     return true;
+}
+
+Gateway* ForgeApplication::expose(Component& component, const QString& interfaceName, const QString& name)
+{
+    Composite* in = compositeOf(component);
+    if(in == nullptr)
+    {
+        m_errorString = QStringLiteral("%1 is not a component of a composite").arg(component.objectName());
+        return nullptr;
+    }
+    if(!canChange(*in))
+    {
+        return nullptr;
+    }
+    // What the composite does is what component does.
+    const QList<InterfaceInfo> providedInterfaces = component.providedInterfaces();
+    const QList<InterfaceInfo> consumedInterfaces = component.consumedInterfaces();
+    const auto provided = std::ranges::find(providedInterfaces, interfaceName, &InterfaceInfo::name);
+    const auto consumed = std::ranges::find(consumedInterfaces, interfaceName, &InterfaceInfo::name);
+    if(provided == providedInterfaces.end() && consumed == consumedInterfaces.end())
+    {
+        m_errorString = QStringLiteral("%1 has no interface %2").arg(path(component), interfaceName);
+        return nullptr;
+    }
+    const GatewayKind kind = provided != providedInterfaces.end() ? GatewayKind::Provided : GatewayKind::Consumed;
+    const QMetaType type = kind == GatewayKind::Provided ? provided->type : consumed->type;
+    const QString named = ComponentPaths::canName(in->m_components, name) ? name
+                          : ComponentPaths::canName(in->m_components, interfaceName)
+                              ? interfaceName
+                              : ComponentPaths::newName(in->m_components, interfaceName);
+
+    Gateway* exposed = nullptr;
+    const QString componentName = component.objectName();
+    const QList<Instance> instances = instancesOf(in->filePath());
+    for(const Instance& instance : instances)
+    {
+        std::unique_ptr<Gateway> gateway(
+            static_cast<Gateway*>(ComponentFactory::instance().create(CorePlugin::gatewayId()).release()));
+        gateway->setObjectName(named);
+        gateway->attach(*instance.composite, kind, type);
+        Gateway& added = *gateway;
+        instance.composite->m_components.push_back(std::move(gateway));
+        Component* inner = ComponentPaths::find(instance.composite->m_components, componentName);
+        if(instance.bound && inner != nullptr)
+        {
+            if(kind == GatewayKind::Provided)
+            {
+                added.bindInterface(Gateway::interfaceName(), *inner, interfaceName);
+            }
+            else
+            {
+                inner->bindInterface(interfaceName, added, Gateway::interfaceName());
+            }
+        }
+        if(instance.composite == in)
+        {
+            exposed = &added;
+        }
+    }
+
+    QJsonObject binding;
+    binding.insert(u"consumer", kind == GatewayKind::Provided ? named : componentName);
+    binding.insert(u"consumed", kind == GatewayKind::Provided ? Gateway::interfaceName() : interfaceName);
+    binding.insert(u"provider", kind == GatewayKind::Provided ? componentName : named);
+    binding.insert(u"provided", kind == GatewayKind::Provided ? interfaceName : Gateway::interfaceName());
+    QJsonArray& bindings = m_definitions.at(in->filePath()).bindings;
+    // In place of the one it had: what is consumed is bound to one interface.
+    for(qsizetype index = bindings.size() - 1; index >= 0; --index)
+    {
+        const QJsonObject bound = bindings.at(index).toObject();
+        if(bound.value(u"consumer") == binding.value(u"consumer") &&
+           bound.value(u"consumed") == binding.value(u"consumed"))
+        {
+            bindings.removeAt(index);
+        }
+    }
+    bindings.append(binding);
+    return exposed;
 }
 
 const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
@@ -558,7 +658,65 @@ std::optional<QJsonObject> ForgeApplication::compose(const QList<Component*>& co
             composed.append(component.get());
         }
     }
-    // A binding of one of them to one that is not, either way, would be lost.
+    const std::optional<QList<Crossing>> crossed = crossings(components);
+    if(!crossed)
+    {
+        return std::nullopt;
+    }
+    QJsonObject document = Assembler::save(composed, directory, m_plugins, m_pluginRoot);
+    document.insert(u"version", ProjectVersion);
+
+    // The gateways that carry what crosses, bound inside.
+    QJsonArray entries = document.value(u"components").toArray();
+    QJsonArray bindings = document.value(u"bindings").toArray();
+    QStringList added;
+    for(const Crossing& crossing : *crossed)
+    {
+        if(added.contains(crossing.gateway))
+        {
+            continue; // One per interface provided inside, to all those outside
+        }
+        added.append(crossing.gateway);
+        const QList<InterfaceInfo> interfaces =
+            crossing.insideProvides ? crossing.inside->providedInterfaces() : crossing.inside->consumedInterfaces();
+        const auto declared = std::ranges::find(interfaces, crossing.insideInterface, &InterfaceInfo::name);
+        QJsonObject gateway;
+        gateway.insert(u"name", crossing.gateway);
+        gateway.insert(u"gateway", crossing.insideProvides ? QStringLiteral("provided") : QStringLiteral("consumed"));
+        gateway.insert(u"interface", QString::fromLatin1(declared->type.name()));
+        entries.append(gateway);
+        QJsonObject binding;
+        binding.insert(u"consumer", crossing.insideProvides ? crossing.gateway : crossing.inside->objectName());
+        binding.insert(u"consumed", crossing.insideProvides ? Gateway::interfaceName() : crossing.insideInterface);
+        binding.insert(u"provider", crossing.insideProvides ? crossing.inside->objectName() : crossing.gateway);
+        binding.insert(u"provided", crossing.insideProvides ? crossing.insideInterface : Gateway::interfaceName());
+        bindings.append(binding);
+    }
+    document.insert(u"components", entries);
+    document.insert(u"bindings", bindings);
+    return document;
+}
+
+std::optional<QList<ForgeApplication::Crossing>> ForgeApplication::crossings(const QList<Component*>& components)
+{
+    QList<Crossing> crossed;
+    // Those of the gateways, which are components of the composite: none is the name of another.
+    QStringList names;
+    for(const Component* component : components)
+    {
+        names.append(component->objectName());
+    }
+    const auto gatewayNamed = [&names](const QString& interfaceName)
+    {
+        QString name = interfaceName;
+        for(int number = 1; names.contains(name); ++number)
+        {
+            name = interfaceName + QString::number(number);
+        }
+        names.append(name);
+        return name;
+    };
+
     for(const std::unique_ptr<Component>& instance : m_components)
     {
         const bool inside = components.contains(instance.get());
@@ -573,18 +731,76 @@ std::optional<QJsonObject> ForgeApplication::compose(const QList<Component*>& co
             // The one of the application it is, or that holds it.
             const QString providerPath = path(*bound.provider);
             Component* top = component(providerPath.section(ComponentPaths::Separator, 0, 0));
-            if(inside != components.contains(top))
+            if(inside == components.contains(top))
             {
-                m_errorString = QStringLiteral("%1 of %2 is bound to %3 of %4: a composite cannot hold one without the "
-                                               "other")
+                continue; // Among them, or none of them
+            }
+            if(top != bound.provider)
+            {
+                m_errorString = QStringLiteral("%1 of %2 is bound to %3 of %4, a component of a composite")
                                     .arg(consumed.name, instance->objectName(), bound.providedName, providerPath);
                 return std::nullopt;
             }
+            if(inside)
+            {
+                crossed.append(Crossing{.inside = instance.get(),
+                                        .insideInterface = consumed.name,
+                                        .outside = bound.provider,
+                                        .outsideInterface = bound.providedName,
+                                        .insideProvides = false,
+                                        .gateway = gatewayNamed(consumed.name)});
+                continue;
+            }
+            // The gateway of that interface, when one carries it to another already.
+            const auto carried = std::ranges::find_if(crossed,
+                                                      [&bound](const Crossing& crossing)
+                                                      {
+                                                          return crossing.insideProvides &&
+                                                                 crossing.inside == bound.provider &&
+                                                                 crossing.insideInterface == bound.providedName;
+                                                      });
+            crossed.append(
+                Crossing{.inside = bound.provider,
+                         .insideInterface = bound.providedName,
+                         .outside = instance.get(),
+                         .outsideInterface = consumed.name,
+                         .insideProvides = true,
+                         .gateway = carried != crossed.end() ? carried->gateway : gatewayNamed(bound.providedName)});
         }
     }
-    QJsonObject document = Assembler::save(composed, directory, m_plugins, m_pluginRoot);
-    document.insert(u"version", ProjectVersion);
-    return document;
+    return crossed;
+}
+
+void ForgeApplication::renameBindings(const QString& filePath, const QString& name, const QString& newName)
+{
+    for(auto& [file, definition] : m_definitions)
+    {
+        QJsonArray bindings;
+        for(const QJsonValue& value : std::as_const(definition.bindings))
+        {
+            QJsonObject binding = value.toObject();
+            bool removed = false;
+            for(const auto& [component, interfaceName] :
+                {std::pair{u"consumer", u"consumed"}, std::pair{u"provider", u"provided"}})
+            {
+                // An instance of filePath among the components of the definition, and its interface name.
+                const auto* composite = qobject_cast<const Composite*>(
+                    ComponentPaths::find(definition.composite->components(), binding.value(component).toString()));
+                if(composite == nullptr || composite->filePath() != filePath ||
+                   binding.value(interfaceName).toString() != name)
+                {
+                    continue;
+                }
+                removed = newName.isEmpty();
+                binding.insert(interfaceName, newName);
+            }
+            if(!removed)
+            {
+                bindings.append(binding);
+            }
+        }
+        definition.bindings = bindings;
+    }
 }
 
 Composite* ForgeApplication::group(const QList<Component*>& components, const QString& filePath)
@@ -615,6 +831,12 @@ Composite* ForgeApplication::group(const QList<Component*>& components, const QS
         }
     }
 
+    // Bound to its gateways once they go: computed as compose() did, while they are there.
+    const std::optional<QList<Crossing>> crossed = crossings(components);
+    if(!crossed)
+    {
+        return nullptr;
+    }
     Composite* placed = instantiateComposite(filePath);
     if(placed == nullptr)
     {
@@ -624,6 +846,17 @@ Composite* ForgeApplication::group(const QList<Component*>& components, const QS
     for(Component* grouped : components)
     {
         remove(*grouped);
+    }
+    for(const Crossing& crossing : *crossed)
+    {
+        if(crossing.insideProvides)
+        {
+            crossing.outside->bindInterface(crossing.outsideInterface, *placed, crossing.gateway);
+        }
+        else
+        {
+            placed->bindInterface(crossing.gateway, *crossing.outside, crossing.outsideInterface);
+        }
     }
     for(const Held& entry : std::as_const(held))
     {
