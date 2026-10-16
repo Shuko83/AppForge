@@ -99,7 +99,10 @@ QMimeData* ComponentModel::mimeData(const QModelIndexList& indexes) const
 
 void ComponentModel::refresh()
 {
-    const QList<AppForge::ComponentInfo> components = m_factory.components();
+    QList<AppForge::ComponentInfo> components = m_factory.components();
+    // Not those Core provides: a composite is made from its file.
+    components.removeIf([](const AppForge::ComponentInfo& component)
+                        { return component.pluginId == AppForge::ComponentFactory::corePluginId(); });
     // Those of a plugin unloaded since, the last one first: the rows above it keep their number.
     for(qsizetype row = m_components.size() - 1; row >= 0; --row)
     {

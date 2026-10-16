@@ -8,7 +8,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Dossier | Cible | Rôle |
 | --- | --- | --- |
-| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin,Settings}/`, sources dans `src/` |
+| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, composites, application. En-têtes publics dans `include/AppForge/{Application,Component,Composite,Plugin,Settings}/`, sources dans `src/` |
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; le code est dans `Forge/src/`, sans namespace, celui des fichiers de réglages dans `Forge/src/Settings/`, son logo dans `Forge/resources/` |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
@@ -85,17 +85,46 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   `objectName` ni celles `DESIGNABLE false` / `STORED false` ; c'est la liste qu'éditent Forge et qu'écrit un projet.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
 
+**Composite** (`Composite/Composite.*`, `src/Composite/CorePlugin.*`, `src/Composite/ComponentPaths.*`,
+`src/Application/Assembler.*`)
+- `Composite` est un composant que Core fournit lui-même : `CorePlugin` (privé, un `Plugin` comme un autre) l'enregistre
+  par `APPFORGE_REGISTER_COMPONENT`, et `ComponentFactory` l'ajoute à sa construction sous
+  `ComponentFactory::corePluginId()` (`FabienDG.AppForge.Core`, tiré de `CoreInfo`), qu'aucun `PluginManager` ne
+  connaît. `ForgeApplication::instantiate()` le refuse et `ComponentModel` le cache : un composite se pose depuis son
+  fichier `.afc`.
+- Il possède ses composants (`components()`, dans l'ordre du fichier, `component(chemin)`), les initialise, démarre et
+  arrête avec lui (`onInitialize()` / `onStart()` / `onStop()`) ; au premier refus, il arrête ce qu'il a démarré et
+  `refusal()` donne le chemin de celui qui a refusé, que `ForgeApplication` met dans `errorString()`.
+- `ComponentPaths` (privé) : noms et chemins partagés par l'application et les composites, `find()` (`Horloge1/Ticker1`
+  traverse les composites), `path()`, `canName()` (non vide, sans `/`, libre), `newName()`.
+- `Assembler` (privé, `friend` de `ForgeApplication` et de `Composite`) : construit les composants d'un document
+  (projet ou `.afc`) et les réécrit (`save()` statique) ; un par chargement, il accumule les problèmes. Chaque `.afc`
+  est lu une fois par application dans une *définition* (`ForgeApplication::Definition`, rangée par chemin canonique
+  dans `m_definitions`) : un composite jamais démarré dont les composants portent les valeurs de départ, et ses liens
+  gardés à part, non faits (une `Window` liée montrerait déjà sa fenêtre). Une instance est construite depuis
+  `Assembler::document()` de sa définition, pas depuis le disque. Un cycle (`m_reading`) fait échouer toutes les
+  définitions en cours de lecture, et l'entrée du projet manque avec le message `A.afc contains itself: A.afc > B.afc >
+  A.afc` ; un `.afc` illisible ou un plugin manquant n'est qu'un problème. Une définition qui a eu un problème n'est pas
+  `complete`.
+
 **Application** (`Application/ForgeApplication.*`)
 - `ForgeApplication` (QObject) : l'application assemblée, utilisée telle quelle par Forge et par le `main` d'une
   application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
   (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`. `rename(instance, nom)` renomme en
-  gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
-  `remove(instance)` l'arrête puis la détruit ; ses liens tombent à sa destruction (`releaseInterfaces()` pour ce
-  qu'elle consomme, signal `destroyed` pour ceux qui consomment ce qu'elle fournit).
-- Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
-  qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
-  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
-  `propertyObjects()`, retrouvés à l'ouverture par nom puis par ordre d'ajout) et `bindings`.
+  gardant les noms uniques, non vides et sans `/` : c'est par son nom qu'un projet et `component(chemin)` désignent
+  une instance, et par son chemin (`Horloge1/Ticker1`, `path(composant)`) un composant d'un composite.
+  `instantiateComposite(fichier, nom)` pose un composite (nommé d'après son fichier : `Horloge1`), `errorString()`
+  disant ce que la première lecture du fichier n'a pas pu restaurer. `remove(instance)` l'arrête puis la détruit ; ses
+  liens tombent à sa destruction (`releaseInterfaces()` pour ce qu'elle consomme, signal `destroyed` pour ceux qui
+  consomment ce qu'elle fournit).
+- Projet, version 2 (la 1 se lit encore) : `read(fichier, erreur)` statique (lecture + contrôle de version, aussi pour
+  un `.afc`), `load(json, dossier)` qui renvoie la liste de ce qui n'a pas pu être restauré, `open(fichier)` = les
+  deux, strict (`false` au moindre problème), `save(dossier)` qui écrit `version`, `plugins`, `components` (nom, type,
+  propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses `propertyObjects()`, retrouvés à
+  l'ouverture par nom puis par ordre d'ajout ; pour un composite, `composite` à la place de `type` et les valeurs de
+  ses composants par nom dans `components`, récursivement) et `bindings`. Les fichiers des composites sont relatifs à
+  `dossier`, celui du projet (absolus à l'écriture quand il est vide). `ProjectJson::values()` / `setValues()` écrivent
+  et relisent les valeurs d'un composant, composite compris.
 - Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
   chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits. À
   l'ouverture, un plugin est d'abord cherché par son id parmi ceux connus, son fichier n'est qu'un recours.
@@ -108,9 +137,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   d'instanciation ; au premier refus il arrête ce que cet appel a démarré. Rappelé pendant l'exécution, il démarre ce
   qui a été instancié entre-temps, sans toucher à ce qui tourne. `start(instance)` initialise puis démarre une seule
   instance, et refuse quand l'application ne tourne pas. `stop()` arrête dans l'ordre inverse. `isRunning()` / `runningChanged`.
-  `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend d'être démarré.
-- Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
-  appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
+  `clear()` et le destructeur arrêtent d'abord, puis oublient aussi les définitions des `.afc`. Un composant instancié
+  en cours d'exécution attend d'être démarré.
+- Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin et les composites qui en contiennent une ;
+  `unloadPlugin(pluginId)` les supprime, oublie les définitions qui en contiennent, puis appelle
+  `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
 - Fichiers de réglages (module `Settings` : `include/AppForge/Settings/SettingsFile.h`, `src/Settings/`) : ce que
   l'utilisateur de l'application change et retrouve au lancement suivant. `addSettingsFile()` / `removeSettingsFile()`
   / `settingsFiles()`, possédés par l'application (constructeur privé), écrits dans le projet (`settings`, seulement
@@ -118,7 +149,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   (`settingsFile(nom)`, `setFileName()` renvoie `false` sur un nom pris ; `addSettingsFile()` donne `settings.json`,
   puis `settings2.json`…, et `load()` signale un doublon, qui garde ce nom-là), `directory` (vide = `AppConfigLocation`
   de l'exécutable qui tourne, relatif = depuis son dossier)
-  et des `SettingsEntry {component, object, property}`, `object` étant le composant ou un de ses `propertyObjects()` ;
+  et des `SettingsEntry {component, object, property}`, `object` étant le composant (de l'application ou d'un de ses
+  composites, écrit et rangé dans le fichier par son chemin) ou un de ses `propertyObjects()` ;
   une propriété n'est que dans un fichier (`ForgeApplication::settingsFile(entry)`), seulement celles qu'un projet
   enregistre (`canHold()`), et une entrée part à la destruction de son objet (`destroyed`). `start()` (à la transition
   vers « en cours » seulement) lit chaque fichier avant le premier `initialize()`, l'écrit avec les valeurs du projet
@@ -159,8 +191,10 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 (`IDI_ICON1`, ajouté sous Windows seulement, à côté de la ressource de version de CMakeUtils), est celle de
 `Forge.exe`. Pas de Qt Svg : il n'y a que des PNG à lire.
 
-**Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
-- Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
+**Fichier de projet `.afp`** (JSON, version 2, format décrit dans le README)
+- Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core), avec le dossier du fichier du projet
+  (`MainWindow::projectDirectory()`, vide sans fichier), auquel les fichiers des composites sont relatifs : `load()`
+  et `save()` de la scène le prennent en paramètre. `EditionScene::save()` y ajoute `x` / `y`
   et `color` (`#aarrggbb`, seulement si une couleur a été choisie) dans chaque composant (retrouvé par son nom),
   `x` / `y` dans chaque fichier de `settings` (par rang, dans l'ordre de `settingsFiles()`) et `zones` ;
   `EditionScene::load()` retire ses items, appelle `ForgeApplication::load()`, puis recrée un `ComponentItem` par

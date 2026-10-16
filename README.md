@@ -37,6 +37,7 @@ It enables developers to construct software systems by combining reusable buildi
 | Instance   | A runtime instantiation of a component |
 | Binding    | A connection between components |
 | Project    | A full application definition |
+| Composite  | Components, with their bindings, in a file of their own: placed in a project, or in another composite, as a component is |
 | Settings file | The properties of instances whose values the user keeps from one run to the next |
 
 ---
@@ -259,7 +260,7 @@ A project file is a JSON object:
 
 ```json
 {
-    "version": 1,
+    "version": 2,
     "plugins": [
         { "id": "FabienDG.AppForge.ExternalPlugin", "file": "../../external-plugins/Debug/ExternalPlugin.afdl" }
     ],
@@ -300,16 +301,16 @@ A project file is a JSON object:
 
 | Key          | Value                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
-| `version`    | `1`: a file of another version is not opened                                                            |
+| `version`    | `2`; a project of version 1, written before the composites, is read too: a file of another version is not opened |
 | `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
-| `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, their properties and those of their objects |
+| `components` | The instances: their name, the id of their component, or the file of their composite (see [Composite files](#composite-files)), where they are in the edition zone, their color when they were given one, their properties and those of their objects |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `settings`   | Its settings files, written when it has some: the name of the `file`, its `directory`, where it is in the edition zone, and its `entries`, the properties it holds |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
 `x`, `y`, `color` and `zones` are only for Forge: an application runs without them. The `color` of a component is written `#aarrggbb`, its opacity first: `#804e79a7` is half translucent; `#rrggbb` is read too, as an opaque color.
 
-An entry of a settings file is a property of a `component`, or of one of its objects, given by the `object` name it was added with and, when it is not the first object of the component added with that name, its `index` among them, from 0. The `file` of each is its own: a second file of the same name, whatever its case, is reported when the project is opened, and keeps the name it was given then. The `directory` of the file is the configuration directory of the user when it is empty, `QStandardPaths::AppConfigLocation` of the application that runs (under `%LOCALAPPDATA%` on Windows), and is read from the directory of the application when it is relative. The file holds the values of the user under the names of the components, as a project holds them:
+An entry of a settings file is a property of a `component`, given by its name, or by its path when it is one of a composite, `Clock1/Ticker1`, or of one of its objects, given by the `object` name it was added with and, when it is not the first object of the component added with that name, its `index` among them, from 0. The `file` of each is its own: a second file of the same name, whatever its case, is reported when the project is opened, and keeps the name it was given then. The `directory` of the file is the configuration directory of the user when it is empty, `QStandardPaths::AppConfigLocation` of the application that runs (under `%LOCALAPPDATA%` on Windows), and is read from the directory of the application when it is relative. The file holds the values of the user under the names of the components, their paths for those of a composite, as a project holds them:
 
 ```json
 {
@@ -331,6 +332,41 @@ The `properties` of a component are those that can be written and whose value JS
 Its `objects`, written when it has some, are those it added with `addPropertiesForQObject()`, in the order it added them: the `name` each was added with, empty when it has none, and its `properties`, chosen as those of the component are. When the project is opened, each is given to the first object of that name not given one yet; an object the component no longer has is reported as missing.
 
 Opening a project tells what could not be restored, a plugin that is no longer where it was, say, and opens the rest. The file is then no longer the one **Save** writes to, which would write over what is missing.
+
+### Composite files
+
+A composite gathers components, with their values and their bindings, in a file of its own, a `.afc` (AppForge Composite), to be placed in a project as many times as needed, or in another composite. It is written as a project is, without settings files:
+
+```json
+{
+    "version": 2,
+    "plugins": [ { "id": "FabienDG.AppForge.ExternalPlugin" } ],
+    "components": [
+        { "name": "Ticker1", "type": "FabienDG.AppForge.ExternalPlugin.Ticker", "properties": { "interval": 1000 } },
+        { "name": "Window1", "type": "FabienDG.AppForge.ExternalPlugin.Window", "properties": {} }
+    ],
+    "bindings": [
+        { "consumer": "Window1", "consumed": "content", "provider": "Ticker1", "provided": "display" }
+    ]
+}
+```
+
+A project places it with `composite` in place of `type`: its file, relative to the project file, then the values of its components, by name, each written as a component of the project is, without its `type`:
+
+```json
+{
+    "name": "Clock1",
+    "composite": "Clock.afc",
+    "components": [
+        { "name": "Ticker1", "properties": { "interval": 250 } },
+        { "name": "Window1", "properties": {} }
+    ]
+}
+```
+
+Each instance has components of its own, with values of its own: the file holds the structure, the components and their bindings, with the values they start with, and the project the values of each instance. Placed twice with different intervals, `Clock.afc` shows two windows, each at its own pace. A composite placed in a composite is written the same way, relative to the file of the composite that holds it, the values of its components under its name in a `components` of their own. The components of a composite are named by their path, the names that lead to them joined with `/`: `Clock1/Ticker1`, `Clock1/Inner1/Ticker1`. A name therefore holds no `/`.
+
+The plugins of a composite file are looked for as those of a project: by their `id`, among those of `plugins/` and of the `--plugin-dir` directories, then from their `file`, when it has one. The file is read once, when its first instance is placed: the instances placed afterwards have its structure. A composite file that holds itself, directly or through others, is refused, which is told with the files that hold it: `Clock.afc contains itself: Clock.afc > Inner.afc > Clock.afc`. A composite file that cannot be read, or a plugin of it that cannot be loaded, is told as a missing plugin is: the rest opens.
 
 ---
 
@@ -374,16 +410,18 @@ application.applyCommandLine(parser); // Before open(): the plugins of the proje
 
 | Function                | What it does                                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `open(filePath)`        | Loads the plugins of the project, instantiates its components, sets their properties, binds their interfaces and reads its settings files. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
+| `open(filePath)`        | Loads the plugins of the project, instantiates its components, places its composites, sets their properties, binds their interfaces and reads its settings files. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
 | `start()`               | Gives the properties its settings files hold the values of the user, unless it runs already, then initializes the components that are not yet, all of them first, then starts them, in the order of the project. Called again while it runs, it starts those instantiated meanwhile. `false`, with `errorString()` set, when one refuses: those this call started are stopped again, those that ran already go on, and its settings files are stopped too when it did not run |
 | `start(component)`      | While it runs, initializes one of its components unless it is already, then starts it unless it runs: one instantiated meanwhile, say. `false`, with `errorString()` set, when the application does not run, nothing being started then, and when the component refuses |
 | `stop()`                | Stops the components that run, the last one first, then gives the properties its settings files hold their default values again. They can be started again |
 | `isRunning()`           | Whether it was started and not stopped since; `runningChanged()` is emitted when it changes               |
-| `components()`, `component(name)` | Its instances, to reach one from the `main`: `application.component(QStringLiteral("Greeter1"))` |
+| `components()`, `component(path)` | Its instances, to reach one from the `main`: `application.component(u"Greeter1")`, or one of a composite by its path, `application.component(u"Clock1/Ticker1")`; `path(component)` is the other way round |
 | `setPluginRoot(directory)` | The directory the files of the plugins are relative to in a project; the directory of the application by default |
 | `addCommandLineOptions(parser)`, `applyCommandLine(parser)` | Add `--plugin-dir` and `--plugin-root` to a `QCommandLineParser`, then do what they ask once it processed the command line: a `--plugin-dir` that is not a directory is skipped, with a warning |
 
-An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `rename(component, name)` names it, unless the name is empty or the one of another instance, `Component::bindInterface()` binds it, `remove(component)` stops it and destroys it, which unbinds what was bound to its interfaces, `unloadPlugin(pluginId)` removes the components of a plugin, those `componentsOf(pluginId)` lists, then unloads it, unless the application runs, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `instantiateComposite(filePath)` places a composite, see [Composite files](#composite-files), `rename(component, name)` names it, unless the name is empty, holds a `/` or is the one of another instance, `Component::bindInterface()` binds it, `remove(component)` stops it and destroys it, which unbinds what was bound to its interfaces, `unloadPlugin(pluginId)` removes the components of a plugin, and the composites that hold one, those `componentsOf(pluginId)` lists, then unloads it, unless the application runs, and `save(directory)` returns the project of what was assembled, the files of its composites relative to `directory`. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+
+`AppForge::Composite` is the component a composite is, which Core provides itself, as a plugin provides its components: `ComponentFactory` registers it under the id `FabienDG.AppForge.Core.Composite`, but it is only placed from its file. It initializes, starts and stops its components with itself, in their order, the last one first to be stopped; as soon as one of them refuses, it stops those it started and refuses in turn, and `errorString()` names the one that refused by its path. `filePath()` is its file, `components()` and `component(path)` its components.
 
 Its settings files, `settingsFiles()`, keep the values the user gives some properties, from one run to the next; `AppForge::SettingsFile` is one of them. When the application starts, before any of its components is initialized, each file gives the properties it holds the values it has for them; a file that does not exist yet is first written with the values of the project, their default values, and a file that cannot be read is set aside, a `.bak` added to its name, then written again. While the application runs, what changes these properties is written to their files, changes made together being written once; when it stops, each file is written a last time, then the properties have their default values again, which `save()` writes. `settingsFileFailed()` tells when a file cannot be read or written: the application runs all the same. `addSettingsFile()` adds a file, named `settings.json`, or `settings2.json`, `settings3.json`... when another file has that name, `settingsFile(entry)` tells which one holds a property, `settingsFile(fileName)` which one has a name, whatever its case, and `removeSettingsFile()` removes one; a `SettingsFile` has its `setFileName()`, which refuses the name of another file of the application, whatever its case, `setDirectory()`, `add({component, object, property})`, the object being the component itself or one of its objects, `remove()`, and `writeDefaults()`, which writes the values of the project to its file while the application does not run.
 

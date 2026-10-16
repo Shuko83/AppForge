@@ -8,6 +8,7 @@
 #include <QList>
 #include <QMetaProperty>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <optional>
 
@@ -51,5 +52,13 @@ struct ObjectKey
 // JSON holds their value: those ComponentFactory knows of a component, those PropertyObject::properties() lists of
 // an object. None when object is neither.
 [[nodiscard]] QList<QMetaProperty> savedProperties(const Component& component, const QObject* object);
+
+// The values a project, or a composite file, holds for component: the "properties" of a component and the "objects" it
+// added, when it has some, each with its "name" and its "properties"; the "components" of a composite, each with its
+// "name" and its values in turn.
+[[nodiscard]] QJsonObject values(const Component& component);
+// Gives component the values json holds, as values() wrote them, path naming it in problems: what could not be set is
+// appended to problems, a sentence each.
+void setValues(Component& component, const QJsonObject& json, const QString& path, QStringList& problems);
 
 } // namespace AppForge::ProjectJson

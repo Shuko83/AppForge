@@ -10,13 +10,13 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLoggingCategory>
-#include <QMetaProperty>
 #include <QSignalBlocker>
 #include <algorithm>
-#include <map>
 #include <ranges>
 
 #include "AppForge/Component/ComponentFactory.h"
+#include "Assembler.h"
+#include "Composite/ComponentPaths.h"
 #include "ProjectJson.h"
 
 namespace AppForge
@@ -25,24 +25,37 @@ namespace AppForge
 namespace
 {
 
-using ProjectJson::writableProperties;
-using ProjectJson::writeProperty;
-
 Q_LOGGING_CATEGORY(lcPlugins, "appforge.plugins")
 
-// The version of the projects written, the only one read.
-constexpr int ProjectVersion = 1;
+// The version of the projects written, and of the composite files: 2 has composites. Those of a version from 1 to
+// this one are read.
+constexpr int ProjectVersion = 2;
 
 // The names of the options addCommandLineOptions() adds.
 const QString PluginDirOption = QStringLiteral("plugin-dir");
 const QString PluginRootOption = QStringLiteral("plugin-root");
 
-// entry as a project holds it: the name of its component, the key of its object when it is not the component, see
-// ProjectJson::ObjectKey, its "index" only when it is not the first object of its name, and its property.
-QJsonObject entryJson(const SettingsEntry& entry)
+// Whether component is of the plugin pluginId, or is a composite that holds one, at any depth.
+bool holds(const Component& component, const QString& pluginId)
+{
+    if(const auto* composite = qobject_cast<const Composite*>(&component))
+    {
+        return std::ranges::any_of(composite->components(), [&pluginId](const std::unique_ptr<Component>& inner)
+                                   { return holds(*inner, pluginId); });
+    }
+    const std::optional<ComponentInfo> info = ComponentFactory::instance().component(component.componentId());
+    return info && info->pluginId == pluginId;
+}
+
+using ComponentPaths::refusalIn;
+
+// entry as a project holds it: the path of its component, see ForgeApplication::path(), the key of its object when it
+// is not the component, see ProjectJson::ObjectKey, its "index" only when it is not the first object of its name, and
+// its property.
+QJsonObject entryJson(const ForgeApplication& application, const SettingsEntry& entry)
 {
     QJsonObject json;
-    json.insert(u"component", entry.component->objectName());
+    json.insert(u"component", application.path(*entry.component));
     if(const std::optional<ProjectJson::ObjectKey> key = ProjectJson::objectKey(*entry.component, entry.object))
     {
         json.insert(u"object", key->name);
@@ -136,101 +149,22 @@ std::optional<QJsonObject> ForgeApplication::read(const QString& filePath, QStri
         error = parsed.errorString();
         return std::nullopt;
     }
-    if(project.value(u"version").toInt() != ProjectVersion)
+    const int version = project.value(u"version").toInt();
+    if(version < 1 || version > ProjectVersion)
     {
-        error = QStringLiteral("It is not an AppForge project of version %1").arg(ProjectVersion);
+        error = QStringLiteral("It is not an AppForge project of a version from 1 to %1").arg(ProjectVersion);
         return std::nullopt;
     }
     return project;
 }
 
-QStringList ForgeApplication::load(const QJsonObject& project)
+QStringList ForgeApplication::load(const QJsonObject& project, const QString& directory)
 {
     clear();
-    QStringList problems;
-
-    const QJsonArray plugins = project.value(u"plugins").toArray();
-    for(const QJsonValue& value : plugins)
-    {
-        const QJsonObject plugin = value.toObject();
-        const QString pluginId = plugin.value(u"id").toString();
-        // Where its file is from the plugin root; as it is when it is not relative.
-        const QString filePath = QDir::cleanPath(m_pluginRoot.absoluteFilePath(plugin.value(u"file").toString()));
-        // Opened from its file when it is not found already, as the ones of plugins/ are.
-        if((!m_plugins.plugin(pluginId) && !m_plugins.addFile(filePath)) ||
-           (!m_plugins.isLoaded(pluginId) && !m_plugins.load(pluginId)))
-        {
-            problems.append(QStringLiteral("The plugin %1 is not loaded: %2").arg(pluginId, m_plugins.errorString()));
-        }
-    }
-
-    const QJsonArray components = project.value(u"components").toArray();
-    for(const QJsonValue& value : components)
-    {
-        const QJsonObject json = value.toObject();
-        const QString name = json.value(u"name").toString();
-        const QString componentId = json.value(u"type").toString();
-        const std::optional<ComponentInfo> info = ComponentFactory::instance().component(componentId);
-        Component* instance = info ? instantiate(componentId, name) : nullptr;
-        if(instance == nullptr)
-        {
-            problems.append(QStringLiteral("%1 is missing: no loaded plugin provides %2").arg(name, componentId));
-            continue;
-        }
-        const QJsonObject properties = json.value(u"properties").toObject();
-        for(auto property = properties.begin(); property != properties.end(); ++property)
-        {
-            if(!writeProperty(*instance, info->properties, property.key(), property.value()))
-            {
-                problems.append(QStringLiteral("The property %1 of %2 could not be set").arg(property.key(), name));
-            }
-        }
-
-        // Each to the first object of its name that none was given yet: those of a name are held in the order they
-        // were added.
-        QList<PropertyObject> remaining = instance->propertyObjects();
-        const QJsonArray objects = json.value(u"objects").toArray();
-        for(const QJsonValue& objectValue : objects)
-        {
-            const QJsonObject objectJson = objectValue.toObject();
-            const QString objectName = objectJson.value(u"name").toString();
-            const auto found = std::ranges::find(remaining, objectName, &PropertyObject::name);
-            if(found == remaining.end())
-            {
-                problems.append(QStringLiteral("The object %1 of %2 is missing").arg(objectName, name));
-                continue;
-            }
-            const PropertyObject restored = *found;
-            remaining.erase(found);
-            const QJsonObject objectProperties = objectJson.value(u"properties").toObject();
-            for(auto property = objectProperties.begin(); property != objectProperties.end(); ++property)
-            {
-                if(!writeProperty(*restored.object, restored.properties(), property.key(), property.value()))
-                {
-                    problems.append(QStringLiteral("The property %1 of the object %2 of %3 could not be set")
-                                        .arg(property.key(), objectName, name));
-                }
-            }
-        }
-    }
-
-    const QJsonArray bindings = project.value(u"bindings").toArray();
-    for(const QJsonValue& value : bindings)
-    {
-        const QJsonObject json = value.toObject();
-        const QString consumerName = json.value(u"consumer").toString();
-        const QString consumedName = json.value(u"consumed").toString();
-        const QString providerName = json.value(u"provider").toString();
-        const QString providedName = json.value(u"provided").toString();
-        Component* consumer = component(consumerName);
-        Component* provider = component(providerName);
-        if(consumer == nullptr || provider == nullptr ||
-           !consumer->bindInterface(consumedName, *provider, providedName))
-        {
-            problems.append(QStringLiteral("%1 of %2 could not be bound to %3 of %4")
-                                .arg(consumedName, consumerName, providedName, providerName));
-        }
-    }
+    Assembler assembler(*this);
+    assembler.loadPlugins(project);
+    assembler.load(m_components, project, QDir(directory), {});
+    QStringList problems = assembler.problems();
 
     const QJsonArray settings = project.value(u"settings").toArray();
     for(const QJsonValue& value : settings)
@@ -277,71 +211,15 @@ bool ForgeApplication::open(const QString& filePath)
     {
         return false;
     }
-    const QStringList problems = load(*project);
+    const QStringList problems = load(*project, QFileInfo(filePath).absolutePath());
     m_errorString = problems.join(u'\n');
     return problems.isEmpty();
 }
 
-QJsonObject ForgeApplication::save() const
+QJsonObject ForgeApplication::save(const QString& directory) const
 {
-    std::map<QString, QString> pluginFiles; // By plugin id: each of them once
-    QJsonArray components;
-    QJsonArray bindings;
-    for(const std::unique_ptr<Component>& instance : m_components)
-    {
-        const std::optional<ComponentInfo> info = ComponentFactory::instance().component(instance->componentId());
-        const std::optional<PluginInfo> plugin = info ? m_plugins.plugin(info->pluginId) : std::nullopt;
-        if(plugin)
-        {
-            pluginFiles.emplace(plugin->id, plugin->filePath);
-        }
-
-        QJsonObject json;
-        json.insert(u"name", instance->objectName());
-        json.insert(u"type", instance->componentId());
-        json.insert(u"properties", writableProperties(*instance, info ? info->properties : QList<QMetaProperty>()));
-        QJsonArray objects;
-        const QList<PropertyObject> propertyObjects = instance->propertyObjects();
-        for(const PropertyObject& added : propertyObjects)
-        {
-            QJsonObject object;
-            object.insert(u"name", added.name);
-            object.insert(u"properties", writableProperties(*added.object, added.properties()));
-            objects.append(object);
-        }
-        if(!objects.isEmpty())
-        {
-            json.insert(u"objects", objects);
-        }
-        components.append(json);
-
-        const QList<InterfaceInfo> consumedInterfaces = instance->consumedInterfaces();
-        for(const InterfaceInfo& consumed : consumedInterfaces)
-        {
-            const InterfaceBinding bound = instance->binding(consumed.name);
-            if(bound.provider != nullptr)
-            {
-                QJsonObject binding;
-                binding.insert(u"consumer", instance->objectName());
-                binding.insert(u"consumed", consumed.name);
-                binding.insert(u"provider", bound.provider->objectName());
-                binding.insert(u"provided", bound.providedName);
-                bindings.append(binding);
-            }
-        }
-    }
-
-    // The plugins of its components: those to load before it is read again.
-    QJsonArray plugins;
-    for(const auto& [pluginId, filePath] : pluginFiles)
-    {
-        QJsonObject plugin;
-        plugin.insert(u"id", pluginId);
-        // Relative, for the project to be read wherever its plugins are moved to, with their root; it cannot be when
-        // the file is on another drive than the root.
-        plugin.insert(u"file", m_pluginRoot.relativeFilePath(filePath));
-        plugins.append(plugin);
-    }
+    QJsonObject project = Assembler::save(m_components, directory, m_plugins, m_pluginRoot);
+    project.insert(u"version", ProjectVersion);
 
     QJsonArray settings;
     for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles)
@@ -352,17 +230,11 @@ QJsonObject ForgeApplication::save() const
         QJsonArray entries;
         for(const SettingsEntry& entry : file->entries())
         {
-            entries.append(entryJson(entry));
+            entries.append(entryJson(*this, entry));
         }
         json.insert(u"entries", entries);
         settings.append(json);
     }
-
-    QJsonObject project;
-    project.insert(u"version", ProjectVersion);
-    project.insert(u"plugins", plugins);
-    project.insert(u"components", components);
-    project.insert(u"bindings", bindings);
     if(!settings.isEmpty()) // Only for those who use them: the others are written as they were
     {
         project.insert(u"settings", settings);
@@ -373,19 +245,42 @@ QJsonObject ForgeApplication::save() const
 Component* ForgeApplication::instantiate(const QString& componentId, const QString& name)
 {
     const std::optional<ComponentInfo> info = ComponentFactory::instance().component(componentId);
-    std::unique_ptr<Component> instance = ComponentFactory::instance().create(componentId);
-    if(!info || instance == nullptr)
+    // Not one Core provides: a composite is made from its file.
+    std::unique_ptr<Component> instance = info && info->pluginId != ComponentFactory::corePluginId()
+                                              ? ComponentFactory::instance().create(componentId)
+                                              : nullptr;
+    if(instance == nullptr)
     {
         return nullptr;
     }
-    instance->setObjectName(name.isEmpty() || contains(name) ? newName(info->name) : name);
+    instance->setObjectName(
+        ComponentPaths::canName(m_components, name) ? name : ComponentPaths::newName(m_components, info->name));
     return m_components.emplace_back(std::move(instance)).get();
+}
+
+Composite* ForgeApplication::instantiateComposite(const QString& filePath, const QString& name)
+{
+    const QString file = Assembler::compositeFilePath(QDir(), filePath);
+    Assembler assembler(*this);
+    std::unique_ptr<Composite> instance = assembler.instantiate(file, m_errorString);
+    if(instance == nullptr)
+    {
+        return nullptr;
+    }
+    m_errorString = assembler.problems().join(u'\n');
+    const QString base = QFileInfo(file).completeBaseName();
+    instance->setObjectName(ComponentPaths::canName(m_components, name) ? name
+                                                                        : ComponentPaths::newName(m_components, base));
+    Composite& placed = *instance;
+    m_components.push_back(std::move(instance));
+    return &placed;
 }
 
 bool ForgeApplication::rename(Component& instance, const QString& name)
 {
-    const Component* named = component(name);
-    if(name.isEmpty() || (named != nullptr && named != &instance))
+    const bool owned = std::ranges::any_of(m_components, [&instance](const std::unique_ptr<Component>& component)
+                                           { return component.get() == &instance; });
+    if(!owned || !ComponentPaths::canName(m_components, name, &instance))
     {
         return false;
     }
@@ -410,10 +305,14 @@ const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() co
     return m_components;
 }
 
-Component* ForgeApplication::component(const QString& name) const
+Component* ForgeApplication::component(QStringView path) const
 {
-    const auto found = std::ranges::find(m_components, name, &Component::objectName);
-    return found != m_components.end() ? found->get() : nullptr;
+    return ComponentPaths::find(m_components, path);
+}
+
+QString ForgeApplication::path(const Component& component) const
+{
+    return ComponentPaths::path(m_components, component);
 }
 
 QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
@@ -421,8 +320,7 @@ QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
     QList<Component*> found;
     for(const std::unique_ptr<Component>& instance : m_components)
     {
-        const std::optional<ComponentInfo> info = ComponentFactory::instance().component(instance->componentId());
-        if(info && info->pluginId == pluginId)
+        if(holds(*instance, pluginId))
         {
             found.append(instance.get());
         }
@@ -433,12 +331,14 @@ QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
 void ForgeApplication::clear()
 {
     stop();
-    m_components.clear();
+    // The settings files first: their entries go as the components do, which they would be told one by one.
     if(!m_settingsFiles.empty())
     {
         m_settingsFiles.clear();
         emit settingsFilesChanged();
     }
+    m_components.clear();
+    m_definitions.clear();
 }
 
 SettingsFile& ForgeApplication::addSettingsFile()
@@ -517,7 +417,7 @@ bool ForgeApplication::start()
     {
         if(instance->state() == ComponentState::Initializing && !instance->initialize())
         {
-            m_errorString = QStringLiteral("%1 could not be initialized").arg(instance->objectName());
+            m_errorString = QStringLiteral("%1 could not be initialized").arg(refusalIn(*instance));
             stopSettings();
             return false;
         }
@@ -531,7 +431,7 @@ bool ForgeApplication::start()
         }
         if(!instance->start())
         {
-            m_errorString = QStringLiteral("%1 could not be started").arg(instance->objectName());
+            m_errorString = QStringLiteral("%1 could not be started").arg(refusalIn(*instance));
             for(Component* running : started | std::views::reverse)
             {
                 running->stop();
@@ -562,12 +462,12 @@ bool ForgeApplication::start(Component& instance)
     }
     if(instance.state() == ComponentState::Initializing && !instance.initialize())
     {
-        m_errorString = QStringLiteral("%1 could not be initialized").arg(instance.objectName());
+        m_errorString = QStringLiteral("%1 could not be initialized").arg(refusalIn(instance));
         return false;
     }
     if(instance.state() == ComponentState::Ready && !instance.start())
     {
-        m_errorString = QStringLiteral("%1 could not be started").arg(instance.objectName());
+        m_errorString = QStringLiteral("%1 could not be started").arg(refusalIn(instance));
         return false;
     }
     m_errorString.clear();
@@ -609,6 +509,8 @@ bool ForgeApplication::unloadPlugin(const QString& pluginId)
     {
         remove(*instance);
     }
+    std::erase_if(m_definitions,
+                  [&pluginId](const auto& definition) { return holds(*definition.second.composite, pluginId); });
     if(!m_plugins.unload(pluginId))
     {
         m_errorString = m_plugins.errorString();
@@ -621,23 +523,6 @@ bool ForgeApplication::unloadPlugin(const QString& pluginId)
 QString ForgeApplication::errorString() const
 {
     return m_errorString;
-}
-
-bool ForgeApplication::contains(const QString& name) const
-{
-    return component(name) != nullptr;
-}
-
-QString ForgeApplication::newName(const QString& componentName) const
-{
-    for(int number = 1;; ++number)
-    {
-        const QString name = componentName + QString::number(number);
-        if(!contains(name))
-        {
-            return name;
-        }
-    }
 }
 
 QString ForgeApplication::newSettingsFileName() const

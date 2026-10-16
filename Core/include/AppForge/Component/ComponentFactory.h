@@ -17,10 +17,12 @@
 namespace AppForge
 {
 
-// Knows the components of the loaded plugins and is the only way to instantiate them.
+// Knows the components of the loaded plugins and is the only way to instantiate them. It also knows those Core provides
+// itself, as a plugin would, under corePluginId(): Composite.
 class CORE_EXPORT ComponentFactory
 {
   public:
+    // Registers the components of Core.
     ComponentFactory();
     ~ComponentFactory();
 
@@ -29,6 +31,9 @@ class CORE_EXPORT ComponentFactory
 
     // The factory of the application, where PluginManager::load() registers the components of a plugin.
     static ComponentFactory& instance();
+    // The plugin id of the components Core provides, built as appforge_add_plugin builds the id of a plugin:
+    // FabienDG.AppForge.Core. No PluginManager knows it.
+    [[nodiscard]] static QString corePluginId();
 
     // Registers the components of plugin, whose id is pluginId; does nothing when they are already registered.
     // Skips, with a warning, a component whose id is already registered.
@@ -51,7 +56,8 @@ class CORE_EXPORT ComponentFactory
         Plugin::Builder builder = nullptr;
     };
 
-    std::map<QString, Type> m_types; // By id
+    std::unique_ptr<Plugin> m_corePlugin; // Builds the components of Core; destroyed after m_types
+    std::map<QString, Type> m_types;      // By id
 };
 
 } // namespace AppForge

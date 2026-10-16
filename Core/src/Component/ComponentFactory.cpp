@@ -8,6 +8,9 @@
 #include <ranges>
 #include <utility>
 
+#include "Composite/CorePlugin.h"
+#include "Core_info.h"
+
 namespace AppForge
 {
 
@@ -43,7 +46,10 @@ ComponentInfo readInfo(const QMetaObject& metaObject, const QString& pluginId)
 
 } // namespace
 
-ComponentFactory::ComponentFactory() = default;
+ComponentFactory::ComponentFactory() : m_corePlugin(Plugin::instantiate<CorePlugin>())
+{
+    add(corePluginId(), *m_corePlugin);
+}
 
 ComponentFactory::~ComponentFactory() = default;
 
@@ -51,6 +57,14 @@ ComponentFactory& ComponentFactory::instance()
 {
     static ComponentFactory factory;
     return factory;
+}
+
+QString ComponentFactory::corePluginId()
+{
+    // <organization>.<project>.<target>, see appforge_add_plugin.
+    return QStringLiteral("%1.%2.%3")
+        .arg(QLatin1StringView(CoreInfo::organization), QLatin1StringView(CoreInfo::product),
+             QLatin1StringView(CoreInfo::name));
 }
 
 void ComponentFactory::add(const QString& pluginId, Plugin& plugin)

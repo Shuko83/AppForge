@@ -257,7 +257,7 @@ bool MainWindow::openProjectFile(const QString& filePath)
                              tr("%1 cannot be opened:\n%2").arg(QDir::toNativeSeparators(filePath), error));
         return false;
     }
-    const QStringList problems = m_scene->load(*project);
+    const QStringList problems = m_scene->load(*project, QFileInfo(filePath).absolutePath());
     // The plugins of the project, loaded with it, and their components.
     m_pluginModel->refresh();
     m_pluginViewer->refresh();
@@ -278,7 +278,8 @@ bool MainWindow::saveProjectFile(const QString& filePath)
     // The title of a zone, or the name of a component, is no longer edited: what was typed is taken before it is saved.
     m_scene->setFocusItem(nullptr);
     QSaveFile file(filePath);
-    if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(m_scene->save()).toJson()) < 0 || !file.commit())
+    const QJsonObject project = m_scene->save(QFileInfo(filePath).absolutePath());
+    if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(project).toJson()) < 0 || !file.commit())
     {
         QMessageBox::warning(this, tr("Save project"),
                              tr("%1 cannot be saved:\n%2").arg(QDir::toNativeSeparators(filePath), file.errorString()));
@@ -364,16 +365,21 @@ void MainWindow::openPlugin()
     }
 }
 
+QString MainWindow::projectDirectory() const
+{
+    return m_projectFile.isEmpty() ? QString() : QFileInfo(m_projectFile).absolutePath();
+}
+
 void MainWindow::setProjectFile(const QString& filePath)
 {
     m_projectFile = filePath;
-    m_savedProject = m_scene->save();
+    m_savedProject = m_scene->save(projectDirectory());
     setWindowTitle(filePath.isEmpty() ? tr("Forge") : tr("%1 - Forge").arg(QFileInfo(filePath).fileName()));
 }
 
 bool MainWindow::saveChanges()
 {
-    if(m_scene->save() == m_savedProject)
+    if(m_scene->save(projectDirectory()) == m_savedProject)
     {
         return true;
     }

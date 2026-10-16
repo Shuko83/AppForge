@@ -46,12 +46,14 @@ class EditionScene : public QGraphicsScene
     // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
     [[nodiscard]] AppForge::Component* selectedComponent() const;
 
-    // The application as a project file holds it, see README.md: what ForgeApplication::save() writes, with where its
-    // components and its settings files are in the edition zone, the color its components were given, and its zones.
-    [[nodiscard]] QJsonObject save() const;
-    // Replaces the application with the one project holds, as save() wrote it, see ForgeApplication::load(), and shows
-    // it as it was. Returns what could not be restored, a sentence each: none when everything was.
-    QStringList load(const QJsonObject& project);
+    // The application as a project file in directory holds it, see README.md: what ForgeApplication::save() writes,
+    // with where its components and its settings files are in the edition zone, the color its components were given,
+    // and its zones.
+    [[nodiscard]] QJsonObject save(const QString& directory) const;
+    // Replaces the application with the one project, a file of directory, holds, as save() wrote it, see
+    // ForgeApplication::load(), and shows it as it was. Returns what could not be restored, a sentence each: none when
+    // everything was.
+    QStringList load(const QJsonObject& project, const QString& directory);
     // Empties the edition zone, and the application of its components.
     void reset();
     // Removes components, some of the application, from it and from the edition zone, with their links.

@@ -100,7 +100,7 @@ AppForge::Component* EditionScene::selectedComponent() const
     return item != nullptr ? &item->component() : nullptr;
 }
 
-QJsonObject EditionScene::save() const
+QJsonObject EditionScene::save(const QString& directory) const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name
     QHash<const AppForge::SettingsFile*, const SettingsItem*> shownSettings;
@@ -129,7 +129,7 @@ QJsonObject EditionScene::save() const
         }
     }
 
-    QJsonObject project = m_application.save();
+    QJsonObject project = m_application.save(directory);
     QJsonArray components = project.value(u"components").toArray();
     for(QJsonValueRef component : components)
     {
@@ -166,10 +166,10 @@ QJsonObject EditionScene::save() const
     return project;
 }
 
-QStringList EditionScene::load(const QJsonObject& project)
+QStringList EditionScene::load(const QJsonObject& project, const QString& directory)
 {
     removeItems(); // Before the components they show are replaced
-    QStringList problems = m_application.load(project);
+    QStringList problems = m_application.load(project, directory);
 
     QHash<QString, QJsonObject> saved; // What the project holds of the components, by name
     const QJsonArray components = project.value(u"components").toArray();

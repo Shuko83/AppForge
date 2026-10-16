@@ -14,8 +14,8 @@ namespace AppForge
 class ComponentFactory;
 }
 
-// The components registered in a ComponentFactory, one row per component, sorted by id. The description of a
-// component is the tool tip of its row, in every column.
+// The components registered in a ComponentFactory, one row per component, sorted by id, but those Core provides. The
+// description of a component is the tool tip of its row, in every column.
 class ComponentModel : public QAbstractTableModel
 {
     Q_OBJECT

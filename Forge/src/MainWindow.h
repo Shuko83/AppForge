@@ -56,6 +56,9 @@ class MainWindow : public QMainWindow
     // Asks for a plugin file, then selects and loads it.
     void openPlugin();
 
+    // The directory of the file of the application, which the files of its composites are relative to; empty when it
+    // has none: they are written whole then.
+    [[nodiscard]] QString projectDirectory() const;
     // filePath is the file of the application, none when empty, which holds it as it is now.
     void setProjectFile(const QString& filePath);
     // Asks, when the application changed since its file holds it, whether to save it. Returns false when what was

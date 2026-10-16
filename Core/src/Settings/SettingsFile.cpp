@@ -45,11 +45,12 @@ QJsonValue currentValue(const SettingsEntry& entry)
     return ProjectJson::toJson(propertyOf(entry).read(entry.object)).value_or(QJsonValue());
 }
 
-// The value content holds for entry, as a project holds the properties of a component: in its "properties", or in
-// those of one of its "objects", found by its name, then in the order they were added. Undefined when it holds none.
-QJsonValue valueOf(const QJsonObject& content, const SettingsEntry& entry)
+// The value content holds for entry, its component being at path in the application, as a project holds the
+// properties of a component: in its "properties", or in those of one of its "objects", found by its name, then in the
+// order they were added. Undefined when it holds none.
+QJsonValue valueOf(const QJsonObject& content, const QString& path, const SettingsEntry& entry)
 {
-    const QJsonObject component = content.value(entry.component->objectName()).toObject();
+    const QJsonObject component = content.value(path).toObject();
     if(entry.object == entry.component)
     {
         return component.value(u"properties").toObject().value(entry.property);
@@ -68,8 +69,9 @@ QJsonValue valueOf(const QJsonObject& content, const SettingsEntry& entry)
     return QJsonValue(QJsonValue::Undefined);
 }
 
-// Sets the value content holds for entry, where valueOf() finds it, to value, adding what is missing for it.
-void setValue(QJsonObject& content, const SettingsEntry& entry, const QJsonValue& value)
+// Sets the value content holds for entry, its component being at path in the application, where valueOf() finds it, to
+// value, adding what is missing for it.
+void setValue(QJsonObject& content, const QString& path, const SettingsEntry& entry, const QJsonValue& value)
 {
     // holder, a component or an object, with value in its "properties".
     const auto set = [&entry, &value](QJsonObject holder)
@@ -80,8 +82,7 @@ void setValue(QJsonObject& content, const SettingsEntry& entry, const QJsonValue
         return holder;
     };
 
-    const QString name = entry.component->objectName();
-    QJsonObject component = content.value(name).toObject();
+    QJsonObject component = content.value(path).toObject();
     if(entry.object == entry.component)
     {
         component = set(component);
@@ -118,7 +119,7 @@ void setValue(QJsonObject& content, const SettingsEntry& entry, const QJsonValue
         objects.replace(found, set(objects.at(found).toObject()));
         component.insert(u"objects", objects);
     }
-    content.insert(name, component);
+    content.insert(path, component);
 }
 
 // What the settings file filePath holds: nothing when it does not exist. A file that cannot be read is set aside, a
@@ -246,9 +247,8 @@ bool SettingsFile::contains(const SettingsEntry& entry) const
 
 bool SettingsFile::add(const SettingsEntry& entry)
 {
-    const auto known = [&entry](const std::unique_ptr<Component>& component)
-    { return component.get() == entry.component; };
-    if(entry.component == nullptr || !std::ranges::any_of(m_application.components(), known) ||
+    // One of the application, or of its composites.
+    if(entry.component == nullptr || m_application.path(*entry.component).isEmpty() ||
        !canHold(*entry.component, entry.object, entry.property) || m_application.settingsFile(entry) != nullptr)
     {
         return false;
@@ -285,7 +285,7 @@ bool SettingsFile::writeDefaults()
     }
     for(const SettingsEntry& entry : std::as_const(m_entries))
     {
-        setValue(*content, entry, currentValue(entry));
+        setValue(*content, m_application.path(*entry.component), entry, currentValue(entry));
     }
     return writeSettings(path, *content, m_errorString);
 }
@@ -320,15 +320,16 @@ void SettingsFile::start()
     {
         const QMetaProperty property = propertyOf(entry);
         m_started.append(StartedEntry{.entry = entry, .defaultValue = property.read(entry.object)});
-        const QJsonValue value = valueOf(m_content, entry);
+        const QJsonValue value = valueOf(m_content, m_application.path(*entry.component), entry);
         if(value.isUndefined() || !property.write(entry.object, value.toVariant()))
         {
             if(!value.isUndefined())
             {
                 fail(QStringLiteral("%1 holds for %2 of %3 a value it cannot have: it is given its default value")
-                         .arg(QDir::toNativeSeparators(m_startedPath), entry.property, entry.component->objectName()));
+                         .arg(QDir::toNativeSeparators(m_startedPath), entry.property,
+                              m_application.path(*entry.component)));
             }
-            setValue(m_content, entry, currentValue(entry));
+            setValue(m_content, m_application.path(*entry.component), entry, currentValue(entry));
             complete = false;
         }
     }
@@ -365,7 +366,7 @@ void SettingsFile::stop()
     // Those no notify signal tells the changes of as well.
     for(const StartedEntry& started : std::as_const(m_started))
     {
-        setValue(m_content, started.entry, currentValue(started.entry));
+        setValue(m_content, m_application.path(*started.entry.component), started.entry, currentValue(started.entry));
     }
     m_writePending = false;
     if(m_writable && !writeSettings(m_startedPath, m_content, m_errorString))
@@ -395,7 +396,8 @@ void SettingsFile::takeValues()
     {
         if(started.entry.object == changed)
         {
-            setValue(m_content, started.entry, currentValue(started.entry));
+            setValue(m_content, m_application.path(*started.entry.component), started.entry,
+                     currentValue(started.entry));
         }
     }
     // Once for the changes made meanwhile: a property can change at every event.
