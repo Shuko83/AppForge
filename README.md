@@ -90,7 +90,7 @@ project(Acme VERSION 1.0.0 LANGUAGES CXX)
 
 set(cmu_organization "AcmeCorp")   # first part of the plugin ids: AcmeCorp.Acme.Network
 
-find_package(AppForge 0.2 REQUIRED COMPONENTS Core)
+find_package(AppForge 0.3 REQUIRED COMPONENTS Core)
 
 add_subdirectory(Network)          # appforge_add_plugin(NAME Network), its sources in Network/src
 ```
@@ -99,7 +99,7 @@ Point `CMAKE_PREFIX_PATH` at the package: `<build>/package`, staged after each b
 
 The plugin is written to `<build>/bin/plugins` (`<build>/bin/<config>/plugins` with Visual Studio): copy it to `plugins/` next to an application, or open it from Forge with **Open plugin...**. Its `coreVersion` is the version of the installed `Core`, whatever the version of its project. Build it in a configuration AppForge was installed in: Qt does not load a `Debug` plugin into a `Release` application, nor the other way round.
 
-Installed with `-Dcmu_install_mode=PACKAGE`, AppForge is a single prefix whose package has no components: `find_package(AppForge 0.2 REQUIRED)`.
+Installed with `-Dcmu_install_mode=PACKAGE`, AppForge is a single prefix whose package has no components: `find_package(AppForge 0.3 REQUIRED)`.
 
 ---
 

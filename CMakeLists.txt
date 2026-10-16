@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.19)
 
-project(AppForge VERSION 0.2.0)
+project(AppForge VERSION 0.3.0)
 
 # Before CMakeUtils is included, which writes them in the info files of each target. The copyright is the one of the
 # license, not the one CMakeUtils would build from the organization.
