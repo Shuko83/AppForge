@@ -4,7 +4,11 @@
 #include "PropertyEditor.h"
 
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMessageBox>
 #include <QMetaMethod>
 #include <QSignalBlocker>
 #include <QStackedWidget>
@@ -54,7 +58,7 @@ bool isEditable(const QMetaProperty& property)
 
 } // namespace
 
-PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+PropertyEditor::PropertyEditor(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
                                QWidget* parent)
     : QWidget(parent), m_application(application), m_factory(factory)
 {
@@ -72,6 +76,8 @@ PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, co
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setEditTriggers(QAbstractItemView::AllEditTriggers); // A click on a value edits it
     connect(m_table, &QTableWidget::itemChanged, this, &PropertyEditor::write);
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_table, &QTableWidget::customContextMenuRequested, this, &PropertyEditor::showMenu);
 
     m_stack = new QStackedWidget;
     m_stack->addWidget(m_placeholder);
@@ -90,11 +96,25 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     {
         m_component->disconnect(this);
     }
+    if(m_composite != nullptr)
+    {
+        m_composite->disconnect(this);
+    }
     m_component = component;
+    m_composite = component != nullptr ? m_application.compositeOf(*component) : nullptr;
     if(component != nullptr)
     {
         connect(component, &QObject::objectNameChanged, this, &PropertyEditor::refreshPlaceholder);
         connect(component, &AppForge::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
+        // What it exposes, or what its composite exposes of it.
+        if(auto* composite = qobject_cast<AppForge::Composite*>(component))
+        {
+            connect(composite, &AppForge::Composite::exposedPropertiesChanged, this, &PropertyEditor::rebuild);
+        }
+    }
+    if(m_composite != nullptr)
+    {
+        connect(m_composite, &AppForge::Composite::exposedPropertiesChanged, this, &PropertyEditor::rebuild);
     }
     rebuild();
 }
@@ -133,11 +153,28 @@ void PropertyEditor::rebuild()
         {
             if(isEditable(property))
             {
-                m_rows.append(Row{.object = object, .property = property, .title = {}});
+                m_rows.append(
+                    Row{.object = object, .property = property, .title = {}, .component = m_component, .exposed = {}});
             }
         }
     };
-    if(m_component != nullptr)
+    if(auto* composite = qobject_cast<AppForge::Composite*>(m_component.data()))
+    {
+        // Those it exposes, where they are.
+        for(const AppForge::ExposedProperty& exposed : composite->exposedProperties())
+        {
+            const AppForge::ExposedTarget target = composite->exposedProperty(exposed.name);
+            if(target.isValid() && isEditable(target.property))
+            {
+                m_rows.append(Row{.object = target.object,
+                                  .property = target.property,
+                                  .title = {},
+                                  .component = target.component,
+                                  .exposed = exposed.name});
+            }
+        }
+    }
+    else if(m_component != nullptr)
     {
         if(const std::optional<AppForge::ComponentInfo> info = m_factory.component(m_component->componentId()))
         {
@@ -192,10 +229,31 @@ void PropertyEditor::rebuild()
             continue;
         }
 
-        auto* name = new QTableWidgetItem(QString::fromLatin1(shown.property.name()));
+        const QString property = QString::fromLatin1(shown.property.name());
+        auto* name = new QTableWidgetItem(shown.exposed.isEmpty() ? property : shown.exposed);
         name->setFlags(Qt::ItemIsEnabled);
         name->setToolTip(QString::fromLatin1(shown.property.typeName()));
-        const AppForge::SettingsEntry entry{.component = m_component, .object = shown.object, .property = name->text()};
+        if(!shown.exposed.isEmpty() && shown.component != nullptr)
+        {
+            // Where it is: in the composite shown, from it.
+            name->setToolTip(
+                tr("%1\n%2 of %3")
+                    .arg(name->toolTip(), property,
+                         m_application.path(*shown.component).mid(m_application.path(*m_component).size() + 1)));
+        }
+        // One its composite exposes, with what as: in the scene of the composite.
+        const QString exposedAs =
+            m_composite != nullptr
+                ? m_application.exposedName(*m_component,
+                                            shown.exposed.isEmpty() ? shown.object.data() : m_component.data(),
+                                            shown.exposed.isEmpty() ? property : shown.exposed)
+                : QString();
+        if(!exposedAs.isEmpty())
+        {
+            name->setText(QStringLiteral("%1 → %2").arg(name->text(), exposedAs));
+            name->setToolTip(tr("%1\nExposed by %2 as %3").arg(name->toolTip(), m_composite->objectName(), exposedAs));
+        }
+        const AppForge::SettingsEntry entry{.component = shown.component, .object = shown.object, .property = property};
         if(const AppForge::SettingsFile* file = m_application.settingsFile(entry))
         {
             QFont font = name->font();
@@ -233,4 +291,57 @@ void PropertyEditor::write(const QTableWidgetItem* item)
     }
     edited.property.write(edited.object, item->data(Qt::EditRole));
     refreshValues(); // What the object made of it: it can adjust a value, or refuse it
+}
+
+void PropertyEditor::showMenu(const QPoint& position)
+{
+    const int row = m_table->rowAt(position.y());
+    // In the scene of a composite only, which exposes the properties of its components.
+    if(row < 0 || m_composite == nullptr || m_component == nullptr || !m_rows.at(row).property.isValid())
+    {
+        return;
+    }
+    const Row& shown = m_rows.at(row);
+    // A property of the component, or of one of its objects; one a composite exposes in turn, as it exposes it.
+    QObject* object = shown.exposed.isEmpty() ? shown.object.data() : m_component.data();
+    const QString property = shown.exposed.isEmpty() ? QString::fromLatin1(shown.property.name()) : shown.exposed;
+    const QString exposedAs = m_application.exposedName(*m_component, object, property);
+
+    QMenu menu(this);
+    QAction* expose = menu.addAction(tr("Expose"));
+    expose->setEnabled(exposedAs.isEmpty());
+    QAction* unexpose = menu.addAction(tr("Unexpose"));
+    unexpose->setEnabled(!exposedAs.isEmpty());
+    QAction* rename = menu.addAction(tr("Rename exposed property..."));
+    rename->setEnabled(!exposedAs.isEmpty());
+    const QAction* chosen = menu.exec(m_table->viewport()->mapToGlobal(position));
+    // What the menu was about can be gone once it is closed.
+    if(chosen == nullptr || m_composite == nullptr || m_component == nullptr)
+    {
+        return;
+    }
+    if(chosen == expose)
+    {
+        if(m_application.exposeProperty(*m_component, object, property).isEmpty())
+        {
+            QMessageBox::warning(this, tr("Expose"), m_application.errorString());
+        }
+    }
+    else if(chosen == unexpose)
+    {
+        m_application.unexposeProperty(*m_composite, exposedAs);
+    }
+    else if(chosen == rename)
+    {
+        const QString newName = QInputDialog::getText(
+            this, tr("Rename exposed property"), tr("Name %1 exposes %2 as:").arg(m_composite->objectName(), property),
+            QLineEdit::Normal, exposedAs);
+        if(!newName.isEmpty() && newName != exposedAs && m_composite != nullptr &&
+           !m_application.renameExposedProperty(*m_composite, exposedAs, newName))
+        {
+            QMessageBox::warning(this, tr("Rename exposed property"),
+                                 tr("%1 is not renamed: %2 exposes another property as %3")
+                                     .arg(exposedAs, m_composite->objectName(), newName));
+        }
+    }
 }

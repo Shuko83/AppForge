@@ -3,9 +3,11 @@
 
 #include "AppForge/Composite/Composite.h"
 
+#include <algorithm>
 #include <ranges>
 
 #include "AppForge/Composite/Gateway.h"
+#include "Application/ProjectJson.h"
 
 #include "ComponentPaths.h"
 #include "CorePlugin.h"
@@ -52,6 +54,48 @@ Component* Composite::component(QStringView path) const
 QString Composite::refusal() const
 {
     return m_refusal;
+}
+
+const QList<ExposedProperty>& Composite::exposedProperties() const
+{
+    return m_exposed;
+}
+
+ExposedTarget Composite::exposedProperty(const QString& name) const
+{
+    const auto exposed = std::ranges::find(m_exposed, name, &ExposedProperty::name);
+    // One of its own components only: what is exposed is of the composite it is in.
+    const auto owner = exposed != m_exposed.end() ? std::ranges::find(m_components, exposed->component,
+                                                                      [](const std::unique_ptr<Component>& component)
+                                                                      { return component->objectName(); })
+                                                  : m_components.end();
+    if(owner == m_components.end())
+    {
+        return {};
+    }
+    Component& component = **owner;
+    if(!exposed->object)
+    {
+        // What a composite exposes in turn, or a property of the component.
+        if(const auto* composite = qobject_cast<const Composite*>(&component))
+        {
+            return composite->exposedProperty(exposed->property);
+        }
+        const QMetaObject* metaObject = component.metaObject();
+        return {.object = &component,
+                .component = &component,
+                .property = metaObject->property(metaObject->indexOfProperty(exposed->property.toLatin1()))};
+    }
+    QObject* object =
+        ProjectJson::object(component, ProjectJson::ObjectKey{.name = *exposed->object, .index = exposed->index});
+    if(object == nullptr)
+    {
+        return {};
+    }
+    const QMetaObject* metaObject = object->metaObject();
+    return {.object = object,
+            .component = &component,
+            .property = metaObject->property(metaObject->indexOfProperty(exposed->property.toLatin1()))};
 }
 
 bool Composite::onInitialize()

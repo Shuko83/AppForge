@@ -131,6 +131,14 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   d'instanciation) ; chaque lien qui sort de la sélection (`crossings()`) y devient une gateway, une par interface
   fournie de l'intérieur. `group(composants, fichier)` pose ce fichier à leur place, relie le composite par ces
   gateways à ce qui était lié dehors, et reporte les entrées de fichiers de réglages (même chemin depuis le composite).
+- Propriétés exposées : `Composite::m_exposed`, des `ExposedProperty {name, component, object?, index, property}`
+  (données, comme dans le `.afc` sous `exposed`), résolues à la demande par `exposedProperty(nom)` en
+  `ExposedTarget {object, component, property}` (pour un composite intérieur, sa propre propriété exposée, par
+  récursion). `ForgeApplication::exposeProperty()` (seulement ce qu'un projet enregistre, une fois),
+  `unexposeProperty()` et `renameExposedProperty()` changent toutes les instances du fichier ; `unexposeEverywhere()`
+  et le renommage suivent aussi les composites qui réexposent (`forEachComposite()` : arbre de l'application et
+  définitions). Renommer ou supprimer un composant d'un composite met à jour, ou retire, ce qu'il en expose. Signal
+  `exposedPropertiesChanged`. La valeur n'est écrite qu'une fois, avec son composant.
 - Exécution : `startAll()` (récursif) démarre aussi, dans un composite qui tourne, ce qui y a été ajouté depuis ;
   `Composite::onStart()` initialise d'abord ce qui ne l'est pas. `start(instance)` accepte un composant d'un composite
   qui tourne.
@@ -209,7 +217,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants et fichiers de réglages par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
 | `SettingsItem` / `SettingsLinkItem` | `QGraphicsObject` d'un `SettingsFile` : feuille au coin plié, nom du fichier, infobulle (chemin, propriétés tenues, par le chemin de leur composant) ; relié au composant de la scène du projet que désigne le premier nom de ce chemin (le composite pour un composant d'un composite) ; refait ses `SettingsLinkItem` (traits pointillés de centre à centre, Z = -1, dans la scène et non enfants, détruits avec lui) sur `SettingsFile::changed` et à son ajout à la scène, et les suit par `xChanged` / `yChanged` des deux items |
 | `SettingsDialog` | Nom, dossier (chemin résultant affiché, ou pourquoi le nom est refusé : vide, ou celui d'un autre fichier, OK alors grisé) et arbre composant → groupe d'objet → propriétés que `SettingsFile::canHold()` accepte, à cocher ; celles d'un autre fichier sont désactivées avec son nom ; les groupes d'objets ne sont ouverts que s'ils ont une propriété tenue ; appliqué au `accepted` |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged` |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages (`Row::component` : le composant de la propriété) ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged`. Pour un composite : ses propriétés exposées, sous leur nom exposé, sur l'objet de `exposedProperty()` (`Row::exposed`). Pour un composant d'un composite (`m_composite`) : menu **Expose** / **Unexpose** / **Rename exposed property...** (`showMenu()`, `QInputDialog`), et « nom → nom exposé » pour une propriété exposée ; suit `exposedPropertiesChanged` du composite affiché et de celui du composant |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 

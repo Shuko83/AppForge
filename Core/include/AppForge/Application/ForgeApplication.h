@@ -10,6 +10,7 @@
 #include <QString>
 #include <QStringList>
 #include <QStringView>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -116,6 +117,21 @@ class CORE_EXPORT ForgeApplication : public QObject
     // A gateway is renamed, which renames the interface of its composite, and removed, which removes it with what is
     // bound to it, as a component is.
     Gateway* expose(Component& component, const QString& interfaceName, const QString& name = {});
+    // Has the composite of component expose property, one of component, or of object, one of its objects, or, when
+    // component is a composite and object is component, the one it exposes as property: the same property, on the same
+    // object, see Composite::exposedProperty(). It is exposed as name, or as the name of the property when name is
+    // empty or the name of another property the composite exposes, followed by a number when that one is too. Returns
+    // the name it is exposed as; empty, with errorString() set, when component is none of a composite, the property is
+    // not one a project holds, the composite exposes it already, or cannot be changed.
+    QString exposeProperty(Component& component, QObject* object, const QString& property, const QString& name = {});
+    // The name the composite of component exposes property, of object, as exposeProperty() asks about them, as; empty
+    // when it does not expose it.
+    [[nodiscard]] QString exposedName(const Component& component, const QObject* object, const QString& property) const;
+    // composite no longer exposes name, nor do the composites that expose it in turn.
+    void unexposeProperty(Composite& composite, const QString& name);
+    // composite exposes name as newName, where the composites that expose it in turn find it. Returns false, changing
+    // nothing, when newName is empty or the name of another property it exposes, or the composite cannot be changed.
+    bool renameExposedProperty(Composite& composite, const QString& name, const QString& newName);
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one path names: one of its components by its name, or one of a composite by its path, the names that lead
@@ -253,6 +269,12 @@ class CORE_EXPORT ForgeApplication : public QObject
     // In the definitions that hold instances of the composite file filePath, the bindings to their interface name are
     // to newName, or are no longer there when newName is empty.
     void renameBindings(const QString& filePath, const QString& name, const QString& newName);
+    // Calls visit with every composite: those of the application and of its composites, and the definitions with the
+    // composites they hold.
+    void forEachComposite(const std::function<void(Composite&)>& visit) const;
+    // Every instance of the composite file filePath no longer exposes name, nor do, in turn, the composites that
+    // exposed it.
+    void unexposeEverywhere(const QString& filePath, const QString& name);
 
     // Every instance of the composite file filePath: those of the application and of its composites, the definition of
     // filePath, and the instances the other definitions hold.

@@ -395,6 +395,20 @@ bool ForgeApplication::rename(Component& instance, const QString& name)
         {
             target->setObjectName(name);
         }
+        // What it exposes of it.
+        bool exposedChanged = false;
+        for(ExposedProperty& exposed : other.composite->m_exposed)
+        {
+            if(exposed.component == former)
+            {
+                exposed.component = name;
+                exposedChanged = true;
+            }
+        }
+        if(exposedChanged)
+        {
+            emit other.composite->exposedPropertiesChanged();
+        }
     }
     QJsonArray& bindings = m_definitions.at(in->filePath()).bindings;
     bindings = renamed(bindings, former, name);
@@ -426,6 +440,20 @@ void ForgeApplication::remove(Component& instance)
     }
     const QString name = instance.objectName(); // instance is one of those that go
     const bool gateway = qobject_cast<Gateway*>(&instance) != nullptr;
+    // What the composite exposes of it, which it no longer can.
+    QStringList unexposed;
+    for(const ExposedProperty& exposed : std::as_const(in->m_exposed))
+    {
+        if(exposed.component == name)
+        {
+            unexposed.append(exposed.name);
+        }
+    }
+    const QString filePath = in->filePath();
+    for(const QString& exposed : std::as_const(unexposed))
+    {
+        unexposeEverywhere(filePath, exposed);
+    }
     const QList<Instance> instances = instancesOf(in->filePath());
     for(const Instance& other : instances)
     {
@@ -576,6 +604,133 @@ Gateway* ForgeApplication::expose(Component& component, const QString& interface
     }
     bindings.append(binding);
     return exposed;
+}
+
+QString ForgeApplication::exposeProperty(Component& component, QObject* object, const QString& property,
+                                         const QString& name)
+{
+    Composite* in = compositeOf(component);
+    if(in == nullptr)
+    {
+        m_errorString = QStringLiteral("%1 is not a component of a composite").arg(component.objectName());
+        return {};
+    }
+    if(!canChange(*in))
+    {
+        return {};
+    }
+    ExposedProperty exposed{.component = component.objectName(), .property = property};
+    const auto* composite = qobject_cast<const Composite*>(&component);
+    bool exposable = false;
+    if(object == &component && composite != nullptr)
+    {
+        exposable = composite->exposedProperty(property).isValid(); // In turn
+    }
+    else
+    {
+        const QList<QMetaProperty> saved = ProjectJson::savedProperties(component, object);
+        exposable = std::ranges::any_of(saved, [&property](const QMetaProperty& candidate)
+                                        { return QLatin1StringView(candidate.name()) == property; });
+        if(object != &component)
+        {
+            const std::optional<ProjectJson::ObjectKey> key = ProjectJson::objectKey(component, object);
+            exposed.object = key ? std::optional(key->name) : std::nullopt;
+            exposed.index = key ? key->index : 0;
+        }
+    }
+    if(!exposable)
+    {
+        m_errorString =
+            QStringLiteral("%1 of %2 cannot be exposed: a project does not hold it").arg(property, path(component));
+        return {};
+    }
+    if(!exposedName(component, object, property).isEmpty())
+    {
+        m_errorString = QStringLiteral("%1 of %2 is exposed already").arg(property, path(component));
+        return {};
+    }
+    const auto taken = [in](const QString& candidate)
+    { return std::ranges::find(in->m_exposed, candidate, &ExposedProperty::name) != in->m_exposed.end(); };
+    exposed.name = !name.isEmpty() && !taken(name) ? name : property;
+    for(int number = 1; taken(exposed.name); ++number)
+    {
+        exposed.name = property + QString::number(number);
+    }
+    const QList<Instance> instances = instancesOf(in->filePath());
+    for(const Instance& instance : instances)
+    {
+        instance.composite->m_exposed.append(exposed);
+        emit instance.composite->exposedPropertiesChanged();
+    }
+    return exposed.name;
+}
+
+QString ForgeApplication::exposedName(const Component& component, const QObject* object, const QString& property) const
+{
+    const Composite* in = compositeOf(component);
+    if(in == nullptr)
+    {
+        return {};
+    }
+    const std::optional<ProjectJson::ObjectKey> key =
+        object != &component ? ProjectJson::objectKey(component, object) : std::nullopt;
+    for(const ExposedProperty& exposed : in->m_exposed)
+    {
+        const bool sameObject =
+            object == &component ? !exposed.object : key && exposed.object == key->name && exposed.index == key->index;
+        if(exposed.component == component.objectName() && exposed.property == property && sameObject)
+        {
+            return exposed.name;
+        }
+    }
+    return {};
+}
+
+void ForgeApplication::unexposeProperty(Composite& composite, const QString& name)
+{
+    if(canChange(composite))
+    {
+        unexposeEverywhere(composite.filePath(), name);
+    }
+}
+
+bool ForgeApplication::renameExposedProperty(Composite& composite, const QString& name, const QString& newName)
+{
+    const auto named = [&composite](const QString& candidate)
+    { return std::ranges::find(composite.m_exposed, candidate, &ExposedProperty::name) != composite.m_exposed.end(); };
+    if(!canChange(composite) || newName.isEmpty() || !named(name) || (newName != name && named(newName)))
+    {
+        return false;
+    }
+    const QString filePath = composite.filePath();
+    forEachComposite(
+        [&](Composite& instance)
+        {
+            bool changed = false;
+            for(ExposedProperty& exposed : instance.m_exposed)
+            {
+                // Its own, or one it exposes in turn from an instance of filePath.
+                const auto* held =
+                    qobject_cast<const Composite*>(ComponentPaths::find(instance.m_components, exposed.component));
+                const bool inTurn =
+                    held != nullptr && held->filePath() == filePath && !exposed.object && exposed.property == name;
+                if(instance.filePath() == filePath && exposed.name == name)
+                {
+                    exposed.name = newName;
+                    changed = true;
+                }
+                else if(inTurn)
+                {
+                    exposed.property = newName;
+                    changed = true;
+                }
+            }
+            if(changed)
+            {
+                emit instance.exposedPropertiesChanged();
+            }
+        });
+    return true;
 }
 
 const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
@@ -769,6 +924,56 @@ std::optional<QList<ForgeApplication::Crossing>> ForgeApplication::crossings(con
         }
     }
     return crossed;
+}
+
+void ForgeApplication::forEachComposite(const std::function<void(Composite&)>& visit) const
+{
+    const auto through = [&visit](const auto& self, const Components& components) -> void
+    {
+        for(const std::unique_ptr<Component>& component : components)
+        {
+            if(auto* composite = qobject_cast<Composite*>(component.get()))
+            {
+                visit(*composite);
+                self(self, composite->components());
+            }
+        }
+    };
+    through(through, m_components);
+    for(const Definition& definition : m_definitions | std::views::values)
+    {
+        visit(*definition.composite);
+        through(through, definition.composite->components());
+    }
+}
+
+void ForgeApplication::unexposeEverywhere(const QString& filePath, const QString& name)
+{
+    QList<std::pair<QString, QString>> inTurn; // The files of the composites that expose it in turn, and as what
+    forEachComposite(
+        [&](Composite& instance)
+        {
+            if(instance.filePath() == filePath && instance.m_exposed.removeIf([&name](const ExposedProperty& exposed)
+                                                                              { return exposed.name == name; }) > 0)
+            {
+                emit instance.exposedPropertiesChanged();
+            }
+            for(const ExposedProperty& exposed : std::as_const(instance.m_exposed))
+            {
+                const auto* held =
+                    qobject_cast<const Composite*>(ComponentPaths::find(instance.m_components, exposed.component));
+                const std::pair<QString, QString> found{instance.filePath(), exposed.name};
+                if(held != nullptr && held->filePath() == filePath && !exposed.object && exposed.property == name &&
+                   !inTurn.contains(found))
+                {
+                    inTurn.append(found);
+                }
+            }
+        });
+    for(const auto& [file, exposedAs] : std::as_const(inTurn))
+    {
+        unexposeEverywhere(file, exposedAs);
+    }
 }
 
 void ForgeApplication::renameBindings(const QString& filePath, const QString& name, const QString& newName)

@@ -24,6 +24,34 @@ namespace AppForge
 namespace
 {
 
+// exposed as a composite file holds it: its "name", its "component", the "object" of its component, with its "index"
+// when it is not the first of its name, when it is of one, and its "property".
+QJsonObject exposedJson(const ExposedProperty& exposed)
+{
+    QJsonObject json;
+    json.insert(u"name", exposed.name);
+    json.insert(u"component", exposed.component);
+    if(exposed.object)
+    {
+        json.insert(u"object", *exposed.object);
+        if(exposed.index > 0)
+        {
+            json.insert(u"index", exposed.index);
+        }
+    }
+    json.insert(u"property", exposed.property);
+    return json;
+}
+
+ExposedProperty exposedFrom(const QJsonObject& json)
+{
+    return {.name = json.value(u"name").toString(),
+            .component = json.value(u"component").toString(),
+            .object = json.contains(u"object") ? std::optional(json.value(u"object").toString()) : std::nullopt,
+            .index = json.value(u"index").toInteger(),
+            .property = json.value(u"property").toString()};
+}
+
 // The kinds of gateways, as a composite file writes them.
 const QString ProvidedName = QStringLiteral("provided");
 const QString ConsumedName = QStringLiteral("consumed");
@@ -277,6 +305,15 @@ QJsonObject Assembler::document(const ForgeApplication& application, const QStri
     QJsonObject document = save(definition.composite->components(), QFileInfo(filePath).absolutePath(),
                                 application.m_plugins, application.m_pluginRoot);
     document.insert(u"bindings", definition.bindings); // Its components are bound to nothing
+    QJsonArray exposed;
+    for(const ExposedProperty& property : definition.composite->exposedProperties())
+    {
+        exposed.append(exposedJson(property));
+    }
+    if(!exposed.isEmpty()) // Only for those that expose some: the others are written as they were
+    {
+        document.insert(u"exposed", exposed);
+    }
     return document;
 }
 
@@ -432,6 +469,22 @@ std::unique_ptr<Composite> Assembler::build(const QString& filePath, const QJson
     {
         error = m_cycle;
         return nullptr;
+    }
+    // Each one that is there, once, as it is found: the same property, on the same object.
+    const QJsonArray exposed = document.value(u"exposed").toArray();
+    for(const QJsonValue& value : exposed)
+    {
+        const ExposedProperty property = exposedFrom(value.toObject());
+        const bool named = !property.name.isEmpty() &&
+                           std::ranges::find(composite->m_exposed, property.name, &ExposedProperty::name) ==
+                               composite->m_exposed.end();
+        composite->m_exposed.append(property);
+        if(!named || !composite->exposedProperty(property.name).isValid())
+        {
+            composite->m_exposed.removeLast();
+            problem(QStringLiteral("%1 of %2 is not exposed as %3: it is not there, or another property is exposed so")
+                        .arg(property.property, property.component, property.name));
+        }
     }
     return composite;
 }
