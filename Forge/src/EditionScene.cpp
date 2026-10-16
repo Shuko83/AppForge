@@ -5,12 +5,16 @@
 
 #include <QColorDialog>
 #include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QGraphicsPathItem>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsView>
 #include <QHash>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QKeyEvent>
 #include <QList>
 #include <QMenu>
@@ -18,6 +22,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
+#include <QSaveFile>
 #include <QToolTip>
 #include <algorithm>
 #include <array>
@@ -29,8 +34,12 @@
 
 #include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/ComponentFactory.h"
+#include "AppForge/Composite/Composite.h"
+#include "AppForge/Composite/Gateway.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
+#include "Composite/ExposureDialog.h"
+#include "Composite/ExposureItem.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
 #include "Settings/SettingsDialog.h"
@@ -50,10 +59,11 @@ constexpr QSizeF ZoneSize(16 * GridStep, 10 * GridStep);
 // The colors the zones are added with, in turn, which tells them apart until theirs is chosen.
 constexpr std::array<QRgb, 6> ZoneColors = {0x4E79A7, 0xF28E2B, 0x59A14F, 0xE15759, 0xB07AA1, 0x76B7B2};
 
-// Accepts a drag carrying a component, as a copy: the component stays in its list.
+// Accepts a drag carrying a component, or a composite, as a copy: it stays in its list.
 void acceptComponent(QGraphicsSceneDragDropEvent& event)
 {
-    if(event.mimeData()->hasFormat(ComponentModel::MimeType))
+    if(event.mimeData()->hasFormat(ComponentModel::MimeType) ||
+       event.mimeData()->hasFormat(ComponentModel::CompositeMimeType))
     {
         event.setDropAction(Qt::CopyAction);
         event.accept();
@@ -76,19 +86,38 @@ QPointF readPosition(const QJsonObject& json)
     return {json.value(u"x").toDouble(), json.value(u"y").toDouble()};
 }
 
-// The one of interfaces named name; nullptr when none is.
-InterfaceItem* interfaceNamed(const QList<InterfaceItem*>& interfaces, const QString& name)
-{
-    const auto found = std::ranges::find(interfaces, name, &InterfaceItem::name);
-    return found != interfaces.end() ? *found : nullptr;
-}
-
 } // namespace
 
 EditionScene::EditionScene(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
-                           QObject* parent)
-    : QGraphicsScene(SceneRect, parent), m_application(application), m_factory(factory)
+                           AppForge::Composite* composite, QObject* parent)
+    : QGraphicsScene(SceneRect, parent), m_application(application), m_factory(factory), m_composite(composite)
 {
+}
+
+AppForge::Composite* EditionScene::composite() const
+{
+    return m_composite;
+}
+
+void EditionScene::setDirectory(const QString& directory)
+{
+    m_directory = directory;
+}
+
+const std::vector<std::unique_ptr<AppForge::Component>>& EditionScene::components() const
+{
+    return m_composite != nullptr ? m_composite->components() : m_application.components();
+}
+
+bool EditionScene::canChange()
+{
+    if(m_composite != nullptr && !m_application.isComplete(m_composite->filePath()))
+    {
+        emit refused(tr("%1 could not be entirely read: it is not changed, which would lose what is missing")
+                         .arg(QFileInfo(m_composite->filePath()).fileName()));
+        return false;
+    }
+    return true;
 }
 
 AppForge::Component* EditionScene::selectedComponent() const
@@ -100,10 +129,11 @@ AppForge::Component* EditionScene::selectedComponent() const
     return item != nullptr ? &item->component() : nullptr;
 }
 
-QJsonObject EditionScene::save() const
+QJsonObject EditionScene::save(const QString& directory) const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name
     QHash<const AppForge::SettingsFile*, const SettingsItem*> shownSettings;
+    const ExposureItem* exposure = nullptr;
     QJsonArray zones;
     // From the first one added: load() adds them in this order, which is then the same again.
     const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
@@ -112,6 +142,10 @@ QJsonObject EditionScene::save() const
         if(const auto* componentItem = qobject_cast<const ComponentItem*>(item->toGraphicsObject()))
         {
             shown.insert(componentItem->component().objectName(), componentItem);
+        }
+        else if(const auto* exposureItem = qobject_cast<const ExposureItem*>(item->toGraphicsObject()))
+        {
+            exposure = exposureItem;
         }
         else if(const auto* settingsItem = qobject_cast<const SettingsItem*>(item->toGraphicsObject()))
         {
@@ -129,7 +163,8 @@ QJsonObject EditionScene::save() const
         }
     }
 
-    QJsonObject project = m_application.save();
+    QJsonObject project =
+        m_composite != nullptr ? m_application.saveComposite(m_composite->filePath()) : m_application.save(directory);
     QJsonArray components = project.value(u"components").toArray();
     for(QJsonValueRef component : components)
     {
@@ -162,61 +197,98 @@ QJsonObject EditionScene::save() const
     {
         project.insert(u"settings", settings);
     }
+    if(exposure != nullptr)
+    {
+        QJsonObject json;
+        writePosition(json, exposure->pos());
+        project.insert(u"exposure", json);
+    }
     project.insert(u"zones", zones);
     return project;
 }
 
-QStringList EditionScene::load(const QJsonObject& project)
+QStringList EditionScene::load(const QJsonObject& project, const QString& directory)
 {
     removeItems(); // Before the components they show are replaced
-    QStringList problems = m_application.load(project);
+    QStringList problems = m_application.load(project, directory);
+    showDocument(project);
+    return problems;
+}
 
-    QHash<QString, QJsonObject> saved; // What the project holds of the components, by name
-    const QJsonArray components = project.value(u"components").toArray();
+void EditionScene::show(const QJsonObject& document)
+{
+    removeItems();
+    showDocument(document);
+}
+
+void EditionScene::showDocument(const QJsonObject& document)
+{
+    QHash<QString, QJsonObject> saved; // What the document holds of the components, by name
+    const QJsonArray components = document.value(u"components").toArray();
     for(const QJsonValue& value : components)
     {
         const QJsonObject json = value.toObject();
         saved.insert(json.value(u"name").toString(), json);
     }
-    QHash<const AppForge::Component*, ComponentItem*> shown;
-    for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
+    QRectF bounds; // Of the components shown
+    for(const std::unique_ptr<AppForge::Component>& component : this->components())
     {
+        // Those of a gateway are on the item of what its composite exposes.
+        if(qobject_cast<AppForge::Gateway*>(component.get()) != nullptr)
+        {
+            continue;
+        }
         const QJsonObject json = saved.value(component->objectName());
         ComponentItem* item = showComponent(*component, readPosition(json));
         item->setColor(QColor::fromString(json.value(u"color").toString())); // Not valid when it has none
-        shown.insert(component.get(), item);
+        bounds |= item->sceneBoundingRect();
+    }
+    if(m_composite != nullptr)
+    {
+        // Where its file put it; otherwise next to the components, on the side its links leave from: on the right of
+        // them when it mostly takes what they provide, on their left when it mostly gives them what they consume.
+        qsizetype giving = 0;
+        for(const std::unique_ptr<AppForge::Component>& component : m_composite->components())
+        {
+            const auto* gateway = qobject_cast<const AppForge::Gateway*>(component.get());
+            giving += gateway == nullptr ? 0 : gateway->kind() == AppForge::GatewayKind::Consumed ? 1 : -1;
+        }
+        const QJsonObject json = document.value(u"exposure").toObject();
+        QPointF position = readPosition(json);
+        if(json.isEmpty())
+        {
+            const qreal x =
+                giving > 0 ? std::max(bounds.left() - 14 * GridStep, 6 * GridStep) : bounds.right() + 10 * GridStep;
+            position = bounds.isNull() ? QPointF(12 * GridStep, 6 * GridStep) : QPointF(x, bounds.top() + 2 * GridStep);
+        }
+        auto* exposure = new ExposureItem(*m_composite);
+        exposure->setPos(position);
+        addItem(exposure);
+        connect(exposure, &ExposureItem::interfacesRebuilt, this, &EditionScene::showLinks);
+        connect(exposure, &ExposureItem::editRequested, this,
+                [this] { editExposure(views().isEmpty() ? nullptr : views().constFirst()); });
     }
     // The links of what the application bound, once every component is shown.
-    for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
+    showLinks();
+    // Once the components they are joined to are shown: one per file of the project, in its order. Those of the
+    // application, in its scene.
+    if(m_composite == nullptr)
     {
-        for(InterfaceItem* consumed : shown.value(component.get())->consumedInterfaces())
+        const QJsonArray settings = document.value(u"settings").toArray();
+        const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
+        for(std::size_t index = 0; index < files.size(); ++index)
         {
-            const AppForge::InterfaceBinding bound = component->binding(consumed->name());
-            const ComponentItem* provider = shown.value(bound.provider);
-            InterfaceItem* provided =
-                provider != nullptr ? interfaceNamed(provider->providedInterfaces(), bound.providedName) : nullptr;
-            if(provided != nullptr)
-            {
-                addItem(new LinkItem(*provided, *consumed));
-            }
+            showSettings(*files.at(index), readPosition(settings.at(static_cast<qsizetype>(index)).toObject()));
         }
     }
-    // Once the components they are joined to are shown: one per file of the project, in its order.
-    const QJsonArray settings = project.value(u"settings").toArray();
-    const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
-    for(std::size_t index = 0; index < files.size(); ++index)
-    {
-        showSettings(*files.at(index), readPosition(settings.at(static_cast<qsizetype>(index)).toObject()));
-    }
 
-    const QJsonArray zones = project.value(u"zones").toArray();
+    const QJsonArray zones = document.value(u"zones").toArray();
     for(const QJsonValue& value : zones)
     {
         const QJsonObject json = value.toObject();
         addZone(readPosition(json), QSizeF(json.value(u"width").toDouble(), json.value(u"height").toDouble()),
                 json.value(u"title").toString(), QColor::fromString(json.value(u"color").toString()));
     }
-    return problems;
 }
 
 void EditionScene::reset()
@@ -256,8 +328,31 @@ void EditionScene::dragMoveEvent(QGraphicsSceneDragDropEvent* event)
 
 void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
 {
-    const QString componentId = QString::fromUtf8(event->mimeData()->data(ComponentModel::MimeType));
-    AppForge::Component* component = m_application.instantiate(componentId);
+    if(!canChange())
+    {
+        event->ignore();
+        return;
+    }
+    AppForge::Component* component = nullptr;
+    if(event->mimeData()->hasFormat(ComponentModel::CompositeMimeType))
+    {
+        const QString file = QString::fromUtf8(event->mimeData()->data(ComponentModel::CompositeMimeType));
+        component = m_application.instantiateComposite(file, {}, m_composite);
+        // Placed or not, it can have been read now, and the composites it holds too.
+        emit compositesChanged();
+        if(component == nullptr || !m_application.errorString().isEmpty())
+        {
+            emit refused(component == nullptr
+                             ? tr("%1 is not placed: %2").arg(QFileInfo(file).fileName(), m_application.errorString())
+                             : tr("%1 could not be entirely read: %2")
+                                   .arg(QFileInfo(file).fileName(), m_application.errorString().section(u'\n', 0, 0)));
+        }
+    }
+    else
+    {
+        component = m_application.instantiate(QString::fromUtf8(event->mimeData()->data(ComponentModel::MimeType)), {},
+                                              m_composite);
+    }
     if(component == nullptr)
     {
         event->ignore();
@@ -351,15 +446,31 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
+    // What its composite exposes: chosen in a dialog.
+    QGraphicsItem* under = itemAt(event->scenePos(), QTransform());
+    if(under != nullptr && qobject_cast<ExposureItem*>(under->topLevelItem()->toGraphicsObject()) != nullptr)
+    {
+        QMenu exposureMenu(event->widget());
+        const QAction* choose = exposureMenu.addAction(tr("Choose what is exposed..."));
+        event->accept();
+        if(exposureMenu.exec(event->screenPos()) == choose)
+        {
+            editExposure(event->widget());
+        }
+        return;
+    }
     ComponentItem* component = componentAt(event->scenePos());
-    SettingsItem* settings = component == nullptr ? settingsAt(event->scenePos()) : nullptr;
+    // Those of the application only.
+    SettingsItem* settings = component == nullptr && m_composite == nullptr ? settingsAt(event->scenePos()) : nullptr;
     ZoneItem* zone = zoneAt(event->scenePos());
     QMenu menu(event->widget());
+    const QAction* openComposite = nullptr;
     QAction* startComponent = nullptr;
     const QAction* renameComponent = nullptr;
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
     const QAction* removeComponent = nullptr;
+    const QAction* group = nullptr;
     const QAction* editSettingsFile = nullptr;
     QAction* writeDefaultValues = nullptr;
     const QAction* removeSettingsFile = nullptr;
@@ -367,16 +478,29 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* addSettingsFile = nullptr;
     if(component != nullptr)
     {
-        // Only while the application runs: one dropped meanwhile; otherwise, Start starts them all.
+        if(qobject_cast<AppForge::Composite*>(&component->component()) != nullptr)
+        {
+            openComposite = menu.addAction(tr("Open composite"));
+            menu.addSeparator();
+        }
+        // Only while the application runs, and the composite it is of: one dropped meanwhile; otherwise, Start starts
+        // them all.
         startComponent = menu.addAction(tr("Start component"));
-        startComponent->setEnabled(m_application.isRunning() &&
-                                   component->component().state() != AppForge::ComponentState::Running);
+        startComponent->setEnabled(
+            m_application.isRunning() && component->component().state() != AppForge::ComponentState::Running &&
+            (m_composite == nullptr || m_composite->state() == AppForge::ComponentState::Running));
         menu.addSeparator();
         renameComponent = menu.addAction(tr("Rename component"));
         recolorComponent = menu.addAction(tr("Change component color..."));
         uncolorComponent = menu.addAction(tr("Reset component color"));
         uncolorComponent->setEnabled(component->color().isValid());
         removeComponent = menu.addAction(tr("Remove component"));
+        // The selection, which the component is part of: in the scene of the application, whose components they are.
+        if(m_composite == nullptr && component->isSelected())
+        {
+            menu.addSeparator();
+            group = menu.addAction(tr("Group into composite..."));
+        }
     }
     else if(settings != nullptr)
     {
@@ -391,7 +515,10 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         // Not on a component: right-clicking it is about it, and about the zone it is in.
         add = menu.addAction(tr("Add zone"));
-        addSettingsFile = menu.addAction(tr("Add settings file"));
+        if(m_composite == nullptr)
+        {
+            addSettingsFile = menu.addAction(tr("Add settings file"));
+        }
     }
     const QAction* renameZone = nullptr;
     const QAction* recolorZone = nullptr;
@@ -410,7 +537,15 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
-    if(chosen == startComponent)
+    if(chosen == openComposite)
+    {
+        emit openRequested(*qobject_cast<AppForge::Composite*>(&component->component()));
+    }
+    else if(chosen == group)
+    {
+        groupSelection(event->widget());
+    }
+    else if(chosen == startComponent)
     {
         if(!m_application.start(component->component()))
         {
@@ -439,7 +574,10 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     }
     else if(chosen == removeComponent)
     {
-        remove(*component);
+        if(canChange())
+        {
+            remove(*component);
+        }
     }
     else if(chosen == editSettingsFile)
     {
@@ -490,6 +628,11 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
         QGraphicsScene::keyPressEvent(event);
         return;
     }
+    event->accept();
+    if(!canChange())
+    {
+        return;
+    }
     QList<ComponentItem*> removed;
     QList<SettingsItem*> removedSettings;
     const QList<QGraphicsItem*> selected = selectedItems();
@@ -514,7 +657,6 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
     {
         remove(*component);
     }
-    event->accept();
 }
 
 InterfaceItem* EditionScene::interfaceAt(const QPointF& position) const
@@ -549,14 +691,80 @@ void EditionScene::dimLinkTargets(const InterfaceItem* source)
 
 ComponentItem* EditionScene::showComponent(AppForge::Component& component, const QPointF& position)
 {
+    // What it is an instance of: its component, or its composite file.
+    auto* composite = qobject_cast<AppForge::Composite*>(&component);
     const std::optional<AppForge::ComponentInfo> info = m_factory.component(component.componentId());
-    auto* item = new ComponentItem(component, info ? info->name : QString());
+    auto* item = new ComponentItem(component, composite != nullptr ? QFileInfo(composite->filePath()).completeBaseName()
+                                              : info               ? info->name
+                                                                   : QString());
     item->setPos(position);
     addItem(item);
     update(HintRect); // Hidden once anything is in the edition zone
     connect(item, &ComponentItem::nameEdited, this,
             [this, &component](const QString& name) { rename(component, name); });
+    if(composite != nullptr)
+    {
+        connect(item, &ComponentItem::openRequested, this, [this, composite] { emit openRequested(*composite); });
+    }
+    connect(item, &ComponentItem::interfacesRebuilt, this, &EditionScene::showLinks);
     return item;
+}
+
+void EditionScene::showLinks()
+{
+    // The dots of the scene: those of its components, and of what its composite exposes.
+    QList<InterfaceItem*> dots;
+    const QList<QGraphicsItem*> shown = items();
+    for(QGraphicsItem* item : shown)
+    {
+        if(auto* dot = qgraphicsitem_cast<InterfaceItem*>(item))
+        {
+            dots.append(dot);
+        }
+    }
+    for(InterfaceItem* consumed : std::as_const(dots))
+    {
+        if(consumed->kind() != InterfaceItem::Kind::Consumed)
+        {
+            continue;
+        }
+        const AppForge::InterfaceBinding bound = consumed->component().binding(consumed->name());
+        // Not those of what it is no longer bound to: it was unbound, or bound to another meanwhile.
+        const QList<LinkItem*> links = consumed->links();
+        for(LinkItem* link : links)
+        {
+            if(&link->provided().component() != bound.provider || link->provided().name() != bound.providedName)
+            {
+                delete link;
+            }
+        }
+        // A consumed interface is bound to one interface at most.
+        if(!consumed->links().isEmpty())
+        {
+            continue;
+        }
+        const auto provided = std::ranges::find_if(dots,
+                                                   [&bound](const InterfaceItem* dot)
+                                                   {
+                                                       return dot->kind() == InterfaceItem::Kind::Provided &&
+                                                              &dot->component() == bound.provider &&
+                                                              dot->name() == bound.providedName;
+                                                   });
+        if(bound.provider != nullptr && provided != dots.end())
+        {
+            addItem(new LinkItem(**provided, *consumed));
+        }
+    }
+}
+
+void EditionScene::editExposure(QWidget* parent)
+{
+    // Not run here: the event that opens it ends first, while it blocks the window.
+    auto* dialog = new ExposureDialog(*m_composite, m_application, m_factory, parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // Once what was chosen is given to the composite: its gateways are bound, or unbound.
+    connect(dialog, &QDialog::accepted, this, &EditionScene::showLinks);
+    dialog->open();
 }
 
 ComponentItem* EditionScene::componentAt(const QPointF& position) const
@@ -575,7 +783,16 @@ ComponentItem* EditionScene::componentAt(const QPointF& position) const
 void EditionScene::rename(AppForge::Component& component, const QString& name)
 {
     // No name is one given up rather than refused.
-    if(!name.isEmpty() && !m_application.rename(component, name))
+    if(name.isEmpty() || name == component.objectName() || !canChange())
+    {
+        return;
+    }
+    if(name.contains(u'/'))
+    {
+        emit refused(tr("%1 is not renamed: a name holds no /, which separates the names of a path")
+                         .arg(component.objectName()));
+    }
+    else if(!m_application.rename(component, name))
     {
         emit refused(tr("%1 is not renamed: another component is named %2").arg(component.objectName(), name));
     }
@@ -606,7 +823,12 @@ void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
     const bool sourceProvided = source.kind() == InterfaceItem::Kind::Provided;
     InterfaceItem& provided = sourceProvided ? source : target;
     InterfaceItem& consumed = sourceProvided ? target : source;
-    if(!consumed.component().bindInterface(consumed.name(), provided.component(), provided.name()))
+    if(!canChange())
+    {
+        return;
+    }
+    // Through the application: in a composite, every instance of its file is bound alike.
+    if(!m_application.bind(consumed.component(), consumed.name(), provided.component(), provided.name()))
     {
         return;
     }
@@ -616,6 +838,104 @@ void EditionScene::link(InterfaceItem& source, InterfaceItem& target)
         delete consumed.links().constFirst();
     }
     addItem(new LinkItem(provided, consumed));
+}
+
+void EditionScene::groupSelection(QWidget* parent)
+{
+    QList<ComponentItem*> items;
+    QList<AppForge::Component*> components;
+    QRectF bounds;
+    const QList<QGraphicsItem*> selected = selectedItems();
+    for(QGraphicsItem* item : selected)
+    {
+        if(auto* component = qobject_cast<ComponentItem*>(item->toGraphicsObject()))
+        {
+            items.append(component);
+            components.append(&component->component());
+            bounds |= component->sceneBoundingRect();
+        }
+    }
+    if(items.isEmpty())
+    {
+        return;
+    }
+    const QString filePath = QFileDialog::getSaveFileName(parent, tr("Group into composite"), m_directory,
+                                                          tr("AppForge composites (*.afc)"));
+    if(filePath.isEmpty())
+    {
+        return;
+    }
+    // Its instances have the structure they read from it: it is not written over.
+    const QString canonical = QFileInfo(filePath).canonicalFilePath();
+    if(!canonical.isEmpty() && m_application.compositeFiles().contains(canonical))
+    {
+        QMessageBox::warning(
+            parent, tr("Group into composite"),
+            tr("%1 is a composite of the application: choose another file").arg(QDir::toNativeSeparators(filePath)));
+        return;
+    }
+    std::optional<QJsonObject> document = m_application.compose(components, QFileInfo(filePath).absolutePath());
+    if(!document)
+    {
+        QMessageBox::warning(parent, tr("Group into composite"),
+                             tr("These components cannot be grouped:\n%1").arg(m_application.errorString()));
+        return;
+    }
+
+    // Where they are from one another, in the top left corner of the scene of the composite.
+    const QPointF origin = bounds.topLeft() - QPointF(4 * GridStep, 4 * GridStep);
+    QJsonArray entries = document->value(u"components").toArray();
+    for(QJsonValueRef entry : entries)
+    {
+        QJsonObject json = entry.toObject();
+        const auto item = std::ranges::find(items, json.value(u"name").toString(),
+                                            [](const ComponentItem* shown) { return shown->component().objectName(); });
+        if(item != items.end())
+        {
+            writePosition(json, (*item)->pos() - origin);
+            if((*item)->color().isValid())
+            {
+                json.insert(u"color", (*item)->color().name(QColor::HexArgb));
+            }
+        }
+        entry = json;
+    }
+    document->insert(u"components", entries);
+    document->insert(u"zones", QJsonArray());
+
+    QSaveFile file(filePath);
+    if(!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(*document).toJson()) < 0 || !file.commit())
+    {
+        QMessageBox::warning(
+            parent, tr("Group into composite"),
+            tr("%1 cannot be written:\n%2").arg(QDir::toNativeSeparators(filePath), file.errorString()));
+        return;
+    }
+    // Read before their items go: they stay when it cannot be.
+    if(!m_application.loadComposite(filePath))
+    {
+        QMessageBox::warning(
+            parent, tr("Group into composite"),
+            tr("%1 cannot be placed:\n%2").arg(QDir::toNativeSeparators(filePath), m_application.errorString()));
+        emit compositesChanged();
+        return;
+    }
+    clearSelection();
+    for(ComponentItem* item : std::as_const(items))
+    {
+        delete item; // With its links, before its component goes
+    }
+    AppForge::Composite* composite = m_application.group(components, filePath);
+    emit compositesChanged();
+    if(composite != nullptr)
+    {
+        // Where they were, as its scene shows them.
+        ComponentItem* item = showComponent(*composite, bounds.center());
+        showLinks(); // To what its gateways bound it to
+        item->setSelected(true);
+        emit told(tr("%1 holds them now").arg(QDir::toNativeSeparators(composite->filePath())));
+    }
+    update(HintRect);
 }
 
 ZoneItem* EditionScene::zoneAt(const QPointF& position) const
@@ -643,7 +963,7 @@ ZoneItem* EditionScene::addZone(const QPointF& position, const QSizeF& size, con
 
 SettingsItem* EditionScene::showSettings(AppForge::SettingsFile& file, const QPointF& position)
 {
-    auto* item = new SettingsItem(file);
+    auto* item = new SettingsItem(m_application, file);
     item->setPos(position);
     addItem(item);
     update(HintRect); // Hidden once anything is in the edition zone
@@ -709,8 +1029,12 @@ void EditionScene::drawBackground(QPainter* painter, const QRectF& rect)
     {
         painter->setPen(palette().color(QPalette::PlaceholderText));
         painter->drawText(HintRect, Qt::AlignLeft | Qt::AlignVCenter,
-                          tr("Drag a component from the list of components and drop it here to instantiate it\n"
-                             "Right-click to add a zone, which groups components, or a settings file"));
+                          m_composite != nullptr
+                              ? tr("Drag a component from the list of components and drop it here to add it to %1\n"
+                                   "Right-click to add a zone, which groups components")
+                                    .arg(QFileInfo(m_composite->filePath()).fileName())
+                              : tr("Drag a component from the list of components and drop it here to instantiate it\n"
+                                   "Right-click to add a zone, which groups components, or a settings file"));
     }
     painter->restore();
 }

@@ -23,6 +23,9 @@ It enables developers to construct software systems by combining reusable buildi
 - 💾 **Project serialization**  
   Save and load full application state using `.afp` files.
 
+- 🧱 **Composites**  
+  Group components into a `.afc` file, placed as many times as needed, in a project or in another composite.
+
 - 🗂️ **User settings**  
   Keep the values the user of an application gives some properties, from one run to the next, in settings files.
 
@@ -37,6 +40,7 @@ It enables developers to construct software systems by combining reusable buildi
 | Instance   | A runtime instantiation of a component |
 | Binding    | A connection between components |
 | Project    | A full application definition |
+| Composite  | Components, with their bindings, in a file of their own: placed in a project, or in another composite, as a component is |
 | Settings file | The properties of instances whose values the user keeps from one run to the next |
 
 ---
@@ -209,7 +213,7 @@ window->bindInterface(QStringLiteral("content"), *ticker, QStringLiteral("displa
 window->unbindInterface(QStringLiteral("content"));
 ```
 
-`consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, `binding(name)` tells what one of them is bound to, the provider and the name it provides it under, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side.
+`consumedInterfaces()` lists what a component consumes, as `providedInterfaces()` does, `binding(name)` tells what one of them is bound to, the provider and the name it provides it under, and `interfacesChanged()` is emitted whenever an interface is declared, or becomes available or unavailable, on either side. A composite also renames and removes its interfaces, its gateways (see [Composite files](#composite-files)), which `interfaceRenamed(name, newName)` and `interfaceRemoved(name)` tell: a binding follows an interface renamed, and ends with one removed, once it was told it unavailable.
 
 A component can also answer for the properties of the objects it is made of, a widget of its logic, say, with `addPropertiesForQObject()`, which only the component calls, as it does for its interfaces:
 
@@ -241,7 +245,13 @@ For now, it lists:
 - in the edition zone too, colored zones that group instances, by what they are for, say: **Add zone**, in its context menu, adds one where it was right-clicked, under a title typed at once; the menu of an instance does not offer it. Dragging a zone by its title moves it with what is in it then: the instances whose center is in it, and the zones that are entirely in it. Dragging an edge or a corner resizes it. Double-clicking its title edits it, and right-clicking anywhere in a zone renames it, changes its color or removes it, which leaves what is in it. Between its title and its edges, a zone lets the mouse through: instances are selected there as anywhere else.
 - in the edition zone as well, the settings files of the application, which keep the values its user gives some properties, the profile they chose, say, from one run to the next; the value the project gives such a property becomes its default value. **Add settings file**, in the context menu of the edition zone, adds one where it was right-clicked, a sheet titled with the name of its file, and opens its dialog at once: the name of its file, `settings.json` unless another one is given, or `settings2.json`, `settings3.json`... when another file has that name, its directory, the configuration directory of the user unless another one is given, then the properties it holds, checked among those of the instances, and of their objects, that a project saves. A property is held by a single file: one another file holds is listed with the name of that file, and cannot be checked. Several instances can keep their properties in the same file, and an application can have several files, each of its own name: the dialog is not accepted with the name of another file, whatever its case and their directories, as the two would be written over each other. Dashed lines join a file to the instances whose properties it holds, and its tooltip tells where it is written and what it holds. Double-clicking it, or **Edit settings file...** in its context menu, opens its dialog again; **Write default values** writes the values of the project to the file, in place of those of the user, to start trials over or to make the file to deliver, but not while the application runs; **Remove settings file**, or the Delete key, removes it. Removing an instance removes its properties from the files; renaming it keeps them, but the values its user gave it stay under its former name in the file.
 - under the edition zone, the editable properties of the instance selected in it, with their values: those that can be written and whose type has an editor (texts, numbers, booleans, dates). They are edited there and follow the changes the component notifies; the others are only listed in the viewer of the component. The properties of the objects the component added with `addPropertiesForQObject()` are edited there as well, after its own, those of a named object in a group under its name: selecting a `Ticker` shows its `interval`, then the properties of its display under **Display**. The name of a property a settings file holds is in italics: its value is the default one.
-- in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits until it is started: **Start** stays enabled while the application runs and starts the instances that do not run yet, and **Start component**, in the context menu of an instance, starts that one alone; it is only enabled while the application runs, on an instance that does not. A refusal is told in a message box, and what ran goes on. Opening a project, or **New**, stops it. While it runs, the properties the settings files hold have the values of the user, and what changes them is written to their files; **Stop** gives them back their default values, so that the project saved is the same. The status bar tells when a file cannot be read or written.
+- the composites it knows, see [Composite files](#composite-files), in the list of the components, under the name of their file, in the category **Composite**: those of the project opened, and those made or opened since Forge started, **Open composite...** in its **File** menu reading one from anywhere on the disk. One is dragged into the edition zone as a component is: its plugins are loaded when they are not, and an instance of it is placed, named after its file, `Clock1`, under its file, with a last row that says it opens. Selecting it in the list shows its plugins and its components.
+- **Group into composite...**, in the context menu of a component of the selection, asks for a file, writes the selected components to it, with their values, their links and where they are, then places an instance of it in their place; the properties of theirs that settings files held are held for its components. A link that joins one of them to a component that is not selected becomes a gateway of the composite, named after the interface of the selected one, and the link joins the composite then: one gateway per interface the selection provides, whatever the number of those it is linked to outside. Composites can be grouped in turn: a composite holds composites.
+- in the scene of a composite, what it exposes is a single item, with a dashed outline, under the name of its file above **Exposed**: the face the composite shows to the scene it is placed in. Its interfaces are dots on its edges, each named as the gateway that passes it is: on its left those it takes from its components, which the composite provides, on its right those it gives them, which the composite consumes; they are linked to the dots of the components as those of a component are. Its properties are listed under them, each under the name it is exposed as, with the component it is of, which a dashed line joins it to. Double-clicking it, or **Choose what is exposed...** in its context menu, opens its dialog, as the one of a settings file: under each component, its interfaces, then its properties, those a project saves, those of its objects under their names, those a composite among them exposes, to be checked, each next to the name it is exposed as, the one of the interface or of the property until another one is typed. Unchecking one no longer exposes it, removing its gateway with its links; changing its name renames it, which keeps its links. Two interfaces consumed, of the same type, checked under the same name, share a gateway: what the composite consumes is given to both. Names stay unique in the composite: the dialog tells which one is not, and is not accepted until it is. In the scene above, the dots of the gateways are on the edges of the composite, those consumed on the left, those provided on the right, and are linked as the dots of a component are. What is exposed is part of the structure: every instance of the file has it.
+- **Open composite**, in the context menu of a composite, or double-clicking it anywhere but on its names, which rename it, shows its scene in place of the one of the project: what it is made of, worked on as the project is, components dropped, linked, renamed, colored and removed, zones and properties, the marks of their states. The path above the edition zone, `Project › Clock1 › Inner1`, tells which composite is shown, and goes back to one of those it is in, or to the project, when it is clicked. What is dropped, linked, renamed or removed there changes the structure of its file: every instance of the file changes at once, each keeping the values of its components, which are those of the instance shown when they are set there; a component dropped starts with its default values, in every instance. A composite cannot be dropped in itself, nor in one it holds. Settings files and **Group into composite...** are those of the project only. A composite whose file could not be entirely read, a plugin missing, say, is shown but not changed: its file would lose what is missing.
+- in the scene of a composite, the editor of the properties under the edition zone shows an exposed property with the name it is exposed as: `interval → interval`. Selecting a composite in the scene above shows the properties it exposes, under their names, and edits them: they are the properties of its components, so that two instances of a clock, given each its interval there, beat each at its own pace. Which properties are exposed is part of the structure, for every instance; their values are those of each instance. No longer exposing one no longer exposes it in the composites that exposed it again.
+- **Save** writes the composite files changed too, their structure laid out as their scenes show them, and the question asked before the application is replaced, or Forge closed, counts them.
+- in its **Run** menu, **Start** (F5) and **Stop** (Shift+F5): the application assembled in the edition zone runs there as it does on its own, see Running an Application below. A mark in the corner of each instance tells its state: none before it is initialized, a square once it is, a triangle while it runs. The application can still be edited while it runs; an instance dropped meanwhile waits until it is started: **Start** stays enabled while the application runs and starts the instances that do not run yet, and **Start component**, in the context menu of an instance, starts that one alone; it is only enabled while the application runs, on an instance that does not. A refusal is told in a message box, and what ran goes on. A component dropped in a composite that runs waits as well, until **Start**, or **Start component** in its scene. Opening a project, or **New**, stops it. While it runs, the properties the settings files hold have the values of the user, and what changes them is written to their files; **Stop** gives them back their default values, so that the project saved is the same. The status bar tells when a file cannot be read or written.
 
 `ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins` (`<build>/external-plugins/<config>` with Visual Studio), or listed from the start with `Forge --plugin-dir <that directory>`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window. Its `ProfileSelector` provides a `display` too, the list of its `profiles` in which the user chooses its `profile`: once a settings file holds that `profile`, the application shows the one chosen the next time it runs.
 
@@ -259,7 +269,7 @@ A project file is a JSON object:
 
 ```json
 {
-    "version": 1,
+    "version": 2,
     "plugins": [
         { "id": "FabienDG.AppForge.ExternalPlugin", "file": "../../external-plugins/Debug/ExternalPlugin.afdl" }
     ],
@@ -300,16 +310,16 @@ A project file is a JSON object:
 
 | Key          | Value                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
-| `version`    | `1`: a file of another version is not opened                                                            |
+| `version`    | `2`; a project of version 1, written before the composites, is read too: a file of another version is not opened |
 | `plugins`    | The plugins of its components, loaded when it is opened; `file` is where a plugin is looked for when it is not found by its `id`, as those of `plugins/` are, relative to the plugin root |
-| `components` | The instances: their name, the id of their component, where they are in the edition zone, their color when they were given one, their properties and those of their objects |
+| `components` | The instances: their name, the id of their component, or the file of their composite (see [Composite files](#composite-files)), where they are in the edition zone, their color when they were given one, their properties and those of their objects |
 | `bindings`   | What a component consumes (`consumer`, `consumed`) bound to what another provides (`provider`, `provided`) |
 | `settings`   | Its settings files, written when it has some: the name of the `file`, its `directory`, where it is in the edition zone, and its `entries`, the properties it holds |
 | `zones`      | The colored zones of the edition zone                                                                   |
 
-`x`, `y`, `color` and `zones` are only for Forge: an application runs without them. The `color` of a component is written `#aarrggbb`, its opacity first: `#804e79a7` is half translucent; `#rrggbb` is read too, as an opaque color.
+`x`, `y`, `color` and `zones` are only for Forge: an application runs without them. A composite file holds them too, for the scene of the composite, with where the item of what it exposes is: `"exposure": { "x": 600, "y": 120 }`. The `color` of a component is written `#aarrggbb`, its opacity first: `#804e79a7` is half translucent; `#rrggbb` is read too, as an opaque color.
 
-An entry of a settings file is a property of a `component`, or of one of its objects, given by the `object` name it was added with and, when it is not the first object of the component added with that name, its `index` among them, from 0. The `file` of each is its own: a second file of the same name, whatever its case, is reported when the project is opened, and keeps the name it was given then. The `directory` of the file is the configuration directory of the user when it is empty, `QStandardPaths::AppConfigLocation` of the application that runs (under `%LOCALAPPDATA%` on Windows), and is read from the directory of the application when it is relative. The file holds the values of the user under the names of the components, as a project holds them:
+An entry of a settings file is a property of a `component`, given by its name, or by its path when it is one of a composite, `Clock1/Ticker1`, or of one of its objects, given by the `object` name it was added with and, when it is not the first object of the component added with that name, its `index` among them, from 0. The `file` of each is its own: a second file of the same name, whatever its case, is reported when the project is opened, and keeps the name it was given then. The `directory` of the file is the configuration directory of the user when it is empty, `QStandardPaths::AppConfigLocation` of the application that runs (under `%LOCALAPPDATA%` on Windows), and is read from the directory of the application when it is relative. The file holds the values of the user under the names of the components, their paths for those of a composite, as a project holds them:
 
 ```json
 {
@@ -331,6 +341,70 @@ The `properties` of a component are those that can be written and whose value JS
 Its `objects`, written when it has some, are those it added with `addPropertiesForQObject()`, in the order it added them: the `name` each was added with, empty when it has none, and its `properties`, chosen as those of the component are. When the project is opened, each is given to the first object of that name not given one yet; an object the component no longer has is reported as missing.
 
 Opening a project tells what could not be restored, a plugin that is no longer where it was, say, and opens the rest. The file is then no longer the one **Save** writes to, which would write over what is missing.
+
+### Composite files
+
+A composite gathers components, with their values and their bindings, in a file of its own, a `.afc` (AppForge Composite), to be placed in a project as many times as needed, or in another composite. It is written as a project is, without settings files:
+
+```json
+{
+    "version": 2,
+    "plugins": [ { "id": "FabienDG.AppForge.ExternalPlugin" } ],
+    "components": [
+        { "name": "Ticker1", "type": "FabienDG.AppForge.ExternalPlugin.Ticker", "properties": { "interval": 1000 } },
+        { "name": "Window1", "type": "FabienDG.AppForge.ExternalPlugin.Window", "properties": {} }
+    ],
+    "bindings": [
+        { "consumer": "Window1", "consumed": "content", "provider": "Ticker1", "provided": "display" }
+    ]
+}
+```
+
+A project places it with `composite` in place of `type`: its file, relative to the project file, then the values of its components, by name, each written as a component of the project is, without its `type`:
+
+```json
+{
+    "name": "Clock1",
+    "composite": "Clock.afc",
+    "components": [
+        { "name": "Ticker1", "properties": { "interval": 250 } },
+        { "name": "Window1", "properties": {} }
+    ]
+}
+```
+
+Each instance has components of its own, with values of its own: the file holds the structure, the components and their bindings, with the values they start with, and the project the values of each instance. Placed twice with different intervals, `Clock.afc` shows two windows, each at its own pace. A composite placed in a composite is written the same way, relative to the file of the composite that holds it, the values of its components under its name in a `components` of their own. The components of a composite are named by their path, the names that lead to them joined with `/`: `Clock1/Ticker1`, `Clock1/Inner1/Ticker1`. A name therefore holds no `/`.
+
+A composite meets the scene it is placed in through its gateways, components of the composite that `AppForge::Gateway` is, which Core provides as it provides `Composite`: each is an interface of the composite, named as it is. A provided gateway consumes an interface a component of the composite provides, and the composite provides it; a consumed gateway provides, to components of the composite, an interface the composite consumes. The pointer passes as it is, and so does its availability: when the component that provides it withdraws it, those that consume it on the other side are told while it is still valid. A composite file writes a gateway with `gateway` in place of `type`, `provided` or `consumed`, and the type of its `interface`, and binds it by its own interface, `interface`:
+
+```json
+{
+    "version": 2,
+    "plugins": [ { "id": "FabienDG.AppForge.ExternalPlugin" } ],
+    "components": [
+        { "name": "Ticker1", "type": "FabienDG.AppForge.ExternalPlugin.Ticker", "properties": { "interval": 1000 } },
+        { "name": "display", "gateway": "provided", "interface": "QWidget*" }
+    ],
+    "bindings": [
+        { "consumer": "display", "consumed": "interface", "provider": "Ticker1", "provided": "display" }
+    ]
+}
+```
+
+Placed in a project, this composite provides `display`, which a `Window` is bound to as it would be to a `Ticker`. The gateway of a composite placed in a composite is exposed again by a gateway of the one that holds it.
+
+A composite also exposes properties of its components, edited on the composite as they are on them: the same properties, on the same objects, which a change made on either side shows at once, even one the component makes itself. Its file lists them in `exposed`, each under the `name` the composite exposes it as, unique in the composite, with its `component`, the `object` of the component, and its `index` when it is not the first of that name, when the property is of one of its objects, and the `property`:
+
+```json
+"exposed": [
+    { "name": "interval", "component": "Ticker1", "property": "interval" },
+    { "name": "digits", "component": "Ticker1", "object": "Display", "property": "digitCount" }
+]
+```
+
+The value of an exposed property is written once, with the values of its component: a project gives `Clock1` an interval through `Ticker1`. A composite placed in a composite exposes again a property it exposes by naming it as its `property`, without an `object`.
+
+The plugins of a composite file are looked for as those of a project: by their `id`, among those of `plugins/` and of the `--plugin-dir` directories, then from their `file`, when it has one. The file is read once, when its first instance is placed: the instances placed afterwards have its structure. A composite file that holds itself, directly or through others, is refused, which is told with the files that hold it: `Clock.afc contains itself: Clock.afc > Inner.afc > Clock.afc`. A composite file that cannot be read, or a plugin of it that cannot be loaded, is told as a missing plugin is: the rest opens.
 
 ---
 
@@ -374,16 +448,20 @@ application.applyCommandLine(parser); // Before open(): the plugins of the proje
 
 | Function                | What it does                                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `open(filePath)`        | Loads the plugins of the project, instantiates its components, sets their properties, binds their interfaces and reads its settings files. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
+| `open(filePath)`        | Loads the plugins of the project, instantiates its components, places its composites, sets their properties, binds their interfaces and reads its settings files. `false`, with `errorString()` set, when the file cannot be read or anything could not be restored |
 | `start()`               | Gives the properties its settings files hold the values of the user, unless it runs already, then initializes the components that are not yet, all of them first, then starts them, in the order of the project. Called again while it runs, it starts those instantiated meanwhile. `false`, with `errorString()` set, when one refuses: those this call started are stopped again, those that ran already go on, and its settings files are stopped too when it did not run |
 | `start(component)`      | While it runs, initializes one of its components unless it is already, then starts it unless it runs: one instantiated meanwhile, say. `false`, with `errorString()` set, when the application does not run, nothing being started then, and when the component refuses |
 | `stop()`                | Stops the components that run, the last one first, then gives the properties its settings files hold their default values again. They can be started again |
 | `isRunning()`           | Whether it was started and not stopped since; `runningChanged()` is emitted when it changes               |
-| `components()`, `component(name)` | Its instances, to reach one from the `main`: `application.component(QStringLiteral("Greeter1"))` |
+| `components()`, `component(path)` | Its instances, to reach one from the `main`: `application.component(u"Greeter1")`, or one of a composite by its path, `application.component(u"Clock1/Ticker1")`; `path(component)` is the other way round |
 | `setPluginRoot(directory)` | The directory the files of the plugins are relative to in a project; the directory of the application by default |
 | `addCommandLineOptions(parser)`, `applyCommandLine(parser)` | Add `--plugin-dir` and `--plugin-root` to a `QCommandLineParser`, then do what they ask once it processed the command line: a `--plugin-dir` that is not a directory is skipped, with a warning |
 
-An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `rename(component, name)` names it, unless the name is empty or the one of another instance, `Component::bindInterface()` binds it, `remove(component)` stops it and destroys it, which unbinds what was bound to its interfaces, `unloadPlugin(pluginId)` removes the components of a plugin, those `componentsOf(pluginId)` lists, then unloads it, unless the application runs, and `save()` returns the project of what was assembled. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+An application can also be assembled without a project: `instantiate(componentId)` creates a component in it, `instantiateComposite(filePath)` places a composite, see [Composite files](#composite-files), `rename(component, name)` names it, unless the name is empty, holds a `/` or is the one of another instance, `Component::bindInterface()` binds it, `remove(component)` stops it and destroys it, which unbinds what was bound to its interfaces, `unloadPlugin(pluginId)` removes the components of a plugin, and the composites that hold one, those `componentsOf(pluginId)` lists, then unloads it, unless the application runs, and `save(directory)` returns the project of what was assembled, the files of its composites relative to `directory`. `read()` and `load()` are the two halves of `open()`, for who needs the project itself, as Forge does for what it adds to it.
+
+The structure of a composite file changes as Forge changes it, through the application: `instantiate(componentId, name, composite)` and `instantiateComposite(filePath, name, composite)` add a component to a composite, `rename()` and `remove()` take one of a composite as well, `bind(consumer, consumed, provider, provided)` binds two of them, `unbind(consumer, consumed)` unbinds one, `expose(component, interfaceName, name)` adds a gateway of an interface of one of them, and `exposeProperty(component, object, property, name)` has the composite expose a property of one of them, `unexposeProperty()` and `renameExposedProperty()` changing that, which `exposedName()` tells. Every instance of its file changes alike, each keeping the values of its components, and `saveComposite(filePath)` returns what the file holds then, to write it; a new component starts with its default values. `compositeFiles()` lists the files read, `loadComposite(filePath)` reads one without placing it, and `isComplete(filePath)` tells whether it could be read entirely: one that could not is not changed. `compose(components, directory)` returns the file that would hold some components of the application, a gateway carrying each of their links to the others, and `group(components, filePath)` replaces them with an instance of it, once written, bound to what they were bound to.
+
+`AppForge::Composite` is the component a composite is, which Core provides itself, as a plugin provides its components: `ComponentFactory` registers it under the id `FabienDG.AppForge.Core.Composite`, but it is only placed from its file. It initializes, starts and stops its components with itself, in their order, the last one first to be stopped; as soon as one of them refuses, it stops those it started and refuses in turn, and `errorString()` names the one that refused by its path. `filePath()` is its file, `components()` and `component(path)` its components, `exposedProperties()` what it exposes, and `exposedProperty(name)` the object and the property one of them is, `exposedPropertiesChanged()` telling when what it exposes changes.
 
 Its settings files, `settingsFiles()`, keep the values the user gives some properties, from one run to the next; `AppForge::SettingsFile` is one of them. When the application starts, before any of its components is initialized, each file gives the properties it holds the values it has for them; a file that does not exist yet is first written with the values of the project, their default values, and a file that cannot be read is set aside, a `.bak` added to its name, then written again. While the application runs, what changes these properties is written to their files, changes made together being written once; when it stops, each file is written a last time, then the properties have their default values again, which `save()` writes. `settingsFileFailed()` tells when a file cannot be read or written: the application runs all the same. `addSettingsFile()` adds a file, named `settings.json`, or `settings2.json`, `settings3.json`... when another file has that name, `settingsFile(entry)` tells which one holds a property, `settingsFile(fileName)` which one has a name, whatever its case, and `removeSettingsFile()` removes one; a `SettingsFile` has its `setFileName()`, which refuses the name of another file of the application, whatever its case, `setDirectory()`, `add({component, object, property})`, the object being the component itself or one of its objects, `remove()`, and `writeDefaults()`, which writes the values of the project to its file while the application does not run.
 

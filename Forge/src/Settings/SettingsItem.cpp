@@ -14,10 +14,11 @@
 #include <QStyleOptionGraphicsItem>
 #include <algorithm>
 
+#include "AppForge/Application/ForgeApplication.h"
 #include "AppForge/Component/Component.h"
 #include "AppForge/Settings/SettingsFile.h"
 #include "ComponentItem.h"
-#include "Settings/SettingsLinkItem.h"
+#include "DashedLinkItem.h"
 
 namespace
 {
@@ -32,11 +33,11 @@ constexpr QRectF Names = Sheet.adjusted(Padding, Padding, -Padding, -Padding);
 constexpr QRectF NameRect(Names.left() + Fold, Names.top(), Names.width() - 2 * Fold, Names.height() / 2);
 constexpr QRectF KindRect(Names.left(), NameRect.bottom(), Names.width(), Names.height() / 2);
 
-// The property of entry as its tooltip lists it: <component>.<property>, with the name of its object between them
-// when it is of a named one.
-QString entryName(const AppForge::SettingsEntry& entry)
+// The property of entry as its tooltip lists it: <component>.<property>, the component by its path in application,
+// with the name of its object between them when it is of a named one.
+QString entryName(const AppForge::ForgeApplication& application, const AppForge::SettingsEntry& entry)
 {
-    QString name = entry.component->objectName() + u'.';
+    QString name = application.path(*entry.component) + u'.';
     const QList<AppForge::PropertyObject> objects = entry.component->propertyObjects();
     const auto object = std::ranges::find(objects, entry.object, &AppForge::PropertyObject::object);
     if(object != objects.end() && !object->name.isEmpty())
@@ -48,7 +49,8 @@ QString entryName(const AppForge::SettingsEntry& entry)
 
 } // namespace
 
-SettingsItem::SettingsItem(AppForge::SettingsFile& file) : m_file(file)
+SettingsItem::SettingsItem(const AppForge::ForgeApplication& application, AppForge::SettingsFile& file)
+    : m_application(application), m_file(file)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     connect(&m_file, &AppForge::SettingsFile::changed, this,
@@ -74,11 +76,6 @@ SettingsItem::~SettingsItem()
 AppForge::SettingsFile& SettingsItem::file() const
 {
     return m_file;
-}
-
-void SettingsItem::removeLink(SettingsLinkItem& link)
-{
-    m_links.removeOne(&link);
 }
 
 QRectF SettingsItem::boundingRect() const
@@ -139,23 +136,25 @@ void SettingsItem::refreshLinks()
     {
         return;
     }
-    QList<const AppForge::Component*> held; // The components it holds properties of
+    // The components of the application it holds properties of, or of one of their composites: the first name of their
+    // path, the one of a component of the scene.
+    QStringList held;
     for(const AppForge::SettingsEntry& entry : m_file.entries())
     {
-        held.append(entry.component);
+        held.append(m_application.path(*entry.component).section(u'/', 0, 0));
     }
     const QList<QGraphicsItem*> items = scene()->items();
     for(QGraphicsItem* item : items)
     {
         auto* component = qobject_cast<ComponentItem*>(item->toGraphicsObject());
-        if(component == nullptr || !held.contains(&component->component()))
+        if(component == nullptr || !held.contains(component->component().objectName()))
         {
             continue;
         }
         // As it moves, as it does too.
         connect(component, &QGraphicsObject::xChanged, this, &SettingsItem::followLinks, Qt::UniqueConnection);
         connect(component, &QGraphicsObject::yChanged, this, &SettingsItem::followLinks, Qt::UniqueConnection);
-        auto* link = new SettingsLinkItem(*this, *component);
+        auto* link = new DashedLinkItem(*this, *component, [this](DashedLinkItem& gone) { m_links.removeOne(&gone); });
         m_links.append(link);
         scene()->addItem(link);
     }
@@ -163,7 +162,7 @@ void SettingsItem::refreshLinks()
 
 void SettingsItem::followLinks()
 {
-    for(SettingsLinkItem* link : std::as_const(m_links))
+    for(DashedLinkItem* link : std::as_const(m_links))
     {
         link->follow();
     }
@@ -174,7 +173,7 @@ void SettingsItem::refreshToolTip()
     QStringList lines{QDir::toNativeSeparators(m_file.filePath())};
     for(const AppForge::SettingsEntry& entry : m_file.entries())
     {
-        lines.append(entryName(entry));
+        lines.append(entryName(m_application, entry));
     }
     if(m_file.entries().isEmpty())
     {

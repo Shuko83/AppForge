@@ -10,7 +10,6 @@
 #include <QString>
 #include <cstdint>
 
-class ComponentItem;
 class LinkItem;
 
 namespace AppForge
@@ -19,10 +18,11 @@ class Component;
 struct InterfaceInfo;
 } // namespace AppForge
 
-// An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
-// One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
-// consumes is on its left edge: a circle. Hovering the dot tells, in its tooltip, whether the interface is provided or
-// consumed, its type and its state; links are drawn from it, see EditionScene.
+// An interface of a component, on an edge of the item that shows it, a ComponentItem, or the ExposureItem of the
+// gateways of a composite: a dot, with its name next to it, inside the item. One the component provides is on its
+// right edge: a disc while it is available, a dotted circle otherwise. One it consumes is on its left edge: a circle.
+// Hovering the dot tells, in its tooltip, whether the interface is provided or consumed, its type and its state; links
+// are drawn from it, see EditionScene.
 class InterfaceItem : public QGraphicsItem
 {
     Q_DECLARE_TR_FUNCTIONS(InterfaceItem)
@@ -42,13 +42,18 @@ class InterfaceItem : public QGraphicsItem
     // What an interface takes of the height of its component.
     static constexpr qreal RowHeight = 20;
 
-    // Its position is the center of its dot, on the edge of parent; its name fits in nameWidth, inside parent.
-    InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent);
+    // info is the one of an interface of component, which outlives it. Its position is the center of its dot, on the
+    // edge of parent; label, the name of the interface unless it is given, fits in nameWidth, inside parent.
+    InterfaceItem(Kind kind, AppForge::Component& component, const AppForge::InterfaceInfo& info, qreal nameWidth,
+                  QGraphicsItem& parent, QString label = {});
     ~InterfaceItem() override;
 
     [[nodiscard]] int type() const override;
     [[nodiscard]] Kind kind() const;
+    // The name of the interface, which it is bound by.
     [[nodiscard]] const QString& name() const;
+    // What is written next to its dot.
+    [[nodiscard]] const QString& label() const;
     // The component it is an interface of.
     [[nodiscard]] AppForge::Component& component() const;
     // Whether one can be bound to the other: provided and consumed by two components, with the same type.
@@ -75,9 +80,10 @@ class InterfaceItem : public QGraphicsItem
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
   private:
-    ComponentItem& m_componentItem;
+    AppForge::Component& m_component;
     Kind m_kind;
     QString m_name;
+    QString m_label;
     QMetaType m_type;
     qreal m_nameWidth;
     bool m_available = false;

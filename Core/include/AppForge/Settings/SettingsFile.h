@@ -18,8 +18,8 @@ namespace AppForge
 class Component;
 class ForgeApplication;
 
-// A property a settings file holds: one of a component of the application, or of one of the objects the component
-// added with Component::addPropertiesForQObject().
+// A property a settings file holds: one of a component of the application, or of one of its composites, or of one of
+// the objects the component added with Component::addPropertiesForQObject().
 struct SettingsEntry
 {
     Component* component = nullptr;
@@ -35,10 +35,11 @@ struct SettingsEntry
 // When the application starts, the file gives its values to the properties it holds, once their default values are
 // written to it when it does not exist or misses some; while the application runs, the file follows the changes they
 // notify; when it stops, the file is written a last time, and the properties have their default values again.
-// It holds the properties of any number of components, under their names, as a project holds them; a property is held
-// by a single file of the application. What else is in the file is kept: another application can share it.
-// Its name is its own among the files of the application, whatever their case and their directories, as two files of
-// the same name would be written over each other.
+// It holds the properties of any number of components, under their names, or their paths for those of a composite,
+// see ForgeApplication::path(), as a project holds them; a property is held by a single file of the application. What
+// else is in the file is kept: another application can share it. Its name is its own among the files of the
+// application, whatever their case and their directories, as two files of the same name would be written over each
+// other.
 class CORE_EXPORT SettingsFile : public QObject
 {
     Q_OBJECT
@@ -67,8 +68,8 @@ class CORE_EXPORT SettingsFile : public QObject
     [[nodiscard]] const QList<SettingsEntry>& entries() const;
     [[nodiscard]] bool contains(const SettingsEntry& entry) const;
     // Holds entry from the next time the application starts. Returns false, changing nothing, when entry is not a
-    // property it can hold, see canHold(), of a component of the application, or when a file of the application holds
-    // it already. An entry leaves once its object, or its component, is destroyed.
+    // property it can hold, see canHold(), of a component of the application or of one of its composites, or when a
+    // file of the application holds it already. An entry leaves once its object, or its component, is destroyed.
     bool add(const SettingsEntry& entry);
     // No longer holds entry from the next time the application starts.
     void remove(const SettingsEntry& entry);

@@ -10,9 +10,11 @@
 #include <QPainterPath>
 #include <QPolygonF>
 #include <QStyleOptionGraphicsItem>
+#include <algorithm>
 #include <utility>
 
 #include "AppForge/Component/Component.h"
+#include "AppForge/Composite/Composite.h"
 #include "Colors.h"
 #include "InterfaceItem.h"
 #include "NameEditor.h"
@@ -34,6 +36,8 @@ constexpr QRectF NameRect(Names.left() + MarkWidth, Names.top(), Names.width() -
 // How much of the color of its name the name of its component keeps over the color of an item, as it is fainter over
 // the ones of the style.
 constexpr float ComponentNameOpacity = 0.7F;
+// The last row of a composite, under its interfaces, which tells it opens.
+constexpr qreal FooterHeight = InterfaceItem::RowHeight;
 
 // What the name of an item of color is written in: of the style when it has none; read over its color otherwise, as
 // it shows over the item, which it lets through when it is translucent.
@@ -50,7 +54,8 @@ QColor nameColor(const QColor& color, const QPalette& palette)
 } // namespace
 
 ComponentItem::ComponentItem(AppForge::Component& component, QString componentName)
-    : m_component(component), m_componentName(std::move(componentName))
+    : m_component(component), m_componentName(std::move(componentName)),
+      m_composite(qobject_cast<AppForge::Composite*>(&component) != nullptr)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
@@ -100,7 +105,8 @@ void ComponentItem::editName()
 QRectF ComponentItem::boundingRect() const
 {
     const qsizetype rows = m_consumedInterfaces.size() + m_providedInterfaces.size();
-    return Header.adjusted(0, 0, 0, static_cast<qreal>(rows) * InterfaceItem::RowHeight);
+    return Header.adjusted(0, 0, 0,
+                           static_cast<qreal>(rows) * InterfaceItem::RowHeight + (m_composite ? FooterHeight : 0));
 }
 
 void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -164,6 +170,15 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     painter->setPen(componentInk);
     painter->drawText(componentRect, Qt::AlignCenter,
                       QFontMetricsF(font).elidedText(m_componentName, Qt::ElideRight, componentRect.width()));
+
+    if(m_composite)
+    {
+        const QRectF bounds = boundingRect();
+        const QRectF footer(Names.left(), bounds.bottom() - FooterHeight, Names.width(), FooterHeight);
+        painter->setPen(palette.color(QPalette::PlaceholderText));
+        painter->drawText(footer, Qt::AlignCenter,
+                          QFontMetricsF(font).elidedText(tr("Double-click to open"), Qt::ElideRight, footer.width()));
+    }
 }
 
 void ComponentItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
@@ -180,6 +195,10 @@ void ComponentItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
     {
         editName();
     }
+    else if(event->button() == Qt::LeftButton && m_composite)
+    {
+        emit openRequested();
+    }
     else
     {
         QGraphicsObject::mouseDoubleClickEvent(event); // A press
@@ -193,6 +212,26 @@ bool ComponentItem::isNameEdited() const
 
 void ComponentItem::refreshInterfaces()
 {
+    const QList<AppForge::InterfaceInfo> consumed = m_component.consumedInterfaces();
+    const QList<AppForge::InterfaceInfo> provided = m_component.providedInterfaces();
+    // Whether items still show the first of interfaces: they do, unless one was renamed or removed.
+    const auto showing = [](const QList<InterfaceItem*>& items, const QList<AppForge::InterfaceInfo>& interfaces)
+    {
+        return items.size() <= interfaces.size() &&
+               std::ranges::equal(items, interfaces.first(items.size()), {}, &InterfaceItem::name,
+                                  &AppForge::InterfaceInfo::name);
+    };
+    const bool rebuilt = !showing(m_consumedInterfaces, consumed) || !showing(m_providedInterfaces, provided);
+    if(rebuilt)
+    {
+        prepareGeometryChange();
+        // With their links.
+        qDeleteAll(m_consumedInterfaces);
+        qDeleteAll(m_providedInterfaces);
+        m_consumedInterfaces.clear();
+        m_providedInterfaces.clear();
+    }
+
     // The rows start in the padding under the names and leave as much under the last one.
     qreal row = Header.bottom() - Padding / 2 + InterfaceItem::RowHeight / 2;
     // items shows interfaces, of kind, down from row, each on the edge at x.
@@ -204,13 +243,18 @@ void ComponentItem::refreshInterfaces()
             if(index == items.size())
             {
                 prepareGeometryChange(); // A row more
-                items.append(new InterfaceItem(kind, interfaces.at(index), Header.width() - 2 * Padding, *this));
+                items.append(
+                    new InterfaceItem(kind, m_component, interfaces.at(index), Header.width() - 2 * Padding, *this));
             }
             items.at(index)->setAvailable(interfaces.at(index).available);
             items.at(index)->setPos(x, row); // Lower than it was when an interface was declared above it
         }
     };
     // On the edges drawn by paint(), one pixel inside its bounds.
-    refresh(m_consumedInterfaces, m_component.consumedInterfaces(), InterfaceItem::Kind::Consumed, Header.left() + 1);
-    refresh(m_providedInterfaces, m_component.providedInterfaces(), InterfaceItem::Kind::Provided, Header.right() - 1);
+    refresh(m_consumedInterfaces, consumed, InterfaceItem::Kind::Consumed, Header.left() + 1);
+    refresh(m_providedInterfaces, provided, InterfaceItem::Kind::Provided, Header.right() - 1);
+    if(rebuilt)
+    {
+        emit interfacesRebuilt();
+    }
 }

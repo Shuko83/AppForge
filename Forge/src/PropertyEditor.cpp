@@ -90,11 +90,25 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     {
         m_component->disconnect(this);
     }
+    if(m_composite != nullptr)
+    {
+        m_composite->disconnect(this);
+    }
     m_component = component;
+    m_composite = component != nullptr ? m_application.compositeOf(*component) : nullptr;
     if(component != nullptr)
     {
         connect(component, &QObject::objectNameChanged, this, &PropertyEditor::refreshPlaceholder);
         connect(component, &AppForge::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
+        // What it exposes, or what its composite exposes of it.
+        if(auto* composite = qobject_cast<AppForge::Composite*>(component))
+        {
+            connect(composite, &AppForge::Composite::exposedPropertiesChanged, this, &PropertyEditor::rebuild);
+        }
+    }
+    if(m_composite != nullptr)
+    {
+        connect(m_composite, &AppForge::Composite::exposedPropertiesChanged, this, &PropertyEditor::rebuild);
     }
     rebuild();
 }
@@ -133,11 +147,28 @@ void PropertyEditor::rebuild()
         {
             if(isEditable(property))
             {
-                m_rows.append(Row{.object = object, .property = property, .title = {}});
+                m_rows.append(
+                    Row{.object = object, .property = property, .title = {}, .component = m_component, .exposed = {}});
             }
         }
     };
-    if(m_component != nullptr)
+    if(auto* composite = qobject_cast<AppForge::Composite*>(m_component.data()))
+    {
+        // Those it exposes, where they are.
+        for(const AppForge::ExposedProperty& exposed : composite->exposedProperties())
+        {
+            const AppForge::ExposedTarget target = composite->exposedProperty(exposed.name);
+            if(target.isValid() && isEditable(target.property))
+            {
+                m_rows.append(Row{.object = target.object,
+                                  .property = target.property,
+                                  .title = {},
+                                  .component = target.component,
+                                  .exposed = exposed.name});
+            }
+        }
+    }
+    else if(m_component != nullptr)
     {
         if(const std::optional<AppForge::ComponentInfo> info = m_factory.component(m_component->componentId()))
         {
@@ -192,10 +223,31 @@ void PropertyEditor::rebuild()
             continue;
         }
 
-        auto* name = new QTableWidgetItem(QString::fromLatin1(shown.property.name()));
+        const QString property = QString::fromLatin1(shown.property.name());
+        auto* name = new QTableWidgetItem(shown.exposed.isEmpty() ? property : shown.exposed);
         name->setFlags(Qt::ItemIsEnabled);
         name->setToolTip(QString::fromLatin1(shown.property.typeName()));
-        const AppForge::SettingsEntry entry{.component = m_component, .object = shown.object, .property = name->text()};
+        if(!shown.exposed.isEmpty() && shown.component != nullptr)
+        {
+            // Where it is: in the composite shown, from it.
+            name->setToolTip(
+                tr("%1\n%2 of %3")
+                    .arg(name->toolTip(), property,
+                         m_application.path(*shown.component).mid(m_application.path(*m_component).size() + 1)));
+        }
+        // One its composite exposes, with what as: in the scene of the composite.
+        const QString exposedAs =
+            m_composite != nullptr
+                ? m_application.exposedName(*m_component,
+                                            shown.exposed.isEmpty() ? shown.object.data() : m_component.data(),
+                                            shown.exposed.isEmpty() ? property : shown.exposed)
+                : QString();
+        if(!exposedAs.isEmpty())
+        {
+            name->setText(QStringLiteral("%1 → %2").arg(name->text(), exposedAs));
+            name->setToolTip(tr("%1\nExposed by %2 as %3").arg(name->toolTip(), m_composite->objectName(), exposedAs));
+        }
+        const AppForge::SettingsEntry entry{.component = shown.component, .object = shown.object, .property = property};
         if(const AppForge::SettingsFile* file = m_application.settingsFile(entry))
         {
             QFont font = name->font();

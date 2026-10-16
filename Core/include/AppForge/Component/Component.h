@@ -65,7 +65,13 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // The pointer retrieved from name, which it provides, must no longer be used: the component withdrew it, is about
     // to replace it, or is being destroyed.
     void interfaceUnavailable(const QString& name);
-    // It declared an interface, or one it provides or consumes became available or unavailable.
+    // name, which it provides, is named newName from now on: what was bound to it still is. Only a composite renames
+    // an interface, see Gateway.
+    void interfaceRenamed(const QString& name, const QString& newName);
+    // name, which it provided, is no longer one of its interfaces: what was bound to it is unbound from it, once it was
+    // told it unavailable. Only a composite removes an interface, see Gateway.
+    void interfaceRemoved(const QString& name);
+    // It declared, renamed or removed an interface, or one it provides or consumes became available or unavailable.
     void interfacesChanged();
     // An object was added to propertyObjects(), or one of them was destroyed.
     void propertyObjectsChanged();
@@ -114,6 +120,10 @@ class CORE_EXPORT Component : public QObject, public IComponent
   private:
     friend class ComponentFactory;
     friend class Plugin; // Calls releaseInterfaces()
+    // Provide and consume, as a composite, interfaces of a type known when they run only, and rename and remove those
+    // of a composite.
+    friend class Composite;
+    friend class Gateway;
 
     // Only implemented by Plugin, which keeps a component from being instantiated anywhere else.
     virtual void builtByPlugin() = 0;
@@ -144,6 +154,14 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // consumeInterface(), type being the one of the member setMember writes.
     bool consume(const QString& name, QMetaType type, std::function<void(void*)> setMember,
                  std::function<void()> onAvailable, std::function<void()> onUnavailable);
+    // Names name, one of its interfaces, newName; what is bound to it, or what it is bound to, stays so. Returns false,
+    // changing nothing, when it has no interface name, or has one named newName of the same kind.
+    bool renameInterface(const QString& name, const QString& newName);
+    // Withdraws name, one of its interfaces, and forgets it: what was bound to it, or what it was bound to, is no
+    // longer. Does nothing when it has no interface name.
+    void removeInterface(const QString& name);
+    // Follows, for name, which it consumes and is bound, what its provider does with the interface it is bound to.
+    void followProvider(const QString& name);
     // Gives name, which it consumes, the pointer of what it is bound to, when there is one.
     void deliverInterface(const QString& name);
     // Takes its pointer back from name, which it consumes, when it has one.

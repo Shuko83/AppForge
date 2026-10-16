@@ -12,10 +12,10 @@
 #include <QToolTip>
 #include <QWidget>
 #include <numbers>
+#include <utility>
 
 #include "AppForge/Component/InterfaceInfo.h"
 #include "Colors.h"
-#include "ComponentItem.h"
 #include "LinkItem.h"
 
 namespace
@@ -44,9 +44,10 @@ QPen dottedOutline(const QColor& color)
 
 } // namespace
 
-InterfaceItem::InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent)
-    : QGraphicsItem(&parent), m_componentItem(parent), m_kind(kind), m_name(info.name), m_type(info.type),
-      m_nameWidth(nameWidth)
+InterfaceItem::InterfaceItem(Kind kind, AppForge::Component& component, const AppForge::InterfaceInfo& info,
+                             qreal nameWidth, QGraphicsItem& parent, QString label)
+    : QGraphicsItem(&parent), m_component(component), m_kind(kind), m_name(info.name),
+      m_label(label.isEmpty() ? info.name : std::move(label)), m_type(info.type), m_nameWidth(nameWidth)
 {
     setFlag(ItemSendsScenePositionChanges); // For its links to follow it
     setAcceptHoverEvents(true);
@@ -80,7 +81,12 @@ const QString& InterfaceItem::name() const
 
 AppForge::Component& InterfaceItem::component() const
 {
-    return m_componentItem.component();
+    return m_component;
+}
+
+const QString& InterfaceItem::label() const
+{
+    return m_label;
 }
 
 bool InterfaceItem::canLinkTo(const InterfaceItem& other) const
@@ -166,7 +172,7 @@ void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*o
     const QRectF nameRect(provided ? -offset - m_nameWidth : offset, -RowHeight / 2, m_nameWidth, RowHeight);
     painter->setPen(color);
     painter->drawText(nameRect, (provided ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
-                      QFontMetricsF(painter->font()).elidedText(m_name, Qt::ElideRight, nameRect.width()));
+                      QFontMetricsF(painter->font()).elidedText(m_label, Qt::ElideRight, nameRect.width()));
 }
 
 void InterfaceItem::hoverEnterEvent(QGraphicsSceneHoverEvent* event)

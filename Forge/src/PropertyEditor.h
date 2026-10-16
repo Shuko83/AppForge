@@ -9,6 +9,8 @@
 #include <QString>
 #include <QWidget>
 
+#include "AppForge/Composite/Composite.h"
+
 class QLabel;
 class QStackedWidget;
 class QTableWidget;
@@ -16,7 +18,6 @@ class QTableWidgetItem;
 
 namespace AppForge
 {
-class Component;
 class ComponentFactory;
 class ForgeApplication;
 } // namespace AppForge
@@ -26,6 +27,9 @@ class ForgeApplication;
 // added with otherwise, one group per name. It only shows the properties it can edit: they can be written and their
 // type has an editor. It follows the changes the component and its objects notify, and the objects it adds or loses.
 // The name of a property a settings file of the application holds is in italics: its value is the default one.
+// A composite has the properties it exposes edited, under their exposed names: the same properties, on the same
+// objects. For a component of a composite, a property its composite exposes is shown with the name it is exposed as,
+// see ExposureDialog.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT
@@ -49,9 +53,11 @@ class PropertyEditor : public QWidget
         QPointer<QObject> object;
         QMetaProperty property;
         QString title;
+        QPointer<AppForge::Component> component; // The one the property is of, which settings files know it by
+        QString exposed;                         // For a composite: what it exposes the property as
     };
 
-    // Shows the properties m_component and its objects have now.
+    // Shows the properties m_component and its objects have now, or those it exposes.
     void rebuild();
     // Tells why no property is shown, when none is. It names the component, which can be renamed meanwhile.
     void refreshPlaceholder();
@@ -61,7 +67,8 @@ class PropertyEditor : public QWidget
     const AppForge::ForgeApplication& m_application;
     const AppForge::ComponentFactory& m_factory;
     QPointer<AppForge::Component> m_component;
-    QList<Row> m_rows; // One per row of m_table
+    QPointer<AppForge::Composite> m_composite; // The one m_component is of, which exposes its properties
+    QList<Row> m_rows;                         // One per row of m_table
 
     QStackedWidget* m_stack = nullptr;
     QLabel* m_placeholder = nullptr; // Shown when there is no property to show, and tells why

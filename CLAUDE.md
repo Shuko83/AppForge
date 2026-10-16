@@ -8,7 +8,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Dossier | Cible | Rôle |
 | --- | --- | --- |
-| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/AppForge/{Application,Component,Plugin,Settings}/`, sources dans `src/` |
+| `Core/` | `AppForge::Core` (DLL) | Composants, plugins, fabrique, composites, application. En-têtes publics dans `include/AppForge/{Application,Component,Composite,Plugin,Settings}/`, sources dans `src/` |
 | `Core/cmake/` | — | `appforge_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
 | `Forge/` | `Forge` (exe Widgets) | L'éditeur graphique ; le code est dans `Forge/src/`, sans namespace, celui des fichiers de réglages dans `Forge/src/Settings/`, son logo dans `Forge/resources/` |
 | `exemple/ExamplePlugin` | `.afdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
@@ -79,23 +79,88 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   - `providedInterfaces()` / `consumedInterfaces()` renvoient des `InterfaceInfo {name, type, available}` ;
     `interfacesChanged()` est émis à chaque déclaration ou changement de disponibilité.
   - `binding(nom)` dit à quoi une interface consommée est liée : `InterfaceBinding {provider, providedName}`.
+  - `provide()` / `consume()` (privés, sans type à la compilation), `renameInterface()` et `removeInterface()` sont
+    ouverts à `Composite` et `Gateway` (`friend`). Un lien suit son fournisseur par `followProvider()`, qui relit le
+    nom fourni à chaque signal : il suit `interfaceRenamed(nom, nouveau)` et se défait sur `interfaceRemoved(nom)`.
 - Objets à propriétés (`PropertyObject.*`) : `addPropertiesForQObject(objet[, nom])` (protégé, appelé par le composant
   à sa construction) ajoute un `PropertyObject {object, name}` à `propertyObjects()` ; il en sort seul à sa
   destruction. Signal `propertyObjectsChanged`. `PropertyObject::properties()` : les propriétés déclarées, sans
   `objectName` ni celles `DESIGNABLE false` / `STORED false` ; c'est la liste qu'éditent Forge et qu'écrit un projet.
 - Journalisation : catégories `appforge.components` et `appforge.plugins`.
 
+**Composite** (`Composite/Composite.*`, `Composite/Gateway.*`, `src/Composite/CorePlugin.*`,
+`src/Composite/ComponentPaths.*`, `src/Application/Assembler.*`)
+- `Composite` est un composant que Core fournit lui-même : `CorePlugin` (privé, un `Plugin` comme un autre) l'enregistre
+  par `APPFORGE_REGISTER_COMPONENT`, et `ComponentFactory` l'ajoute à sa construction sous
+  `ComponentFactory::corePluginId()` (`FabienDG.AppForge.Core`, tiré de `CoreInfo`), qu'aucun `PluginManager` ne
+  connaît. `ForgeApplication::instantiate()` le refuse et `ComponentModel` le cache : un composite se pose depuis son
+  fichier `.afc`.
+- Il possède ses composants (`components()`, dans l'ordre du fichier, `component(chemin)`), les initialise, démarre et
+  arrête avec lui (`onInitialize()` / `onStart()` / `onStop()`) ; au premier refus, il arrête ce qu'il a démarré et
+  `refusal()` donne le chemin de celui qui a refusé, que `ForgeApplication` met dans `errorString()`.
+- `ComponentPaths` (privé) : noms et chemins partagés par l'application et les composites, `find()` (`Horloge1/Ticker1`
+  traverse les composites), `path()`, `canName()` (non vide, sans `/`, libre), `newName()`.
+- `Assembler` (privé, `friend` de `ForgeApplication` et de `Composite`) : construit les composants d'un document
+  (projet ou `.afc`) et les réécrit (`save()` statique) ; un par chargement, il accumule les problèmes. Chaque `.afc`
+  est lu une fois par application dans une *définition* (`ForgeApplication::Definition`, rangée par chemin canonique
+  dans `m_definitions`) : un composite jamais démarré dont les composants portent les valeurs de départ, et ses liens
+  gardés à part, non faits (une `Window` liée montrerait déjà sa fenêtre). Une instance est construite depuis
+  `Assembler::document()` de sa définition, pas depuis le disque. Un cycle (`m_reading`) fait échouer toutes les
+  définitions en cours de lecture, et l'entrée du projet manque avec le message `A.afc contains itself: A.afc > B.afc >
+  A.afc` ; un `.afc` illisible ou un plugin manquant n'est qu'un problème. Une définition qui a eu un problème n'est pas
+  `complete`.
+- Structure (ce qu'écrit le `.afc`, partagé par toutes ses instances) : `instantiate()` / `instantiateComposite()` avec
+  un composite `in`, `rename()`, `remove()`, `bind()` et `unbind()` sur un composant d'un composite appliquent la même
+  opération, par nom, à chaque instance du fichier (`instancesOf()` : celles de l'application, liées, et celles des définitions,
+  non liées, la définition comprise), et tiennent à jour les liens de la définition (`renamed()` / `without()`). Refusé
+  (`canChange()`) pour une définition pas `complete`, et un composite qui contiendrait le sien (`holdsFile()`).
+  `saveComposite()` = `Assembler::document()` + version. Les valeurs restent celles de chaque instance ; un composant
+  ajouté part de ses valeurs par défaut, aussi dans la définition. `compositeOf(composant)` trouve le composite d'un
+  composant de l'application.
+- `Gateway` (composant de Core, `CorePlugin::gatewayId()`) : une interface du composite, du nom de la gateway.
+  `attach(composite, genre, type)` : `Provided` = elle consomme `interfaceName()` (`"interface"`) et le composite
+  fournit ce qu'elle reçoit ; `Consumed` = le composite consomme, elle fournit `interface` à l'intérieur. Les rappels
+  passent le pointeur et sa disponibilité (retrait annoncé avant que le pointeur ne parte). `rename()` renomme aussi
+  l'interface du composite (liens gardés), `detach()` la retire (liens défaits) ; `~Composite` détache ses gateways
+  sans rien retirer. Dans un `.afc` : `{"name", "gateway": "provided"|"consumed", "interface": "QWidget*"}`, lues
+  après les autres composants (`Assembler::load()`, qui reçoit le composite `owner`) pour trouver leur type parmi
+  leurs interfaces quand `QMetaType::fromName()` ne le connaît pas. `ForgeApplication::expose(composant, interface,
+  nom)` en ajoute une à la structure, liée ; renommer ou supprimer une gateway met aussi à jour les liens des
+  définitions qui contiennent une instance du fichier (`renameBindings()`).
+- Regroupement : `compose(composants, dossier)` écrit le `.afc` de composants de l'application (dans leur ordre
+  d'instanciation) ; chaque lien qui sort de la sélection (`crossings()`) y devient une gateway, une par interface
+  fournie de l'intérieur. `group(composants, fichier)` pose ce fichier à leur place, relie le composite par ces
+  gateways à ce qui était lié dehors, et reporte les entrées de fichiers de réglages (même chemin depuis le composite).
+- Propriétés exposées : `Composite::m_exposed`, des `ExposedProperty {name, component, object?, index, property}`
+  (données, comme dans le `.afc` sous `exposed`), résolues à la demande par `exposedProperty(nom)` en
+  `ExposedTarget {object, component, property}` (pour un composite intérieur, sa propre propriété exposée, par
+  récursion). `ForgeApplication::exposeProperty()` (seulement ce qu'un projet enregistre, une fois),
+  `unexposeProperty()` et `renameExposedProperty()` changent toutes les instances du fichier ; `unexposeEverywhere()`
+  et le renommage suivent aussi les composites qui réexposent (`forEachComposite()` : arbre de l'application et
+  définitions). Renommer ou supprimer un composant d'un composite met à jour, ou retire, ce qu'il en expose. Signal
+  `exposedPropertiesChanged`. La valeur n'est écrite qu'une fois, avec son composant.
+- Exécution : `startAll()` (récursif) démarre aussi, dans un composite qui tourne, ce qui y a été ajouté depuis ;
+  `Composite::onStart()` initialise d'abord ce qui ne l'est pas. `start(instance)` accepte un composant d'un composite
+  qui tourne.
+
 **Application** (`Application/ForgeApplication.*`)
 - `ForgeApplication` (QObject) : l'application assemblée, utilisée telle quelle par Forge et par le `main` d'une
   application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
   (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`. `rename(instance, nom)` renomme en
-  gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
-  `remove(instance)` l'arrête puis la détruit ; ses liens tombent à sa destruction (`releaseInterfaces()` pour ce
-  qu'elle consomme, signal `destroyed` pour ceux qui consomment ce qu'elle fournit).
-- Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
-  qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
-  `version`, `plugins`, `components` (nom, type, propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses
-  `propertyObjects()`, retrouvés à l'ouverture par nom puis par ordre d'ajout) et `bindings`.
+  gardant les noms uniques, non vides et sans `/` : c'est par son nom qu'un projet et `component(chemin)` désignent
+  une instance, et par son chemin (`Horloge1/Ticker1`, `path(composant)`) un composant d'un composite.
+  `instantiateComposite(fichier, nom)` pose un composite (nommé d'après son fichier : `Horloge1`), `errorString()`
+  disant ce que la première lecture du fichier n'a pas pu restaurer. `remove(instance)` l'arrête puis la détruit ; ses
+  liens tombent à sa destruction (`releaseInterfaces()` pour ce qu'elle consomme, signal `destroyed` pour ceux qui
+  consomment ce qu'elle fournit).
+- Projet, version 2 (la 1 se lit encore) : `read(fichier, erreur)` statique (lecture + contrôle de version, aussi pour
+  un `.afc`), `load(json, dossier)` qui renvoie la liste de ce qui n'a pas pu être restauré, `open(fichier)` = les
+  deux, strict (`false` au moindre problème), `save(dossier)` qui écrit `version`, `plugins`, `components` (nom, type,
+  propriétés inscriptibles qui font l'aller-retour JSON, et `objects` : celles de ses `propertyObjects()`, retrouvés à
+  l'ouverture par nom puis par ordre d'ajout ; pour un composite, `composite` à la place de `type` et les valeurs de
+  ses composants par nom dans `components`, récursivement) et `bindings`. Les fichiers des composites sont relatifs à
+  `dossier`, celui du projet (absolus à l'écriture quand il est vide). `ProjectJson::values()` / `setValues()` écrivent
+  et relisent les valeurs d'un composant, composite compris.
 - Les chemins des plugins sont relatifs à `pluginRoot` (dossier de l'exécutable par défaut, `setPluginRoot()`) ; un
   chemin absolu dans un fichier reste lu tel quel. Seuls les plugins des composants présents sont écrits. À
   l'ouverture, un plugin est d'abord cherché par son id parmi ceux connus, son fichier n'est qu'un recours.
@@ -108,9 +173,11 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   d'instanciation ; au premier refus il arrête ce que cet appel a démarré. Rappelé pendant l'exécution, il démarre ce
   qui a été instancié entre-temps, sans toucher à ce qui tourne. `start(instance)` initialise puis démarre une seule
   instance, et refuse quand l'application ne tourne pas. `stop()` arrête dans l'ordre inverse. `isRunning()` / `runningChanged`.
-  `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend d'être démarré.
-- Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
-  appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
+  `clear()` et le destructeur arrêtent d'abord, puis oublient aussi les définitions des `.afc`. Un composant instancié
+  en cours d'exécution attend d'être démarré.
+- Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin et les composites qui en contiennent une ;
+  `unloadPlugin(pluginId)` les supprime, oublie les définitions qui en contiennent, puis appelle
+  `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
 - Fichiers de réglages (module `Settings` : `include/AppForge/Settings/SettingsFile.h`, `src/Settings/`) : ce que
   l'utilisateur de l'application change et retrouve au lancement suivant. `addSettingsFile()` / `removeSettingsFile()`
   / `settingsFiles()`, possédés par l'application (constructeur privé), écrits dans le projet (`settings`, seulement
@@ -118,7 +185,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   (`settingsFile(nom)`, `setFileName()` renvoie `false` sur un nom pris ; `addSettingsFile()` donne `settings.json`,
   puis `settings2.json`…, et `load()` signale un doublon, qui garde ce nom-là), `directory` (vide = `AppConfigLocation`
   de l'exécutable qui tourne, relatif = depuis son dossier)
-  et des `SettingsEntry {component, object, property}`, `object` étant le composant ou un de ses `propertyObjects()` ;
+  et des `SettingsEntry {component, object, property}`, `object` étant le composant (de l'application ou d'un de ses
+  composites, écrit et rangé dans le fichier par son chemin) ou un de ses `propertyObjects()` ;
   une propriété n'est que dans un fichier (`ForgeApplication::settingsFile(entry)`), seulement celles qu'un projet
   enregistre (`canHold()`), et une entrée part à la destruction de son objet (`destroyed`). `start()` (à la transition
   vers « en cours » seulement) lit chaque fichier avant le premier `initialize()`, l'écrit avec les valeurs du projet
@@ -132,24 +200,28 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 ## Forge
 
-`main.cpp` → `SplashScreen`, puis `MainWindow` : trois panneaux dans un splitter horizontal. `SettingsItem`,
-`SettingsLinkItem` et `SettingsDialog` sont dans `src/Settings/`, inclus par `"Settings/SettingsItem.h"`.
+`main.cpp` → `SplashScreen`, puis `MainWindow` : trois panneaux dans un splitter horizontal. `SettingsItem` et
+`SettingsDialog` sont dans `src/Settings/`, inclus par `"Settings/SettingsItem.h"` ; `ExposureItem` et
+`ExposureDialog` dans `src/Composite/`, inclus par `"Composite/ExposureItem.h"`.
 
 | Classe | Rôle |
 | --- | --- |
 | `SplashScreen` | `QSplashScreen` dont l'image est peinte aux couleurs de la palette depuis `Forge_info.h` (produit, version, Qt, compilateur, date de build, copyright) et la licence ; `read()` est émis une fois, deux secondes après son premier affichage ou au premier clic. `main.cpp` le montre (`processEvents()` sans les entrées utilisateur, pour qu'un clic attende la connexion), construit `MainWindow`, puis sur `read()` montre la fenêtre, appelle `finish()` et ouvre le projet passé en argument |
-| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Barre d'état : `refused` et `told` de la scène, `settingsFileFailed` de l'application. Son destructeur détruit la scène avant l'application |
+| `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Barre d'état : `refused` et `told` des scènes, `settingsFileFailed` de l'application. Composites : `m_scene` est la scène du projet, `m_compositeScenes` celles des composites ouverts, chacun dans le précédent (`openComposite()`, sur `openRequested` ; `closeComposites(profondeur)` garde leur disposition dans `m_composites`), `currentScene()` est montrée par la vue, `showScene()` refait le chemin au-dessus (`QToolButton` pour remonter, le dernier en gras). `syncComposites()` (sur `compositesChanged`, après une ouverture, **New**, un déchargement) note les `.afc` que l'application vient de lire (disposition lue dans le fichier, `saved` = `compositeContent()` aussitôt) et oublie ceux qu'elle a oubliés ; `m_knownComposites` (depuis le lancement) alimente `ComponentModel::setCompositeFiles()`. `compositeContent()` = `saveComposite()` + disposition (de la scène ouverte, sinon gardée) ; `changedComposites()` compare à `saved`, sans les définitions pas `complete` ; `saveComposites()` les écrit avant chaque enregistrement du projet. **Open composite...** = `loadComposite()`. Son destructeur détruit les scènes, celles des composites d'abord, avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
-| `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin ; la description en infobulle), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé. La vue la montre à travers un `QSortFilterProxyModel` créé par `MainWindow` : barre de recherche (Ctrl+F), sans casse, sur la colonne et le rôle de la liste déroulante à côté (`SearchFields` dans `MainWindow.cpp`) : Name en `DisplayRole` (nom), Name en `ToolTipRole` (description), Category en `DisplayRole` (catégorie). Un rôle d'index de la vue se lit donc à travers le proxy (`data()`), pas de `row()` à passer au modèle |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, des fichiers de réglages (**Add settings file** ouvre aussitôt sa fenêtre ; sur l'un d'eux : éditer, **Write default values** sauf pendant l'exécution, supprimer) et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), double-clic sur un fichier de réglages = `SettingsDialog` (ouvert par `open()`, pas `exec()`), touche Suppr = suppression des composants et fichiers sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()` / `removeSettingsFile()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signaux `refused(why)` quand un nom est refusé ou un fichier non écrit, `told(what)` quand il l'est, affichés par `MainWindow` dans la barre d'état |
-| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
+| `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin ; la description en infobulle), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé, sans ceux de Core. Après eux, les composites de `setCompositeFiles()` (nom du fichier, catégorie `Composite`, chemin en infobulle et dans `FileRole`, `IdRole` vide), glissés au format `application/x-appforge-composite` (chemin en UTF-8) ; la fiche d'un composite (`setComposite()`) montre ses plugins et ses composants. La vue la montre à travers un `QSortFilterProxyModel` créé par `MainWindow` : barre de recherche (Ctrl+F), sans casse, sur la colonne et le rôle de la liste déroulante à côté (`SearchFields` dans `MainWindow.cpp`) : Name en `DisplayRole` (nom), Name en `ToolTipRole` (description), Category en `DisplayRole` (catégorie). Un rôle d'index de la vue se lit donc à travers le proxy (`data()`), pas de `row()` à passer au modèle |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20, de l'application ou d'un composite (`composite()`, `m_composite`) : `components()` est la liste de l'un ou de l'autre, et tout passe par `ForgeApplication`, qui propage aux instances du fichier ; `canChange()` refuse (dans `refused`) quand le `.afc` n'a pas été lu entièrement. Celle d'un composite n'a ni fichiers de réglages ni regroupement ; `show(document)` l'affiche, `save()` rend alors `saveComposite()` disposé. **Open composite** et le double-clic hors des noms émettent `openRequested(composite)` ; **Group into composite...** (`groupSelection()`, sur un composant sélectionné de la scène du projet) demande un fichier dans `setDirectory()`, refuse un `.afc` déjà lu, écrit `compose()` disposé, le relit (`loadComposite()`) avant de supprimer les items, puis `group()` et montre le composite au centre, avec ses liens. Dans la scène d'un composite, ses gateways ne sont pas des `ComponentItem` : un seul `ExposureItem` les porte (position `exposure` du `.afc`, sinon à côté des composants, à gauche quand il donne surtout aux composants), dont le double-clic ou le menu **Choose what is exposed...** ouvre `ExposureDialog` (`editExposure()`, par `open()`). `showLinks()` met les `LinkItem` d'accord avec les liaisons entre tous les points de la scène (ajoute ceux qui manquent, retire ceux d'une liaison défaite) : après un chargement, sur `interfacesRebuilt` d'un item, et à l'acceptation de `ExposureDialog` ; `compositesChanged` après un dépôt de composite ou un regroupement. Dépôt = `ForgeApplication::instantiate()` ou `instantiateComposite()`, tracé des liens entre points d'interface (`ForgeApplication::bind()`), menu contextuel des zones, des fichiers de réglages (**Add settings file** ouvre aussitôt sa fenêtre ; sur l'un d'eux : éditer, **Write default values** sauf pendant l'exécution, supprimer) et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), double-clic sur un fichier de réglages = `SettingsDialog` (ouvert par `open()`, pas `exec()`), touche Suppr = suppression des composants et fichiers sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()` / `removeSettingsFile()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signaux `refused(why)` quand un nom est refusé ou un fichier non écrit, `told(what)` quand il l'est, affichés par `MainWindow` dans la barre d'état |
+| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; suit `interfacesChanged` : ajoute les `InterfaceItem` des interfaces déclarées depuis, ou les refait toutes (sans leurs liens, puis `interfacesRebuilt`) quand l'une a été renommée ou retirée, ce que font les gateways d'un composite ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()`. Un composite a sous ses interfaces une dernière ligne, « Double-click to open », et le double-clic hors des noms émet `openRequested` ; son second nom est celui de son fichier |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
-| `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
-| `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
-| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants et fichiers de réglages par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
-| `SettingsItem` / `SettingsLinkItem` | `QGraphicsObject` d'un `SettingsFile` : feuille au coin plié, nom du fichier, infobulle (chemin, propriétés tenues) ; refait ses `SettingsLinkItem` (traits pointillés de centre à centre, Z = -1, dans la scène et non enfants, détruits avec lui) sur `SettingsFile::changed` et à son ajout à la scène, et les suit par `xChanged` / `yChanged` des deux items |
+| `InterfaceItem` | Point sur le bord de l'item qui le porte, `ComponentItem` ou `ExposureItem` (consommée à gauche, fournie à droite), d'une interface de son composant (`component()`, la gateway sur un `ExposureItem`), `name()` pour lier, `label()` écrit à côté (le nom de la gateway), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
+| `LinkItem` | Courbe entre deux points (`provided()`, `consumed()`), Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
+| `DashedLinkItem` | Trait pointillé de centre à centre entre un item et un composant (Z = -1, dans la scène, pas enfant), détruit par son item, qui appelle `follow()` ; sert à `SettingsItem` et à `ExposureItem` |
+| `ExposureItem` | `QGraphicsObject` de ce qu'expose un composite, dans sa scène : contour pointillé, nom du fichier au-dessus de « Exposed », un point par gateway (celles `Provided` à gauche : elles consomment ; `Consumed` à droite), puis une ligne par propriété exposée (nom exposé, composant[.objet]), pointillés vers les composants dont il expose des propriétés. Suit `interfacesChanged` et `exposedPropertiesChanged` du composite, `objectNameChanged` des gateways ; refait ses points quand une gateway arrive, part ou est renommée (`interfacesRebuilt`), et retire celui d'une gateway sur son `destroyed` (avant de se refaire, en différé, une fois le composite à jour). Ni supprimable ni coloré ; double-clic = `editRequested` |
+| `ExposureDialog` | Sur le modèle de `SettingsDialog` : arbre composant → « Interfaces » (fournies et consommées) puis propriétés (`SettingsFile::canHold()`, groupes d'objets ; pour un composite, ses propriétés exposées), « Linked to nothing » pour une gateway liée à rien ; colonne « Exposed as » éditable au double-clic. `check()` grise OK (nom vide, `/`, nom d'un composant, doublon sauf interfaces consommées de même type, qui partagent alors une gateway). `apply()` au `accepted` : retraits d'abord (`unexposeProperty`, `remove(gateway)` ou `unbind()` d'un consommateur d'une gateway partagée), puis renommages, puis ajouts (`exposeProperty`, `expose()`, ou `bind()` à une gateway consommée existante du même nom et type) |
+| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants, fichiers de réglages et `ExposureItem` par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
+| `SettingsItem` | `QGraphicsObject` d'un `SettingsFile` : feuille au coin plié, nom du fichier, infobulle (chemin, propriétés tenues, par le chemin de leur composant) ; relié au composant de la scène du projet que désigne le premier nom de ce chemin (le composite pour un composant d'un composite) ; refait ses `DashedLinkItem` sur `SettingsFile::changed` et à son ajout à la scène, et les suit par `xChanged` / `yChanged` des deux items |
 | `SettingsDialog` | Nom, dossier (chemin résultant affiché, ou pourquoi le nom est refusé : vide, ou celui d'un autre fichier, OK alors grisé) et arbre composant → groupe d'objet → propriétés que `SettingsFile::canHold()` accepte, à cocher ; celles d'un autre fichier sont désactivées avec son nom ; les groupes d'objets ne sont ouverts que s'ils ont une propriété tenue ; appliqué au `accepted` |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged` |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages (`Row::component` : le composant de la propriété) ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged`. Pour un composite : ses propriétés exposées, sous leur nom exposé, sur l'objet de `exposedProperty()` (`Row::exposed`). Pour un composant d'un composite (`m_composite`) : « nom → nom exposé » pour une propriété exposée (on n'expose que par `ExposureDialog`) ; suit `exposedPropertiesChanged` du composite affiché et de celui du composant |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
@@ -159,8 +231,10 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 (`IDI_ICON1`, ajouté sous Windows seulement, à côté de la ressource de version de CMakeUtils), est celle de
 `Forge.exe`. Pas de Qt Svg : il n'y a que des PNG à lire.
 
-**Fichier de projet `.afp`** (JSON, version 1, format décrit dans le README)
-- Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core). `EditionScene::save()` y ajoute `x` / `y`
+**Fichier de projet `.afp`** (JSON, version 2, format décrit dans le README)
+- Le contenu applicatif est lu et écrit par `ForgeApplication` (voir Core), avec le dossier du fichier du projet
+  (`MainWindow::projectDirectory()`, vide sans fichier), auquel les fichiers des composites sont relatifs : `load()`
+  et `save()` de la scène le prennent en paramètre. `EditionScene::save()` y ajoute `x` / `y`
   et `color` (`#aarrggbb`, seulement si une couleur a été choisie) dans chaque composant (retrouvé par son nom),
   `x` / `y` dans chaque fichier de `settings` (par rang, dans l'ordre de `settingsFiles()`) et `zones` ;
   `EditionScene::load()` retire ses items, appelle `ForgeApplication::load()`, puis recrée un `ComponentItem` par
@@ -169,7 +243,9 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
   Les problèmes sont affichés dans une seule boîte ; après une ouverture partielle, le projet n'a plus de fichier
   associé pour que **Save** n'écrase pas ce qui manque.
 - « Modifié » n'est pas suivi au fil de l'eau : `saveChanges()` compare `m_scene->save()` à `m_savedProject`, mémorisé
-  par `setProjectFile()`. Toute nouvelle donnée à sauvegarder doit donc passer par `EditionScene::save()`.
+  par `setProjectFile()`, et compte `changedComposites()`. Toute nouvelle donnée à sauvegarder doit donc passer par
+  `EditionScene::save()`. Un `.afc` est écrit tel que `compositeContent()` le rend : format d'un projet, avec `x` / `y`
+  / `color`, `zones` et la position `exposure` de son `ExposureItem` pour sa scène.
 - `Forge [--plugin-dir <dossier>]... [--plugin-root <dossier>] fichier.afp` ouvre le projet au démarrage (options
   déclarées par `ForgeApplication::addCommandLineOptions()` dans `main.cpp`, appliquées par `MainWindow`).
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
@@ -191,8 +267,22 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 - Fichiers de réglages : pas de fenêtre « Préférences » générique où l'utilisateur final éditerait tout un fichier
   (chaque composant montre les siens), pas de partage d'une même valeur entre deux instances, et le cas de plusieurs
   objets de même nom dans un composant (`index` d'une entrée) n'a été exercé par aucun exemple.
+- Composites : pas de regroupement dans la scène d'un composite ; les valeurs de départ d'un `.afc` sont celles du
+  regroupement, et rien dans Forge ne les change ensuite ; la fenêtre d'un fichier de réglages ne propose que les
+  composants du projet, pas ceux de ses composites (Core les accepte).
 
 ## Pièges
+
+- Ouvrir un composite par un double-clic change de scène au milieu du clic : la scène quittée ne voit pas le
+  relâchement et garderait l'item saisi (plus de menu contextuel, l'item suivrait la souris), d'où `ungrabMouse()` dans
+  `MainWindow::openComposite()`.
+- `interface` est une macro des en-têtes Windows (`objbase.h`) : ne pas en faire un nom de variable ou de paramètre.
+- Les rappels qu'une gateway donne à son composite, et inversement, se croisent : une gateway est détachée
+  (`detach()`) avant d'être détruite seule, et un composite qui part détache les siennes sans retirer ses interfaces,
+  pour qu'aucun rappel ne vise un objet détruit.
+- Une définition de `.afc` est faite de vrais composants des plugins, jamais démarrés ni liés : un composant qui agit
+  dès sa construction le ferait aussi là, une fois par fichier lu. Ses liens ne sont que des données
+  (`Definition::bindings`).
 
 - Modifier `Component.h`, `IComponent.h` ou `Plugin.h` change l'agencement binaire : tous les plugins doivent être
   reconstruits, y compris ceux ouverts par **Open plugin...**, sinon plantage à la création d'un composant. Le contrôle
