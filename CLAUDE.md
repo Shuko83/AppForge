@@ -17,6 +17,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `exemple/ExampleForgeApp` | exe console + Widgets | Le `main` type : options de `ForgeApplication::addCommandLineOptions()`, `applyCommandLine()`, `open()` du projet passé en argument, puis `start()` |
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
 | `docs/release-notes/` | — | Notes de chaque version, `<x.y.z>.md` : le texte de sa release GitHub |
+| `docs/glossary.md` | — | Glossaire Nebula (Nebula, Univers, Galaxy, Astre, Comet), en anglais puis en français, référencé par le README : le vocabulaire à employer pour nommer code, documentation et interface, que rien n'emploie encore |
 | `CFmake/` | non suivi, dépôt à part | Ne fait pas partie du build : ne pas y toucher |
 
 ## Build
