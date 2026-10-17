@@ -6,16 +6,16 @@ set(CMAKE_AUTOMOC ON)
 
 cmu_add_shared_library(
     NAME Core
-    NAMESPACE AppForge
+    NAMESPACE Nebula
     LINK_LIBRARIES PUBLIC Qt6::Core
 )
 
-# appforge_add_plugin(): plugins built against this Core.
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/AppForgePlugin.cmake)
-# And against the installed one: find_package(AppForge COMPONENTS Core) includes it, after the CMakeUtils it calls.
+# nebula_add_plugin(): plugins built against this Core.
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/NebulaPlugin.cmake)
+# And against the installed one: find_package(Nebula COMPONENTS Core) includes it, after the CMakeUtils it calls.
 cmu_add_cmake_files(
     TARGET Core
-    INCLUDE cmake/AppForgePlugin.cmake
+    INCLUDE cmake/NebulaPlugin.cmake
     DIRECTORIES cmake/Template
     CMAKEUTILS
 )

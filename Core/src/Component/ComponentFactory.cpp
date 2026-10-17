@@ -1,20 +1,20 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Component/ComponentFactory.h"
 
 #include <QLoggingCategory>
 #include <algorithm>
 #include <ranges>
 #include <utility>
 
-namespace AppForge
+namespace Nebula
 {
 
 namespace
 {
 
-Q_LOGGING_CATEGORY(lcComponents, "appforge.components")
+Q_LOGGING_CATEGORY(lcComponents, "nebula.components")
 
 // Q_CLASSINFO(name, ...) of metaObject or of one of its base classes; empty when none declares it.
 QString classInfo(const QMetaObject& metaObject, const char* name)
@@ -110,4 +110,4 @@ std::unique_ptr<Component> ComponentFactory::create(const QString& componentId) 
     return component;
 }
 
-} // namespace AppForge
+} // namespace Nebula

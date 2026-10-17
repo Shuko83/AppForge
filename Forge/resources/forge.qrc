@@ -1,8 +1,0 @@
-<!-- Copyright (C) 2026 Fabien Di Grande -->
-<!-- SPDX-License-Identifier: MPL-2.0 -->
-
-<RCC version="1.0">
-    <qresource prefix="/">
-        <file>forge.png</file>
-    </qresource>
-</RCC>

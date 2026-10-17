@@ -1,7 +1,7 @@
 {
-    "id": "@APPFORGE_PLUGIN_ID@",
-    "name": "@APPFORGE_PLUGIN_NAME@",
-    "description": "@APPFORGE_PLUGIN_DESCRIPTION@",
-    "version": "@APPFORGE_PLUGIN_VERSION@",
-    "coreVersion": "@APPFORGE_PLUGIN_CORE_VERSION@"
+    "id": "@NEBULA_PLUGIN_ID@",
+    "name": "@NEBULA_PLUGIN_NAME@",
+    "description": "@NEBULA_PLUGIN_DESCRIPTION@",
+    "version": "@NEBULA_PLUGIN_VERSION@",
+    "coreVersion": "@NEBULA_PLUGIN_CORE_VERSION@"
 }

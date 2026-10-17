@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "AppForge/Settings/SettingsFile.h"
+#include "Nebula/Settings/SettingsFile.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -20,17 +20,17 @@
 #include <optional>
 #include <utility>
 
-#include "AppForge/Application/ForgeApplication.h"
-#include "AppForge/Component/Component.h"
 #include "Application/ProjectJson.h"
+#include "Nebula/Application/Universe.h"
+#include "Nebula/Component/Component.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 namespace
 {
 
-Q_LOGGING_CATEGORY(lcSettings, "appforge.settings")
+Q_LOGGING_CATEGORY(lcSettings, "nebula.settings")
 
 // The property of entry; not valid when its object has none of that name.
 QMetaProperty propertyOf(const SettingsEntry& entry)
@@ -177,7 +177,7 @@ bool writeSettings(const QString& filePath, const QJsonObject& content, QString&
 
 } // namespace
 
-SettingsFile::SettingsFile(ForgeApplication& application, QString fileName)
+SettingsFile::SettingsFile(Universe& application, QString fileName)
     : m_application(application), m_fileName(std::move(fileName))
 {
 }
@@ -431,4 +431,4 @@ void SettingsFile::forget(QObject* object)
     }
 }
 
-} // namespace AppForge
+} // namespace Nebula

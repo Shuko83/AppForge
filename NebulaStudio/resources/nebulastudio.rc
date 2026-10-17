@@ -1,0 +1,5 @@
+// Copyright (C) 2026 Fabien Di Grande
+// SPDX-License-Identifier: MPL-2.0
+
+// The icon of NebulaStudio.exe: the file explorer shows it, and so does the taskbar where NebulaStudio is pinned.
+IDI_ICON1 ICON "nebulastudio.ico"

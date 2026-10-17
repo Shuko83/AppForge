@@ -1,12 +1,12 @@
 # Conventions de codage
 
-Ce que suit le code d'AppForge aujourd'hui. `.clang-format` et `.clang-tidy`, à la racine, en appliquent une partie ;
+Ce que suit le code de Nebula aujourd'hui. `.clang-format` et `.clang-tidy`, à la racine, en appliquent une partie ;
 le reste tient à la relecture. Une règle qui ne convient plus se change ici d'abord, puis dans le code.
 
 La base est celle de Qt, son [Coding Style](https://wiki.qt.io/Qt_Coding_Style) et ses
 [Coding Conventions](https://wiki.qt.io/Coding_Conventions) : du `camelCase`, pas de `snake_case`. Pour l'usage du
 langage, ce sont les [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines). Ce document
-dit ce qu'AppForge en retient et ce qu'il précise ; ce qu'il ne dit pas se décide d'après eux.
+dit ce que Nebula en retient et ce qu'il précise ; ce qu'il ne dit pas se décide d'après eux.
 
 ## Mise en forme
 
@@ -23,12 +23,12 @@ Elle est celle de `.clang-format` : formater un fichier avant de le commiter suf
 
 - Un en-tête et une source par classe, nommés comme elle : `ComponentItem.h`, `ComponentItem.cpp`. Une interface
   porte le préfixe `I` : `IComponent.h`.
-- Les en-têtes publics de Core sont dans `Core/include/AppForge/<Module>/` et s'incluent par ce chemin :
-  `#include "AppForge/Component/Component.h"`. Ses sources sont dans `Core/src/<Module>/`.
-- Forge et les exemples gardent en-têtes et sources côte à côte dans `src/`. Les classes d'une même fonctionnalité
-  peuvent y avoir leur sous-dossier, nommé comme un module de Core : `Forge/src/Settings/`. Elles s'incluent alors par
-  ce chemin depuis `src/` : `#include "Settings/SettingsItem.h"` ; une source inclut son propre en-tête par son seul
-  nom.
+- Les en-têtes publics de Core sont dans `Core/include/Nebula/<Module>/` et s'incluent par ce chemin :
+  `#include "Nebula/Component/Component.h"`. Ses sources sont dans `Core/src/<Module>/`.
+- NebulaStudio et les exemples gardent en-têtes et sources côte à côte dans `src/`. Les classes d'une même
+  fonctionnalité peuvent y avoir leur sous-dossier, nommé comme un module de Core : `NebulaStudio/src/Settings/`. Elles
+  s'incluent alors par ce chemin depuis `src/` : `#include "Settings/SettingsItem.h"` ; une source inclut son propre
+  en-tête par son seul nom.
 - Chaque source, en-tête, gabarit et fichier CMake commence par l'en-tête de licence, suivi d'une ligne vide, avec
   `#` à la place de `//` dans un fichier CMake :
 
@@ -65,14 +65,14 @@ que ce dont il a besoin entier.
 | Membre | `m_` + `camelCase` | `m_component`, `m_linkSource` |
 | Constante, valeur d'énumération | `PascalCase` | `GridStep`, `ComponentState::Running` |
 | Catégorie de journalisation | `lc` + `PascalCase` | `lcComponents` |
-| Espace de noms | `PascalCase` | `AppForge`, `AppForge::Generated` |
-| Macro | `APPFORGE_` + `MAJUSCULES` | `APPFORGE_REGISTER_COMPONENT` |
-| Fonction CMake | `snake_case` préfixée | `appforge_add_plugin()` |
+| Espace de noms | `PascalCase` | `Nebula`, `Nebula::Generated` |
+| Macro | `NEBULA_` + `MAJUSCULES` | `NEBULA_REGISTER_COMPONENT` |
+| Fonction CMake | `snake_case` préfixée | `nebula_add_plugin()` |
 
 - Un accesseur porte le nom de ce qu'il renvoie, sans `get` : `color()`, `setColor()`. Un booléen se lit comme une
   question : `isRunning()`, `canLinkTo()`.
 - Les noms sont en anglais et écrits en entier : `component`, pas `comp`.
-- Core est dans l'espace de noms `AppForge`. Forge et les exemples n'en ont pas.
+- Core est dans l'espace de noms `Nebula`. NebulaStudio et les exemples n'en ont pas.
 - Ce qui ne sert qu'à une source est dans un espace de noms anonyme, en tête de cette source, fermé par
   `} // namespace`.
 
@@ -104,7 +104,7 @@ que ce dont il a besoin entier.
 - Tout texte affiché passe par `tr()`, en anglais. Une classe qui n'est pas un `QObject` le permet avec
   `Q_DECLARE_TR_FUNCTIONS`.
 - Les messages de Core (`errorString()`, journal) sont en anglais et ne sont pas traduits.
-- Journal : `qCWarning(lcComponents)` avec une catégorie `appforge.<module>`, jamais `qDebug()` laissé dans le code.
+- Journal : `qCWarning(lcComponents)` avec une catégorie `nebula.<module>`, jamais `qDebug()` laissé dans le code.
 - `qobject_cast` pour les `QObject`, `qgraphicsitem_cast` pour les items qui déclarent leur `Type`.
 - Un item ou un widget prend ses couleurs dans la palette, pas en dur.
 
@@ -121,13 +121,13 @@ que ce dont il a besoin entier.
 
 ## CMake
 
-- Une cible par dossier, déclarée avec `cmu_add_executable`, `cmu_add_shared_library` ou `appforge_add_plugin`.
+- Une cible par dossier, déclarée avec `cmu_add_executable`, `cmu_add_shared_library` ou `nebula_add_plugin`.
 - Un commentaire au-dessus de ce qui n'est pas évident, comme dans le code.
-- Les cibles se lient par leur alias : `AppForge::Core`, `Qt6::Widgets`.
+- Les cibles se lient par leur alias : `Nebula::Core`, `Qt6::Widgets`.
 
 ## Commits, branches et PR
 
-- Commits en français, préfixés : `feat(Forge): …`, `fix(Forge): …`, `refactor: …`, `docs: …`, `build: …`,
+- Commits en français, préfixés : `feat(NebulaStudio): …`, `fix(NebulaStudio): …`, `refactor: …`, `docs: …`, `build: …`,
   `test: …`. Le titre commence par une majuscule et dit ce qui change ; le corps dit pourquoi et cite l'issue.
 - Une branche par issue, `feat/<n°>-<nom-court>` et de même pour `fix`, `docs`, `refactor` ; une PR vers `main`,
   fusionnée en rebase. Rien ne va directement sur `main`.

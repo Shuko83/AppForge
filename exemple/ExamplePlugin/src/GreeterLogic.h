@@ -5,8 +5,8 @@
 
 #include <QObject>
 
-#include "AppForge/Component/IComponent.h"
 #include "IGreeter.h"
+#include "Nebula/Component/IComponent.h"
 
 class Greeter;
 
@@ -23,7 +23,7 @@ class GreeterLogic : public QObject, public IGreeter
     [[nodiscard]] QString greet(const QString& recipient) const override;
 
   private:
-    void onStateChanged(AppForge::ComponentState state);
+    void onStateChanged(Nebula::ComponentState state);
 
     Greeter& m_greeter;
 };

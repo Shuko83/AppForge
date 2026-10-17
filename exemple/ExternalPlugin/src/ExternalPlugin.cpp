@@ -10,7 +10,7 @@
 #include "Window.h"
 #include "WindowLogic.h"
 
-APPFORGE_PLUGIN(ExternalPlugin);
+NEBULA_PLUGIN(ExternalPlugin);
 
 void ExternalPlugin::build(ProfileSelector& selector)
 {

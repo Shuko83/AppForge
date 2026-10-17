@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 Fabien Di Grande -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+
+<!-- The logo of NebulaStudio: a component forged on an anvil, glowing, with the interfaces NebulaStudio draws on its
+     edges: the one it consumes, a circle on the left, and the one it provides, a disc on the right. nebulastudio.png
+     and nebulastudio.ico are rendered from it. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f4269"/>
+      <stop offset="1" stop-color="#16213a"/>
+    </linearGradient>
+    <linearGradient id="anvil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef2f8"/>
+      <stop offset="1" stop-color="#a3afc2"/>
+    </linearGradient>
+    <linearGradient id="component" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#f77f00"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffa630" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#ffa630" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="url(#background)"/>
+  <circle cx="150" cy="72" r="72" fill="url(#glow)"/>
+
+  <path fill="url(#anvil)" d="M 26 104 Q 56 94 90 94 L 230 94 L 230 126 L 188 126 Q 166 132 162 160 L 198 186
+                              L 202 208 L 68 208 L 72 186 L 110 160 Q 106 134 88 128 Q 58 120 26 104 Z"/>
+
+  <rect x="120" y="48" width="60" height="46" rx="9" fill="url(#component)"/>
+  <circle cx="120" cy="71" r="8" fill="#16213a" stroke="#ffd166" stroke-width="5"/>
+  <circle cx="180" cy="71" r="10" fill="#ffd166"/>
+
+  <g fill="#ffd166">
+    <path d="M 92 22 Q 92 38 108 38 Q 92 38 92 54 Q 92 38 76 38 Q 92 38 92 22 Z"/>
+    <path d="M 214 24 Q 214 34 224 34 Q 214 34 214 44 Q 214 34 204 34 Q 214 34 214 24 Z"/>
+    <path d="M 206 64 Q 206 70 212 70 Q 206 70 206 76 Q 206 70 200 70 Q 206 70 206 64 Z"/>
+  </g>
+</svg>

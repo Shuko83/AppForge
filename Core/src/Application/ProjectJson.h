@@ -13,14 +13,14 @@
 
 class QObject;
 
-namespace AppForge
+namespace Nebula
 {
 class Component;
-} // namespace AppForge
+} // namespace Nebula
 
 // How a project, and a settings file, hold the properties of the components and of their objects: shared by
-// ForgeApplication and SettingsFile.
-namespace AppForge::ProjectJson
+// Universe and SettingsFile.
+namespace Nebula::ProjectJson
 {
 
 // value as JSON holds it; nullopt when it would not be read back as it is, its type being one JSON has nothing for.
@@ -52,4 +52,4 @@ struct ObjectKey
 // an object. None when object is neither.
 [[nodiscard]] QList<QMetaProperty> savedProperties(const Component& component, const QObject* object);
 
-} // namespace AppForge::ProjectJson
+} // namespace Nebula::ProjectJson

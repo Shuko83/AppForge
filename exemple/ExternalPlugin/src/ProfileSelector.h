@@ -5,14 +5,14 @@
 
 #include <QString>
 
-#include "AppForge/Component/Component.h"
+#include "Nebula/Component/Component.h"
 
 class QWidget;
 
 // Lets the user of the application choose a profile among those it offers, in the list of ProfileSelectorLogic, which
 // ExternalPlugin builds it with. It provides the interface "display", a QWidget showing that list: it needs a
 // QApplication. Held by a settings file, its profile is the one the user finds again the next time.
-class ProfileSelector : public AppForge::Component
+class ProfileSelector : public Nebula::Component
 {
     Q_OBJECT
     Q_CLASSINFO("description", "Lets the user choose a profile among those it offers")

@@ -1,19 +1,19 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "AppForge/Component/Component.h"
+#include "Nebula/Component/Component.h"
 
 #include <QLoggingCategory>
 #include <algorithm>
 #include <utility>
 
-namespace AppForge
+namespace Nebula
 {
 
 namespace
 {
 
-Q_LOGGING_CATEGORY(lcComponents, "appforge.components")
+Q_LOGGING_CATEGORY(lcComponents, "nebula.components")
 
 } // namespace
 
@@ -296,4 +296,4 @@ void Component::setState(ComponentState state)
     emit stateChanged(state);
 }
 
-} // namespace AppForge
+} // namespace Nebula

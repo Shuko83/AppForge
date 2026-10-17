@@ -6,7 +6,7 @@
 #include "ExamplePlugin.h"
 #include "IGreeter.h"
 
-APPFORGE_REGISTER_COMPONENT(ExamplePlugin, Greeter);
+NEBULA_REGISTER_COMPONENT(ExamplePlugin, Greeter);
 
 namespace
 {

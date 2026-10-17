@@ -1,4 +1,4 @@
-# Builds AppForge in Release and publishes the GitHub release of a version tag, the three numbers of the version alone
+# Builds Nebula in Release and publishes the GitHub release of a version tag, the three numbers of the version alone
 # (0.2.0): its package as a zip, with the notes of docs/release-notes/<tag>.md. On a pull request that changes this
 # file, nothing is published: the zip is an artifact of the run.
 name: Release
@@ -62,10 +62,10 @@ jobs:
         $version = $match.Matches[0].Groups[1].Value
         # A tag that is not the version would publish binaries and a package that tell another one.
         if ($env:TAG -and $version -ne $env:TAG) {
-          Write-Error "The tag $env:TAG is not the version of the project: project(AppForge VERSION $version)"
+          Write-Error "The tag $env:TAG is not the version of the project: project(Nebula VERSION $version)"
           exit 1
         }
-        "PACKAGE=AppForge-$version-$env:PLATFORM" >> $env:GITHUB_ENV
+        "PACKAGE=Nebula-$version-$env:PLATFORM" >> $env:GITHUB_ENV
 
     - name: Build
       run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
@@ -105,5 +105,5 @@ jobs:
         } else {
           $notes = "docs/release-notes/$($env:TAG).md"
           if (Test-Path $notes) { $notesArguments = '--notes-file', $notes } else { $notesArguments = '--generate-notes' }
-          gh release create $env:TAG $zip --verify-tag --title "AppForge $env:TAG" @notesArguments
+          gh release create $env:TAG $zip --verify-tag --title "Nebula $env:TAG" @notesArguments
         }
