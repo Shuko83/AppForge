@@ -1,5 +1,7 @@
 # 🚀 Nebula
 
+<img src="NebulaStudio/resources/nebula.svg" width="96" alt="The logo of Nebula">
+
 **Nebula** is a C++ framework for building modular applications by assembling dynamic components.
 
 It enables developers to construct software systems by combining reusable building blocks (*components*) provided by extensible plugins. Each component exposes configurable properties and communicates with others through explicit connections.
@@ -250,7 +252,7 @@ It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next t
 
 Its theme is the one of Nebula, space: the night sky and the violets, blues and pinks of a nebula. It is dark or light as the system is, and changes with it while NebulaStudio is open; it is dark when the system does not tell. The names in the edition zone, the titles of the groups of properties and the name on the splash screen are written in [Space Grotesk](https://github.com/floriankarsten/space-grotesk), the rest in the font of the system. Each text and its background, and the edges of what can be used, meet the contrasts of WCAG 2.1 level AA: 4.5 to 1 for a text, 3 to 1 for an edge; so does the title of a zone, written in black or white, whichever contrasts more with its color, and the name of an instance given a color. The zones are added in the colors of the theme, in turn. Its colors are defined once for each scheme, in `NebulaStudio/src/Theme.cpp`, and every window and item takes its own from them.
 
-Its logo, a component forged on an anvil, is the icon of its windows and of their buttons on the taskbar, and, on Windows, the one of `NebulaStudio.exe` in the file explorer and where it is pinned. It is drawn in `NebulaStudio/resources/nebulastudio.svg`.
+The logo of Nebula, a nebula crossed by three astres bound to one another, is on its splash screen, it is the icon of its windows and of their buttons on the taskbar, and, on Windows, the one of `NebulaStudio.exe` in the file explorer and where it is pinned. It is drawn in `NebulaStudio/resources/nebula.svg`. Each term of the [glossary](docs/glossary.md) has its icon as well, drawn in `NebulaStudio/resources/icons/` in the colors of the theme, which read over its dark scheme as over its light one: the Univers on **New**, the Galaxy on **Add zone**, the Astre beside each component of their list, and the Comet on **Add settings file**, **Edit settings file...** and the dialog of a settings file.
 
 ---
 

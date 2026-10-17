@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 Fabien Di Grande -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+
+<!-- Comet, a configuration component loaded at startup: a head and its tail, which fades. In the colors of the zones of
+     the theme, which keep 3 to 1 with the fields of its dark scheme and of its light one. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="tail" gradientUnits="userSpaceOnUse" x1="17" y1="7" x2="3" y2="21">
+      <stop offset="0" stop-color="#EC4899"/>
+      <stop offset="1" stop-color="#EC4899" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#tail)" stroke-linecap="round">
+    <path d="M 14.5 9.5 L 3.5 20.5" stroke-width="2.5"/>
+    <path d="M 13 5.75 L 6.5 12.25" stroke-width="1.75"/>
+    <path d="M 18.25 11 L 11.75 17.5" stroke-width="1.75"/>
+  </g>
+  <circle cx="17" cy="7" r="3.75" fill="#3B82F6"/>
+</svg>

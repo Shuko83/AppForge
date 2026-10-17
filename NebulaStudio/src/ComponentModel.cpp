@@ -7,9 +7,10 @@
 #include <algorithm>
 
 #include "Nebula/Component/ComponentFactory.h"
+#include "Theme.h"
 
 ComponentModel::ComponentModel(const Nebula::ComponentFactory& factory, QObject* parent)
-    : QAbstractTableModel(parent), m_factory(factory)
+    : QAbstractTableModel(parent), m_factory(factory), m_icon(icon(GlossaryTerm::Astre))
 {
 }
 
@@ -37,6 +38,10 @@ QVariant ComponentModel::data(const QModelIndex& index, int role) const
     if(role == Qt::ToolTipRole)
     {
         return component.description;
+    }
+    if(role == Qt::DecorationRole)
+    {
+        return index.column() == Name ? m_icon : QVariant();
     }
     if(role != Qt::DisplayRole)
     {

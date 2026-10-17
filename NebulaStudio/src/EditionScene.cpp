@@ -34,6 +34,7 @@
 #include "Nebula/Component/ComponentFactory.h"
 #include "Settings/SettingsDialog.h"
 #include "Settings/SettingsItem.h"
+#include "Theme.h"
 #include "ZoneItem.h"
 
 namespace
@@ -383,7 +384,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     }
     else if(settings != nullptr)
     {
-        editSettingsFile = menu.addAction(tr("Edit settings file..."));
+        editSettingsFile = menu.addAction(icon(GlossaryTerm::Comet), tr("Edit settings file..."));
         writeDefaultValues = menu.addAction(tr("Write default values"));
         writeDefaultValues->setToolTip(
             tr("Writes the values of the project to the file, in place of those of the user"));
@@ -392,8 +393,8 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     else
     {
         // Not on a component: right-clicking it is about it, and about the zone it is in.
-        add = menu.addAction(tr("Add zone"));
-        addSettingsFile = menu.addAction(tr("Add settings file"));
+        add = menu.addAction(icon(GlossaryTerm::Galaxy), tr("Add zone"));
+        addSettingsFile = menu.addAction(icon(GlossaryTerm::Comet), tr("Add settings file"));
     }
     const QAction* renameZone = nullptr;
     const QAction* recolorZone = nullptr;

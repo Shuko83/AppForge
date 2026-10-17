@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QIcon>
 #include <QList>
 #include <cstdint>
 
@@ -15,7 +16,7 @@ class ComponentFactory;
 }
 
 // The components registered in a ComponentFactory, one row per component, sorted by id. The description of a
-// component is the tool tip of its row, in every column.
+// component is the tool tip of its row, in every column; its name has the icon of an Astre.
 class ComponentModel : public QAbstractTableModel
 {
     Q_OBJECT
@@ -54,4 +55,5 @@ class ComponentModel : public QAbstractTableModel
   private:
     const Nebula::ComponentFactory& m_factory;
     QList<Nebula::ComponentInfo> m_components; // Sorted by id, as ComponentFactory::components()
+    QIcon m_icon;                              // Of every name: one icon keeps its pixmaps for all
 };

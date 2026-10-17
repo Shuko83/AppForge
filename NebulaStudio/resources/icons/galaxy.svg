@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 Fabien Di Grande -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+
+<!-- Galaxy, a group of components: the two arms of a spiral wound around its core, astres along them. In the colors of
+     the zones of the theme, which keep 3 to 1 with the fields of its dark scheme and of its light one. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g transform="rotate(-25 12 12)">
+    <g fill="none" stroke="#6366F1" stroke-width="1.75" stroke-linecap="round">
+      <path d="M 14.75 12 C 14.75 8.25 11.25 6.5 8 7.25 C 4.75 8 2.75 11 3.75 14.25"/>
+      <path d="M 9.25 12 C 9.25 15.75 12.75 17.5 16 16.75 C 19.25 16 21.25 13 20.25 9.75"/>
+    </g>
+    <circle cx="12" cy="12" r="2.5" fill="#EC4899"/>
+    <circle cx="11" cy="4.75" r="1.1" fill="#C026D3"/>
+    <circle cx="13" cy="19.25" r="1.1" fill="#C026D3"/>
+  </g>
+</svg>
