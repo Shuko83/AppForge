@@ -63,7 +63,7 @@ que ce dont il a besoin entier.
 | Fonction, méthode | `camelCase` | `bindInterface()`, `refreshInterfaces()` |
 | Variable, paramètre | `camelCase` | `componentId`, `provider` |
 | Membre | `m_` + `camelCase` | `m_component`, `m_linkSource` |
-| Constante, valeur d'énumération | `PascalCase` | `GridStep`, `ComponentState::Ready` |
+| Constante, valeur d'énumération | `PascalCase` | `GridStep`, `ComponentState::Running` |
 | Catégorie de journalisation | `lc` + `PascalCase` | `lcComponents` |
 | Espace de noms | `PascalCase` | `AppForge`, `AppForge::Generated` |
 | Macro | `APPFORGE_` + `MAJUSCULES` | `APPFORGE_REGISTER_COMPONENT` |

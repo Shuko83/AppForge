@@ -17,9 +17,9 @@ class Component;
 }
 
 // A component instantiated in the edition zone: its name above the name of its component, then its interfaces, one
-// InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. A mark in its
-// corner tells its state: a square once it is initialized, a triangle while it runs. It can be moved and selected.
-// Double-clicking its names edits its name in place, and it can be given a color, which its names are written over.
+// InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. A triangle in
+// its corner tells that it runs. It can be selected, and, while it is editable, moved, and its name edited in place by
+// double-clicking its names. It can be given a color, which its names are written over.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
@@ -38,6 +38,8 @@ class ComponentItem : public QGraphicsObject
     // Edits its name in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. It
     // must be in a scene. See nameEdited().
     void editName();
+    // Whether it can be moved, and its name edited by double-clicking it: it is until told otherwise.
+    void setEditable(bool editable);
 
     [[nodiscard]] QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
@@ -61,6 +63,7 @@ class ComponentItem : public QGraphicsObject
     AppForge::Component& m_component;
     QString m_componentName;
     QColor m_color;
+    bool m_editable = true;
     // Its children.
     QList<InterfaceItem*> m_consumedInterfaces;
     QList<InterfaceItem*> m_providedInterfaces;

@@ -34,6 +34,9 @@ class ZoneItem : public QGraphicsItem
     // Edits its title in place, until Enter is pressed or anything else is clicked; Escape gives the edition up. It
     // must be in a scene.
     void editTitle();
+    // Whether the mouse moves it, resizes it and edits its title: it does until told otherwise. When it does not, it
+    // takes no click, which reaches what is under it.
+    void setEditable(bool editable);
 
     [[nodiscard]] QRectF boundingRect() const override;
     // Its title and its edges only.

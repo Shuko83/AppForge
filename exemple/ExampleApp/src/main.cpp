@@ -17,10 +17,8 @@ QString toString(AppForge::ComponentState state)
 {
     switch(state)
     {
-    case AppForge::ComponentState::Initializing:
-        return QStringLiteral("Initializing");
-    case AppForge::ComponentState::Ready:
-        return QStringLiteral("Ready");
+    case AppForge::ComponentState::Editing:
+        return QStringLiteral("Editing");
     case AppForge::ComponentState::Running:
         return QStringLiteral("Running");
     }
@@ -83,7 +81,6 @@ int main(int argc, char* argv[])
             << (provided.available ? "" : ", unavailable") << '\n';
     }
     greeter->setProperty("recipient", QStringLiteral("AppForge"));
-    greeter->initialize();
     greeter->start();
     out << "  greeting: " << greeter->property("greeting").toString() << '\n';
     greeter->stop();

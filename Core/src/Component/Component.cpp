@@ -31,19 +31,9 @@ ComponentState Component::state() const
     return m_state;
 }
 
-bool Component::initialize()
-{
-    if(m_state != ComponentState::Initializing || !onInitialize())
-    {
-        return false;
-    }
-    setState(ComponentState::Ready);
-    return true;
-}
-
 bool Component::start()
 {
-    if(m_state != ComponentState::Ready || !onStart())
+    if(m_state != ComponentState::Editing || !onStart())
     {
         return false;
     }
@@ -58,12 +48,7 @@ void Component::stop()
         return;
     }
     onStop();
-    setState(ComponentState::Ready);
-}
-
-bool Component::onInitialize()
-{
-    return true;
+    setState(ComponentState::Editing);
 }
 
 bool Component::onStart()

@@ -104,21 +104,25 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
       m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance())),
       m_propertyEditor(new PropertyEditor(m_application, AppForge::ComponentFactory::instance()))
 {
+    // While the application runs, what would replace it is disabled, as is what edits it: see EditionScene. It is
+    // saved with the values of the edition.
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(tr("&New"), QKeySequence::New, this, &MainWindow::newProject);
-    fileMenu->addAction(tr("&Open..."), QKeySequence::Open, this, &MainWindow::openProject);
+    QAction* newAction = fileMenu->addAction(tr("&New"), QKeySequence::New, this, &MainWindow::newProject);
+    QAction* openAction = fileMenu->addAction(tr("&Open..."), QKeySequence::Open, this, &MainWindow::openProject);
     fileMenu->addAction(tr("&Save"), QKeySequence::Save, this, &MainWindow::saveProject);
     fileMenu->addAction(tr("Save &As..."), QKeySequence::SaveAs, this, &MainWindow::saveProjectAs);
 
-    // Start stays enabled while it runs: it starts what was dropped meanwhile.
     QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
-    runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
+    QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
     QAction* stopAction = runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application,
                                              &AppForge::ForgeApplication::stop);
     stopAction->setEnabled(false);
     connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
-            [this, stopAction](bool running)
+            [this, newAction, openAction, startAction, stopAction](bool running)
             {
+                newAction->setEnabled(!running);
+                openAction->setEnabled(!running);
+                startAction->setEnabled(!running);
                 stopAction->setEnabled(running);
                 m_pluginViewer->setUnloadAllowed(!running); // What runs keeps its plugin
             });
@@ -429,11 +433,12 @@ bool MainWindow::saveProjectAs()
 
 void MainWindow::start()
 {
-    const bool wasRunning = m_application.isRunning(); // Then what ran goes on, whatever the others do
+    // The title of a zone, or the name of a component, is no longer edited: what was typed is taken before the
+    // application is no longer edited.
+    m_scene->setFocusItem(nullptr);
     if(!m_application.start())
     {
-        const QString message = wasRunning ? tr("The components dropped since the start cannot be started:\n%1")
-                                           : tr("The application cannot be started:\n%1");
-        QMessageBox::warning(this, tr("Start"), message.arg(m_application.errorString()));
+        QMessageBox::warning(this, tr("Start"),
+                             tr("The application cannot be started:\n%1").arg(m_application.errorString()));
     }
 }

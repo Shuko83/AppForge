@@ -58,8 +58,9 @@ PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, co
                                QWidget* parent)
     : QWidget(parent), m_application(application), m_factory(factory)
 {
-    // Which properties are in italics.
+    // Which properties are in italics, and whether they are edited.
     connect(&m_application, &AppForge::ForgeApplication::settingsFilesChanged, this, &PropertyEditor::rebuild);
+    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this, &PropertyEditor::rebuild);
 
     m_placeholder = new QLabel;
     m_placeholder->setAlignment(Qt::AlignCenter);
@@ -70,7 +71,6 @@ PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, co
     m_table->horizontalHeader()->setSectionResizeMode(NameColumn, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setEditTriggers(QAbstractItemView::AllEditTriggers); // A click on a value edits it
     connect(m_table, &QTableWidget::itemChanged, this, &PropertyEditor::write);
 
     m_stack = new QStackedWidget;
@@ -173,6 +173,9 @@ void PropertyEditor::rebuild()
 
     const QSignalBlocker blocker(m_table); // itemChanged is for the values edited in the table
     m_table->setRowCount(0);               // Closes the editor of a value shown until now
+    // A click on a value edits it, while the application is edited.
+    m_table->setEditTriggers(m_application.isRunning() ? QAbstractItemView::NoEditTriggers
+                                                       : QAbstractItemView::AllEditTriggers);
     m_table->clearSpans();
     m_table->setRowCount(static_cast<int>(m_rows.size()));
     const QMetaMethod refresh = metaObject()->method(metaObject()->indexOfSlot("refreshValues()"));

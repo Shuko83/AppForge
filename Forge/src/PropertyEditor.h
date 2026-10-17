@@ -26,6 +26,8 @@ class ForgeApplication;
 // added with otherwise, one group per name. It only shows the properties it can edit: they can be written and their
 // type has an editor. It follows the changes the component and its objects notify, and the objects it adds or loses.
 // The name of a property a settings file of the application holds is in italics: its value is the default one.
+// While the application runs, it only shows the values: they are edited once it is stopped, which gives them back the
+// values of the edition.
 class PropertyEditor : public QWidget
 {
     Q_OBJECT

@@ -97,6 +97,12 @@ void ComponentItem::editName()
                        Qt::AlignHCenter);
 }
 
+void ComponentItem::setEditable(bool editable)
+{
+    m_editable = editable;
+    setFlag(ItemIsMovable, editable);
+}
+
 QRectF ComponentItem::boundingRect() const
 {
     const qsizetype rows = m_consumedInterfaces.size() + m_providedInterfaces.size();
@@ -134,8 +140,7 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         componentInk.setAlphaF(ComponentNameOpacity);
     }
 
-    // Shapes, as the dots of its interfaces: nothing until it is initialized, then a square, and a triangle while it
-    // runs.
+    // A shape, as the dots of its interfaces: a triangle while it runs, nothing while it is edited.
     const QRectF mark(Names.right() - StateMark, Names.top() + (NameRect.height() - StateMark) / 2, StateMark,
                       StateMark);
     painter->setPen(Qt::NoPen);
@@ -143,10 +148,6 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     if(m_component.state() == AppForge::ComponentState::Running)
     {
         painter->drawPolygon(QPolygonF({mark.topLeft(), mark.bottomLeft(), QPointF(mark.right(), mark.center().y())}));
-    }
-    else if(m_component.state() == AppForge::ComponentState::Ready)
-    {
-        painter->drawRect(mark);
     }
 
     QFont font = painter->font();
@@ -176,7 +177,7 @@ void ComponentItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 
 void ComponentItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
 {
-    if(event->button() == Qt::LeftButton && Header.contains(event->pos()))
+    if(m_editable && event->button() == Qt::LeftButton && Header.contains(event->pos()))
     {
         editName();
     }

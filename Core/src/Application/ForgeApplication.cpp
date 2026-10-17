@@ -299,14 +299,14 @@ QJsonObject ForgeApplication::save() const
         QJsonObject json;
         json.insert(u"name", instance->objectName());
         json.insert(u"type", instance->componentId());
-        json.insert(u"properties", writableProperties(*instance, info ? info->properties : QList<QMetaProperty>()));
+        json.insert(u"properties", savedValues(*instance, info ? info->properties : QList<QMetaProperty>()));
         QJsonArray objects;
         const QList<PropertyObject> propertyObjects = instance->propertyObjects();
         for(const PropertyObject& added : propertyObjects)
         {
             QJsonObject object;
             object.insert(u"name", added.name);
-            object.insert(u"properties", writableProperties(*added.object, added.properties()));
+            object.insert(u"properties", savedValues(*added.object, added.properties()));
             objects.append(object);
         }
         if(!objects.isEmpty())
@@ -373,6 +373,10 @@ QJsonObject ForgeApplication::save() const
 Component* ForgeApplication::instantiate(const QString& componentId, const QString& name)
 {
     const std::optional<ComponentInfo> info = ComponentFactory::instance().component(componentId);
+    if(m_running)
+    {
+        return nullptr;
+    }
     std::unique_ptr<Component> instance = ComponentFactory::instance().create(componentId);
     if(!info || instance == nullptr)
     {
@@ -385,7 +389,7 @@ Component* ForgeApplication::instantiate(const QString& componentId, const QStri
 bool ForgeApplication::rename(Component& instance, const QString& name)
 {
     const Component* named = component(name);
-    if(name.isEmpty() || (named != nullptr && named != &instance))
+    if(m_running || name.isEmpty() || (named != nullptr && named != &instance))
     {
         return false;
     }
@@ -393,16 +397,16 @@ bool ForgeApplication::rename(Component& instance, const QString& name)
     return true;
 }
 
-void ForgeApplication::remove(Component& instance)
+bool ForgeApplication::remove(Component& instance)
 {
     const auto found = std::ranges::find_if(m_components, [&instance](const std::unique_ptr<Component>& owned)
                                             { return owned.get() == &instance; });
-    if(found == m_components.end())
+    if(m_running || found == m_components.end())
     {
-        return;
+        return false;
     }
-    instance.stop(); // Does nothing to one that does not run
     m_components.erase(found);
+    return true;
 }
 
 const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
@@ -489,46 +493,20 @@ SettingsFile* ForgeApplication::settingsFile(const QString& fileName) const
 
 bool ForgeApplication::start()
 {
-    // Once, from the moment it starts: when it runs already, the properties have the values of the user, not those of
-    // the project.
-    const bool starting = !m_running;
-    if(starting)
+    if(m_running)
     {
-        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles)
-        {
-            file->start();
-        }
+        m_errorString.clear();
+        return true;
     }
-    // The properties have their default values again when it does not run.
-    const auto stopSettings = [this, starting]
+    // Before the settings files give the properties the values of the user.
+    keepEditedValues();
+    for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles)
     {
-        if(!starting)
-        {
-            return;
-        }
-        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
-        {
-            file->stop();
-        }
-    };
-
-    // All of them before any is started: one that starts can count on the others being ready.
-    for(const std::unique_ptr<Component>& instance : m_components)
-    {
-        if(instance->state() == ComponentState::Initializing && !instance->initialize())
-        {
-            m_errorString = QStringLiteral("%1 could not be initialized").arg(instance->objectName());
-            stopSettings();
-            return false;
-        }
+        file->start();
     }
     std::vector<Component*> started;
     for(const std::unique_ptr<Component>& instance : m_components)
     {
-        if(instance->state() != ComponentState::Ready)
-        {
-            continue; // It runs already
-        }
         if(!instance->start())
         {
             m_errorString = QStringLiteral("%1 could not be started").arg(instance->objectName());
@@ -536,7 +514,7 @@ bool ForgeApplication::start()
             {
                 running->stop();
             }
-            stopSettings();
+            returnToEdition();
             return false;
         }
         started.push_back(instance.get());
@@ -546,47 +524,15 @@ bool ForgeApplication::start()
     return true;
 }
 
-bool ForgeApplication::start(Component& instance)
-{
-    if(!std::ranges::any_of(m_components,
-                            [&instance](const std::unique_ptr<Component>& owned) { return owned.get() == &instance; }))
-    {
-        m_errorString = QStringLiteral("%1 is not a component of the application").arg(instance.objectName());
-        return false;
-    }
-    if(!m_running)
-    {
-        m_errorString =
-            QStringLiteral("%1 cannot be started while the application does not run").arg(instance.objectName());
-        return false;
-    }
-    if(instance.state() == ComponentState::Initializing && !instance.initialize())
-    {
-        m_errorString = QStringLiteral("%1 could not be initialized").arg(instance.objectName());
-        return false;
-    }
-    if(instance.state() == ComponentState::Ready && !instance.start())
-    {
-        m_errorString = QStringLiteral("%1 could not be started").arg(instance.objectName());
-        return false;
-    }
-    m_errorString.clear();
-    return true;
-}
-
 void ForgeApplication::stop()
 {
     for(const std::unique_ptr<Component>& instance : m_components | std::views::reverse)
     {
         instance->stop(); // Does nothing to one that does not run
     }
-    // Once the components no longer run: what they changed last is written.
     if(m_running)
     {
-        for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
-        {
-            file->stop();
-        }
+        returnToEdition();
     }
     setRunning(false);
 }
@@ -621,6 +567,54 @@ bool ForgeApplication::unloadPlugin(const QString& pluginId)
 QString ForgeApplication::errorString() const
 {
     return m_errorString;
+}
+
+QJsonObject ForgeApplication::savedValues(const QObject& object, const QList<QMetaProperty>& properties) const
+{
+    const auto edited = std::ranges::find(m_editedValues, &object,
+                                          [](const EditedValues& values) -> const QObject* { return values.object; });
+    return edited != m_editedValues.end() ? edited->values : writableProperties(object, properties);
+}
+
+void ForgeApplication::keepEditedValues()
+{
+    m_editedValues.clear();
+    const auto keep = [this](QObject& object, const QList<QMetaProperty>& properties)
+    {
+        m_editedValues.push_back(EditedValues{
+            .object = &object, .properties = properties, .values = writableProperties(object, properties)});
+    };
+    for(const std::unique_ptr<Component>& instance : m_components)
+    {
+        const std::optional<ComponentInfo> info = ComponentFactory::instance().component(instance->componentId());
+        keep(*instance, info ? info->properties : QList<QMetaProperty>());
+        const QList<PropertyObject> objects = instance->propertyObjects();
+        for(const PropertyObject& added : objects)
+        {
+            keep(*added.object, added.properties());
+        }
+    }
+}
+
+void ForgeApplication::returnToEdition()
+{
+    for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
+    {
+        file->stop();
+    }
+    // Once the files wrote what the user changed: it is undone here.
+    for(const EditedValues& edited : m_editedValues)
+    {
+        if(edited.object == nullptr)
+        {
+            continue; // Destroyed while it ran
+        }
+        for(auto value = edited.values.begin(); value != edited.values.end(); ++value)
+        {
+            writeProperty(*edited.object, edited.properties, value.key(), value.value());
+        }
+    }
+    m_editedValues.clear();
 }
 
 bool ForgeApplication::contains(const QString& name) const

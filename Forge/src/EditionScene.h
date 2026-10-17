@@ -32,9 +32,11 @@ class SettingsFile;
 // renames and recolors the component under the cursor too, see ComponentItem. A component keeps a name no other one of
 // the application has: see refused().
 // The same menu removes the component under the cursor from the application, with its links, and the Delete key
-// removes the selected ones. While the application runs, it also starts that component, unless it runs already.
+// removes the selected ones.
 // The menu adds a settings file of the application as well, see SettingsItem, whose properties are chosen at once, and
 // again when it is double-clicked or from its own menu, which writes its default values or removes it.
+// None of this is done while the application runs, see ForgeApplication: its components can still be selected, but
+// nothing is dropped, moved, linked, renamed, recolored, added or removed until it is stopped.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -81,6 +83,12 @@ class EditionScene : public QGraphicsScene
     void drawBackground(QPainter* painter, const QRectF& rect) override;
 
   private:
+    // Whether the application is edited: it does not run.
+    [[nodiscard]] bool isEditable() const;
+    // Lets the mouse move its items, or keeps it from doing so, see isEditable().
+    void setEditable(bool editable);
+    // Tells through refused() that what was asked is not done while the application runs.
+    void refuseWhileRunning();
     // The interface whose dot is at position; nullptr when there is none.
     [[nodiscard]] InterfaceItem* interfaceAt(const QPointF& position) const;
     // The interface the link being drawn would be bound to if released at position; nullptr when there is none.
