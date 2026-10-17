@@ -120,6 +120,7 @@ bool Component::bindInterface(const QString& name, Component& provider, const QS
                 }),
         connect(&provider, &QObject::destroyed, this, [this, name] { unbindInterface(name); }),
     };
+    emit interfacesChanged(); // Bound, before it is told again when it becomes available
     deliverInterface(name);
     return true;
 }
@@ -128,7 +129,7 @@ void Component::unbindInterface(const QString& name)
 {
     withdrawInterface(name);
     const auto consumed = std::ranges::find(m_consumedInterfaces, name, &ConsumedInterface::name);
-    if(consumed == m_consumedInterfaces.end())
+    if(consumed == m_consumedInterfaces.end() || consumed->provider == nullptr)
     {
         return;
     }
@@ -139,6 +140,7 @@ void Component::unbindInterface(const QString& name)
     consumed->connections.clear();
     consumed->provider = nullptr;
     consumed->providedName.clear();
+    emit interfacesChanged();
 }
 
 InterfaceBinding Component::binding(const QString& name) const
@@ -149,6 +151,19 @@ InterfaceBinding Component::binding(const QString& name) const
         return {};
     }
     return {.provider = consumed->provider, .providedName = consumed->providedName};
+}
+
+QStringList Component::unboundMandatoryInterfaces() const
+{
+    QStringList unbound;
+    for(const ConsumedInterface& consumed : m_consumedInterfaces)
+    {
+        if(consumed.requirement == InterfaceRequirement::Mandatory && consumed.provider == nullptr)
+        {
+            unbound.append(consumed.name);
+        }
+    }
+    return unbound;
 }
 
 void Component::addPropertiesForQObject(QObject* object, const QString& name)

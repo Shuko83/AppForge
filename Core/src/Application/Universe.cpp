@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <map>
 #include <ranges>
+#include <utility>
 
 #include "Nebula/Component/ComponentFactory.h"
 #include "ProjectJson.h"
@@ -382,7 +383,9 @@ Component* Universe::instantiate(const QString& componentId, const QString& name
         return nullptr;
     }
     instance->setObjectName(name.isEmpty() || contains(name) ? newName(info->name) : name);
-    return m_components.emplace_back(std::move(instance)).get();
+    Component* instantiated = m_components.emplace_back(std::move(instance)).get();
+    emit componentsChanged();
+    return instantiated;
 }
 
 bool Universe::rename(Component& instance, const QString& name)
@@ -404,7 +407,10 @@ bool Universe::remove(Component& instance)
     {
         return false;
     }
+    // Out of components() before it is destroyed: what its links falling tell can look at the others.
+    const std::unique_ptr<Component> removed = std::move(*found);
     m_components.erase(found);
+    emit componentsChanged();
     return true;
 }
 
@@ -436,7 +442,12 @@ QList<Component*> Universe::componentsOf(const QString& pluginId) const
 void Universe::clear()
 {
     stop();
-    m_components.clear();
+    if(!m_components.empty())
+    {
+        // Out of components() before they are destroyed, as remove() does.
+        const std::vector<std::unique_ptr<Component>> removed = std::exchange(m_components, {});
+        emit componentsChanged();
+    }
     if(!m_settingsFiles.empty())
     {
         m_settingsFiles.clear();

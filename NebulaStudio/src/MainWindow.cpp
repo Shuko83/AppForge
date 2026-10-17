@@ -31,12 +31,14 @@
 #include <cstddef>
 #include <optional>
 
+#include "ComponentItem.h"
 #include "ComponentModel.h"
 #include "ComponentViewer.h"
 #include "EditionScene.h"
 #include "Nebula/Component/ComponentFactory.h"
 #include "PluginModel.h"
 #include "PluginViewer.h"
+#include "ProblemList.h"
 #include "PropertyEditor.h"
 #include "Theme.h"
 
@@ -216,11 +218,28 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     // Nor in the middle of a run, which goes on without the file.
     connect(&m_application, &Nebula::Universe::settingsFileFailed, this, tell);
 
-    // The properties of the component selected in the edition zone, under it; the zone takes the room.
+    // What keeps components from working; activating one shows it, selected, in the middle of the edition zone.
+    auto* problemList = new ProblemList(m_application);
+    connect(problemList, &ProblemList::componentActivated, this,
+            [this](const QString& name)
+            {
+                const Nebula::Component* component = m_application.component(name);
+                const ComponentItem* item = component != nullptr ? m_scene->select(*component) : nullptr;
+                if(item != nullptr)
+                {
+                    m_editionView->centerOn(item);
+                    m_editionView->setFocus(); // The keys are for it, as Delete is
+                }
+            });
+
+    // The properties of the component selected in the edition zone, under it, then the problems; the zone takes the
+    // room.
     auto* editionSplitter = new QSplitter(Qt::Vertical);
     editionSplitter->addWidget(m_editionView);
     editionSplitter->addWidget(m_propertyEditor);
+    editionSplitter->addWidget(problemList);
     editionSplitter->setStretchFactor(0, 1);
+    editionSplitter->setSizes({480, 200, 120});
     auto* edition = new QGroupBox(tr("Application"));
     auto* editionLayout = new QVBoxLayout(edition);
     editionLayout->addWidget(editionSplitter);

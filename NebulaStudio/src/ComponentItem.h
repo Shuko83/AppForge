@@ -7,6 +7,7 @@
 #include <QGraphicsObject>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 class InterfaceItem;
 class NameEditor;
@@ -18,8 +19,10 @@ class Component;
 
 // A component instantiated in the edition zone: its name above the name of its component, then its interfaces, one
 // InterfaceItem per row: those it consumes on its left edge, then those it provides on its right edge. A triangle in
-// its corner tells that it runs. It can be selected, and, while it is editable, moved, and its name edited in place by
-// double-clicking its names. It can be given a color, which its names are written over.
+// its top right corner tells that it runs. An exclamation mark in its top left corner tells that it does not work: an
+// interface it cannot do without is bound to nothing, see Component::unboundMandatoryInterfaces(); its tooltip names
+// them and tells how to bind them. It can be selected, and, while it is editable, moved, and its name edited in place
+// by double-clicking its names. It can be given a color, which its names are written over.
 class ComponentItem : public QGraphicsObject
 {
     Q_OBJECT
@@ -57,11 +60,13 @@ class ComponentItem : public QGraphicsObject
   private:
     // Whether its name is being edited in place.
     [[nodiscard]] bool isNameEdited() const;
-    // Shows the interfaces of the component as they are now: it only ever declares more of them.
+    // Shows the interfaces of the component as they are now: it only ever declares more of them. Then whether it
+    // works.
     void refreshInterfaces();
 
     Nebula::Component& m_component;
     QString m_componentName;
+    QStringList m_unbound; // Component::unboundMandatoryInterfaces(), as refreshInterfaces() last read them
     QColor m_color;
     bool m_editable = true;
     // Its children.

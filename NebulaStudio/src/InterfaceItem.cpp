@@ -17,6 +17,7 @@
 #include "ComponentItem.h"
 #include "LinkItem.h"
 #include "Nebula/Component/InterfaceInfo.h"
+#include "Theme.h"
 
 namespace
 {
@@ -88,22 +89,44 @@ bool InterfaceItem::canLinkTo(const InterfaceItem& other) const
     return m_kind != other.m_kind && m_type == other.m_type && &component() != &other.component();
 }
 
+QString InterfaceItem::typeName(QMetaType type)
+{
+    // The type is the one of the pointer: what it points to is the interface.
+    QString name = QString::fromLatin1(type.name());
+    if(name.endsWith(u'*'))
+    {
+        name.chop(1);
+    }
+    return name;
+}
+
 void InterfaceItem::setAvailable(bool available)
 {
     m_available = available;
-    // The type is the one of the pointer: what it points to is the interface.
-    QString typeName = QString::fromLatin1(m_type.name());
-    if(typeName.endsWith(u'*'))
-    {
-        typeName.chop(1);
-    }
+    refreshToolTip();
+}
+
+void InterfaceItem::setMissing(bool missing)
+{
+    m_missing = missing;
+    refreshToolTip();
+}
+
+void InterfaceItem::refreshToolTip()
+{
     // What it is, which tells what it can be bound to: the other kind, of the same type.
-    QString what = (m_kind == Kind::Provided ? tr("Provides %1") : tr("Consumes %1")).arg(typeName);
+    QString what = (m_kind == Kind::Provided ? tr("Provides %1") : tr("Consumes %1")).arg(typeName(m_type));
     if(m_mandatory)
     {
         what += u'\n' + tr("Mandatory: the component does not work without it");
     }
-    setToolTip(QStringLiteral("%1\n%2").arg(what, m_available ? tr("Available") : tr("Unavailable")));
+    QString state = m_available ? tr("Available") : tr("Unavailable");
+    if(m_missing)
+    {
+        state += u'\n' + tr("Bound to nothing: drag from this dot to a %1 interface another component provides")
+                             .arg(typeName(m_type));
+    }
+    setToolTip(QStringLiteral("%1\n%2").arg(what, state));
     update();
 }
 
@@ -153,8 +176,9 @@ void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*o
     // The colors of the component, as ComponentItem paints them over the background of the edition zone. Opaque: the
     // colors of a style can be translucent, which would let the edge of the component show through the dot.
     const QColor background = over(palette.color(QPalette::Button), palette.color(QPalette::Base));
+    // In the warning color while the component misses it, which the asterisk after its name tells without color.
     // Dimmed, it fades into the component, but stays opaque over its edge.
-    QColor ink = palette.color(QPalette::ButtonText);
+    QColor ink = m_missing ? currentThemeColors().warning : palette.color(QPalette::ButtonText);
     ink.setAlphaF(m_dimmed ? ink.alphaF() * DimmedOpacity : ink.alphaF());
     const QColor color = over(ink, background);
 

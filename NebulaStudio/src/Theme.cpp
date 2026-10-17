@@ -29,6 +29,8 @@ const ThemeColors Dark = {
     .onAccent = QColor(0x0D0B1E),
     .link = QColor(0x8AB4FF),
     .visitedLink = QColor(0xF49AD3),
+    .warning = QColor(0xFBBF24),
+    .onWarning = QColor(0x0D0B1E),
 };
 
 // Its dawn.
@@ -45,6 +47,8 @@ const ThemeColors Light = {
     .onAccent = QColor(0xFFFFFF),
     .link = QColor(0x1D4ED8),
     .visitedLink = QColor(0xA21C6B),
+    .warning = QColor(0x9A4A00),
+    .onWarning = QColor(0xFFFFFF),
 };
 
 // The roles of the palette in the colors of a scheme, the same whether its window is active or not.
@@ -96,6 +100,11 @@ void applyColorScheme(Qt::ColorScheme scheme)
 const ThemeColors& themeColors(Qt::ColorScheme scheme)
 {
     return scheme == Qt::ColorScheme::Light ? Light : Dark;
+}
+
+const ThemeColors& currentThemeColors()
+{
+    return themeColors(QGuiApplication::styleHints()->colorScheme());
 }
 
 void applyTheme()

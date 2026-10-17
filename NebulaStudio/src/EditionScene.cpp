@@ -102,6 +102,21 @@ Nebula::Component* EditionScene::selectedComponent() const
     return item != nullptr ? &item->component() : nullptr;
 }
 
+ComponentItem* EditionScene::select(const Nebula::Component& component)
+{
+    clearSelection();
+    for(QGraphicsItem* item : items())
+    {
+        auto* componentItem = qobject_cast<ComponentItem*>(item->toGraphicsObject());
+        if(componentItem != nullptr && &componentItem->component() == &component)
+        {
+            componentItem->setSelected(true);
+            return componentItem;
+        }
+    }
+    return nullptr;
+}
+
 QJsonObject EditionScene::save() const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name

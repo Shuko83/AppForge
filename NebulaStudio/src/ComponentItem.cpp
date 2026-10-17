@@ -32,6 +32,10 @@ constexpr QRectF Names = Header.adjusted(Padding, Padding, -Padding, -Padding);
 // Its name leaves the corner to the mark, and as much on its left to stay centered.
 constexpr qreal MarkWidth = StateMark + Padding / 2;
 constexpr QRectF NameRect(Names.left() + MarkWidth, Names.top(), Names.width() - 2 * MarkWidth, Names.height() / 2);
+// The mark of a component that does not work, in the top left corner of its names, as wide as the room left there:
+// a disc, larger than the mark of its state for the exclamation mark written in it to be read.
+constexpr qreal WarningMark = MarkWidth;
+constexpr int WarningMarkFontSize = 10; // In pixels
 // How much of the color of its name the name of its component keeps over the color of an item, as it is fainter over
 // the ones of the style.
 constexpr float ComponentNameOpacity = 0.7F;
@@ -54,7 +58,6 @@ ComponentItem::ComponentItem(Nebula::Component& component, QString componentName
     : m_component(component), m_componentName(std::move(componentName))
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
-    setToolTip(m_component.componentId());
 
     connect(&m_component, &Nebula::Component::interfacesChanged, this, &ComponentItem::refreshInterfaces);
     connect(&m_component, &Nebula::Component::stateChanged, this, [this] { update(); }); // Its mark
@@ -152,6 +155,24 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     }
 
     const QFont font = painter->font();
+    // In the corner across, while it does not work: an exclamation mark, which tells it without color, in a disc of the
+    // warning color, outlined in the one of the item to stand apart from the color it was given.
+    if(!m_unbound.isEmpty())
+    {
+        const ThemeColors& colors = currentThemeColors();
+        const QRectF warning(Names.left(), Names.top() + (NameRect.height() - WarningMark) / 2, WarningMark,
+                             WarningMark);
+        painter->setPen(QPen(palette.color(QPalette::Button), 1));
+        painter->setBrush(colors.warning);
+        painter->drawEllipse(warning);
+        QFont markFont = font;
+        markFont.setBold(true);
+        markFont.setPixelSize(WarningMarkFontSize);
+        painter->setFont(markFont);
+        painter->setPen(colors.onWarning);
+        painter->drawText(warning, Qt::AlignCenter, QStringLiteral("!"));
+    }
+
     if(!isNameEdited()) // Its name is otherwise the text being edited
     {
         const QFont title = titleFont(font);
@@ -214,4 +235,23 @@ void ComponentItem::refreshInterfaces()
     // On the edges drawn by paint(), one pixel inside its bounds.
     refresh(m_consumedInterfaces, m_component.consumedInterfaces(), InterfaceItem::Kind::Consumed, Header.left() + 1);
     refresh(m_providedInterfaces, m_component.providedInterfaces(), InterfaceItem::Kind::Provided, Header.right() - 1);
+
+    // Whether it works: what it misses is drawn in the warning color, and told by its mark and its tooltip.
+    const QStringList unbound = m_component.unboundMandatoryInterfaces();
+    for(InterfaceItem* consumed : std::as_const(m_consumedInterfaces))
+    {
+        consumed->setMissing(unbound.contains(consumed->name()));
+    }
+    QString toolTip = m_component.componentId();
+    if(!unbound.isEmpty())
+    {
+        toolTip += u'\n' + tr("Does not work: %1 bound to nothing").arg(unbound.join(QStringLiteral(", "))) + u'\n' +
+                   tr("Drag from the dot of each to an interface of its type another component provides");
+    }
+    setToolTip(toolTip);
+    if(unbound != m_unbound)
+    {
+        m_unbound = unbound;
+        update(); // Its mark
+    }
 }
