@@ -127,6 +127,16 @@ que ce dont il a besoin entier.
 - Un commentaire au-dessus de ce qui n'est pas évident, comme dans le code.
 - Les cibles se lient par leur alias : `Nebula::Core`, `Qt6::Widgets`.
 
+## Tests
+
+Décrits dans [docs/testing.md](docs/testing.md). L'essentiel :
+
+- Qt Test, un exécutable `Test<Classe>` par classe testée, dans `tests/<module>/`, ajouté par `nebula_add_test()`.
+- Piloté par les données dès qu'un comportement se vérifie sur plusieurs entrées : `<fonction>_data()`, une ligne
+  nommée par cas, cas limites compris.
+- `QTest::failOnWarning()` dans `init()`, `QTest::ignoreMessage()` pour un avertissement attendu.
+- Une classe ajoutée ou un comportement changé l'est avec ses tests, dans la même PR.
+
 ## Commits, branches et PR
 
 - Commits en français, préfixés : `feat(NebulaStudio): …`, `fix(NebulaStudio): …`, `refactor: …`, `docs: …`, `build: …`,

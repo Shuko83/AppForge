@@ -24,3 +24,10 @@ add_subdirectory(Core)
 add_subdirectory(NebulaStudio)
 add_subdirectory(exemple)
 
+# The QTest executables of tests/, run by ctest from the build directory: see docs/testing.md.
+option(NEBULA_BUILD_TESTS "Build the tests of Nebula" ON)
+if(NEBULA_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
