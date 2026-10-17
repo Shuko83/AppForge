@@ -18,6 +18,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `CMakeUtils/` | sous-module git | `cmu_add_target` / `cmu_add_executable` / `cmu_add_shared_library` |
 | `docs/release-notes/` | — | Notes de chaque version, `<x.y.z>.md` : le texte de sa release GitHub |
 | `docs/glossary.md` | — | Glossaire Nebula (Nebula, Univers, Galaxy, Astre, Comet), en anglais puis en français, référencé par le README : le vocabulaire à employer pour nommer code, documentation et interface ; Nebula et Univers (la classe `Universe`) sont déjà employés |
+| `tests/` | `Test<Classe>` dans `<build>/tests/bin[/<config>]` | Tests Qt Test, pilotés par les données : `nebula_add_test()` dans `tests/CMakeLists.txt`, `Core/` et `NebulaStudio/` (Colors, Theme, PluginModel, ComponentModel, sources recompilées), et `Components/`, bibliothèque statique `TestComponents` (`Probe`, `Source`, `Sink`, `Panel`) enregistrée dans le processus du test par `registerTestComponents()` sous l'id de plugin `Test`. `PluginManager` se teste sur `ExamplePlugin` et `ExternalPlugin`. Rien n'est installé |
+| `docs/testing.md` | — | Lancer, déboguer et écrire les tests, en français |
 | `CFmake/` | non suivi, dépôt à part | Ne fait pas partie du build : ne pas y toucher |
 
 ## Build
@@ -34,7 +36,9 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - Sorties : `<build>/bin[/<config>]`, plugins dans `plugins/` à côté. Extension `.nbdl`, seule scannée.
 - `add_dependencies(NebulaStudio ExamplePlugin ExternalPlugin)`, de même pour `ExampleUniverseApp` : construire l'un
   reconstruit les plugins du dépôt.
-- Pas de cible de test. CI : Windows, MSVC 2022, Qt 6.8, Release. `release.yml` fait la même compilation sur un tag
+- Tests : `tests/`, un exécutable Qt Test par classe, lancés par `ctest -C <config>` depuis le build (option
+  `NEBULA_BUILD_TESTS`, `ON` par défaut), voir [docs/testing.md](docs/testing.md). CI : Windows, MSVC 2022, Qt 6.8,
+  Release, puis `ctest`. `release.yml` fait la même compilation sur un tag
   de version (`0.2.0`) et publie la release (voir Process) ; sur une PR qui le modifie, il s'exécute sans rien publier et dépose le zip
   en artefact.
 - C++ récent requis (concepts, `std::ranges`, initialiseurs désignés, `std::type_identity_t`).
@@ -211,16 +215,18 @@ de NebulaStudio (`SpaceGrotesk-OFL.txt`). Seule la graisse Bold sert : en ajoute
 - Pas de suppression d'un lien seul dans NebulaStudio (`unbindInterface` n'y est pas utilisé) : un lien ne part qu'avec
   l'un de ses composants, ou remplacé par un autre.
 - Pas d'annulation : un composant supprimé l'est sans confirmation, avec ses propriétés et ses liens.
-- Aucun composant d'exemple ne refuse de démarrer : le chemin d'erreur de `start()` n'a pas été exercé.
+- Aucun composant d'exemple ne refuse de démarrer : le chemin d'erreur de `start()` n'est exercé que par les tests
+  (`Probe`), pas dans NebulaStudio.
 - Le verrouillage pendant l'exécution n'est complet que dans NebulaStudio : Core refuse `instantiate()`, `rename()` et
   `remove()`, mais pas `Component::bindInterface()` ni les changements de fichiers de réglages.
-- Pas de tests automatisés. Le paquet non plus n'est vérifié par rien : ni projet tiers d'exemple dans le dépôt, ni
-  étape de CI qui en compile un.
+- Tests : rien pour `MainWindow`, la scène et ses items, les fenêtres (`PropertyEditor`, `SettingsDialog`…), ni
+  `NebulaPlugin.cmake`. Le paquet n'est vérifié par rien : ni projet tiers d'exemple dans le dépôt, ni étape de CI qui
+  en compile un.
 - Composants non opérationnels : **Start** ne les signale pas et ne refuse rien ; seuls le « ! », l'ambre et
   `ProblemList` les montrent.
 - Fichiers de réglages : pas de fenêtre « Préférences » générique où l'utilisateur final éditerait tout un fichier
   (chaque composant montre les siens), pas de partage d'une même valeur entre deux instances, et le cas de plusieurs
-  objets de même nom dans un composant (`index` d'une entrée) n'a été exercé par aucun exemple.
+  objets de même nom dans un composant (`index` d'une entrée) n'est exercé que par les tests (`Panel`).
 
 ## Pièges
 
@@ -241,6 +247,11 @@ de NebulaStudio (`SpaceGrotesk-OFL.txt`). Seule la graisse Bold sert : en ajoute
   remet sur `QEvent::PaletteChange`. Une couleur en dur, hors des jetons de `Theme.cpp`, ne suit pas le schéma et n'est
   pas vérifiée contre les WCAG.
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
+- Une propriété `QDate`, `QTime` ou `QDateTime` nulle ne fait pas l'aller-retour JSON (`ProjectJson::toJson()`) : tant
+  qu'elle l'est, un projet ne l'écrit pas et `SettingsFile::canHold()` la refuse. Les composants de test ont donc des
+  dates valides par défaut.
+- Sous Windows, sans console, Qt n'envoie ses messages (le journal de QTest compris) qu'au débogueur :
+  `QT_FORCE_STDERR_LOGGING=1` les fait écrire sur la sortie d'erreur, ce que `nebula_add_test()` donne à CTest.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
 - Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
   `Ticker`, `value` compris, qui change à chaque tic, et que `stop()` remet donc à sa valeur d'édition (`ticks`, en
