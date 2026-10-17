@@ -39,6 +39,8 @@ It enables developers to construct software systems by combining reusable buildi
 | Project    | A full application definition |
 | Settings file | The properties of instances whose values the user keeps from one run to the next |
 
+The common vocabulary of the framework, Nebula, Univers, Galaxy, Astre and Comet, is defined in the [glossary](docs/glossary.md), with the name each of these notions has in the code today.
+
 ---
 
 ## 🔌 Writing a Plugin
