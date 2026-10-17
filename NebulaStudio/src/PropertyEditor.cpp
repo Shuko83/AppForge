@@ -3,6 +3,7 @@
 
 #include "PropertyEditor.h"
 
+#include <QEvent>
 #include <QHeaderView>
 #include <QLabel>
 #include <QMetaMethod>
@@ -18,6 +19,7 @@
 #include "Nebula/Application/Universe.h"
 #include "Nebula/Component/Component.h"
 #include "Nebula/Component/ComponentFactory.h"
+#include "Theme.h"
 
 namespace
 {
@@ -97,6 +99,23 @@ void PropertyEditor::setComponent(Nebula::Component* component)
         connect(component, &Nebula::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
     }
     rebuild();
+}
+
+void PropertyEditor::changeEvent(QEvent* event)
+{
+    QWidget::changeEvent(event);
+    if(event->type() != QEvent::PaletteChange)
+    {
+        return;
+    }
+    const QSignalBlocker blocker(m_table); // itemChanged is for the values edited in the table
+    for(int row = 0; row < m_table->rowCount(); ++row)
+    {
+        if(!m_rows.at(row).property.isValid())
+        {
+            m_table->item(row, NameColumn)->setBackground(palette().alternateBase());
+        }
+    }
 }
 
 void PropertyEditor::refreshValues()
@@ -186,10 +205,8 @@ void PropertyEditor::rebuild()
         {
             auto* title = new QTableWidgetItem(shown.title);
             title->setFlags(Qt::ItemIsEnabled);
-            QFont font = title->font();
-            font.setBold(true);
-            title->setFont(font);
-            title->setBackground(palette().alternateBase());
+            title->setFont(titleFont(title->font()));
+            title->setBackground(palette().alternateBase()); // Again when the palette changes
             m_table->setItem(row, NameColumn, title);
             m_table->setSpan(row, NameColumn, 1, ColumnCount);
             continue;

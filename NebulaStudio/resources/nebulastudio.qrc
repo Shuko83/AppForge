@@ -4,5 +4,6 @@
 <RCC version="1.0">
     <qresource prefix="/">
         <file>nebulastudio.png</file>
+        <file>fonts/SpaceGrotesk-Bold.ttf</file>
     </qresource>
 </RCC>

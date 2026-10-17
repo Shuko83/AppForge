@@ -16,6 +16,7 @@
 #include "InterfaceItem.h"
 #include "NameEditor.h"
 #include "Nebula/Component/Component.h"
+#include "Theme.h"
 
 namespace
 {
@@ -150,17 +151,16 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         painter->drawPolygon(QPolygonF({mark.topLeft(), mark.bottomLeft(), QPointF(mark.right(), mark.center().y())}));
     }
 
-    QFont font = painter->font();
+    const QFont font = painter->font();
     if(!isNameEdited()) // Its name is otherwise the text being edited
     {
-        font.setBold(true);
-        painter->setFont(font);
+        const QFont title = titleFont(font);
+        painter->setFont(title);
         painter->setPen(nameInk);
         painter->drawText(NameRect, Qt::AlignCenter,
-                          QFontMetricsF(font).elidedText(m_component.objectName(), Qt::ElideRight, NameRect.width()));
+                          QFontMetricsF(title).elidedText(m_component.objectName(), Qt::ElideRight, NameRect.width()));
     }
 
-    font.setBold(false);
     painter->setFont(font);
     painter->setPen(componentInk);
     painter->drawText(componentRect, Qt::AlignCenter,

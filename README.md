@@ -230,7 +230,7 @@ NebulaStudio then edits the properties the object declares with `Q_PROPERTY`, ba
 
 `NebulaStudio` is the application that assembles applications from the components of the plugins, live.
 
-It starts with a splash screen, in the colors of the system: the version of Nebula, the Qt and the compiler NebulaStudio was built with and when, its copyright and its license. Its main window takes its place after two seconds, or as soon as it is clicked.
+It starts with a splash screen, in the colors of its theme: the version of Nebula, the Qt and the compiler NebulaStudio was built with and when, its copyright and its license. Its main window takes its place after two seconds, or as soon as it is clicked.
 
 For now, it lists:
 
@@ -247,6 +247,8 @@ For now, it lists:
 `ExternalPlugin`, opened with **Open plugin...** from `<build>/external-plugins` (`<build>/external-plugins/<config>` with Visual Studio), or listed from the start with `NebulaStudio --plugin-dir <that directory>`, has a pair to bind: the `display` a `Ticker` provides and the `content` a `Window` consumes, which it shows in a window. Its `ProfileSelector` provides a `display` too, the list of its `profiles` in which the user chooses its `profile`: once a settings file holds that `profile`, the application shows the one chosen the next time it runs.
 
 It is built in `<build>/bin` (`<build>/bin/<config>` with Visual Studio), next to the plugins.
+
+Its theme is the one of Nebula, space: the night sky and the violets, blues and pinks of a nebula. It is dark or light as the system is, and changes with it while NebulaStudio is open; it is dark when the system does not tell. The names in the edition zone, the titles of the groups of properties and the name on the splash screen are written in [Space Grotesk](https://github.com/floriankarsten/space-grotesk), the rest in the font of the system. Each text and its background, and the edges of what can be used, meet the contrasts of WCAG 2.1 level AA: 4.5 to 1 for a text, 3 to 1 for an edge; so does the title of a zone, written in black or white, whichever contrasts more with its color, and the name of an instance given a color. The zones are added in the colors of the theme, in turn. Its colors are defined once for each scheme, in `NebulaStudio/src/Theme.cpp`, and every window and item takes its own from them.
 
 Its logo, a component forged on an anvil, is the icon of its windows and of their buttons on the taskbar, and, on Windows, the one of `NebulaStudio.exe` in the file explorer and where it is pinned. It is drawn in `NebulaStudio/resources/nebulastudio.svg`.
 
@@ -410,4 +412,4 @@ This summary does not replace the [license](LICENSE). Each source file carries a
 
 > This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-The license covers the files of this repository: Qt and the `CMakeUtils` submodule are separate works, under their own terms.
+The license covers the files of this repository: Qt and the `CMakeUtils` submodule are separate works, under their own terms. So is Space Grotesk, the font of the titles of NebulaStudio, which `NebulaStudio.exe` holds: it is under the [SIL Open Font License 1.1](NebulaStudio/resources/fonts/OFL.txt), copied next to NebulaStudio in the package.

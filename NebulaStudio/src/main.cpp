@@ -7,10 +7,12 @@
 
 #include "MainWindow.h"
 #include "SplashScreen.h"
+#include "Theme.h"
 
 int main(int argc, char* argv[])
 {
     const QApplication app(argc, argv);
+    applyTheme(); // Before the splash screen, which is painted in its colors
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/nebulastudio.png"))); // Of all its windows, and on the taskbar
 
     QCommandLineParser parser;

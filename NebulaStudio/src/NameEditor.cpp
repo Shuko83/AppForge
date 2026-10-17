@@ -3,18 +3,17 @@
 
 #include "NameEditor.h"
 
-#include <QFont>
 #include <QKeyEvent>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <utility>
 
+#include "Theme.h"
+
 NameEditor::NameEditor(QGraphicsItem& parent, std::function<void(const QString&)> named)
     : QGraphicsTextItem(&parent), m_named(std::move(named))
 {
-    QFont bold = font();
-    bold.setBold(true);
-    setFont(bold);
+    setFont(titleFont(font())); // The one the name is painted in
     setTextInteractionFlags(Qt::TextEditorInteraction);
     hide(); // Until a name is edited
     connect(document(), &QTextDocument::contentsChanged, this, [this] { place(); });

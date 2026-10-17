@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "NebulaStudio_info.h"
+#include "Theme.h"
 
 namespace
 {
@@ -45,10 +46,9 @@ QPixmap picture()
 {
     const QPalette palette = QApplication::palette();
     const QFont font = QApplication::font();
-    QFont titleFont = font;
-    titleFont.setPointSizeF(font.pointSizeF() * TitleScale);
-    titleFont.setBold(true);
-    const int titleHeight = QFontMetrics(titleFont).height();
+    QFont nameFont = titleFont(font);
+    nameFont.setPointSizeF(font.pointSizeF() * TitleScale);
+    const int titleHeight = QFontMetrics(nameFont).height();
     const int lineHeight = QFontMetrics(font).lineSpacing();
 
     // Under the band, one per line; an empty one leaves a line's space.
@@ -83,7 +83,7 @@ QPixmap picture()
         return y + height;
     };
     painter.setPen(palette.color(QPalette::HighlightedText));
-    painter.setFont(titleFont);
+    painter.setFont(nameFont);
     const int taglineTop = drawLine(Margin, titleHeight, fromInfo(NebulaStudioInfo::product));
     painter.setFont(font);
     drawLine(taglineTop, lineHeight, SplashScreen::tr("Build modular applications by assembling components"));

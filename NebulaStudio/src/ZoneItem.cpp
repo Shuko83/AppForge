@@ -17,6 +17,7 @@
 #include "ComponentItem.h"
 #include "NameEditor.h"
 #include "Settings/SettingsItem.h"
+#include "Theme.h"
 
 namespace
 {
@@ -132,8 +133,7 @@ void ZoneItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*option
     {
         return; // Its title is the text being edited
     }
-    QFont font = painter->font();
-    font.setBold(true);
+    const QFont font = titleFont(painter->font());
     painter->setFont(font);
     painter->setPen(textColorOver(m_color));
     const QRectF title = titleRect();
