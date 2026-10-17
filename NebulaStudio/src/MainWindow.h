@@ -12,11 +12,11 @@
 class ComponentModel;
 class ComponentViewer;
 class EditionScene;
+class EditionView;
 class PluginModel;
 class PluginViewer;
 class PropertyEditor;
 class QCommandLineParser;
-class QGraphicsView;
 class QTreeView;
 
 // Lists the plugins of <application directory>/plugins, and of the directories given on its command line, and the
@@ -25,8 +25,8 @@ class QTreeView;
 // their category (Ctrl+F). Between them, the edition zone, where a component dropped from its list is instantiated,
 // above the editor of the properties of the one selected there, and the list of what keeps components from working,
 // see ProblemList. Its File menu saves what is in the edition zone to a
-// project file, and opens it again; its Run menu starts the application assembled there, which is not edited while it
-// runs, and stops it.
+// project file, and opens it again; its View menu zooms the edition zone in and out, at the zoom level its status bar
+// tells; its Run menu starts the application assembled there, which is not edited while it runs, and stops it.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -80,8 +80,8 @@ class MainWindow : public QMainWindow
     QJsonObject m_savedProject;     // What m_scene saved when m_projectFile was set
     PluginModel* m_pluginModel = nullptr;
     QTreeView* m_pluginView = nullptr;
-    EditionScene* m_scene = nullptr;        // Of m_application
-    QGraphicsView* m_editionView = nullptr; // Shows m_scene
+    EditionScene* m_scene = nullptr;      // Of m_application
+    EditionView* m_editionView = nullptr; // Shows m_scene
     PluginViewer* m_pluginViewer = nullptr;
     ComponentModel* m_componentModel = nullptr;
     ComponentViewer* m_componentViewer = nullptr;
