@@ -40,6 +40,10 @@ class PropertyEditor : public QWidget
     // Shows the editable properties of component; none when it is nullptr.
     void setComponent(Nebula::Component* component);
 
+  protected:
+    // Gives the titles of the groups the background of the palette when it changes, as the color scheme does.
+    void changeEvent(QEvent* event) override;
+
   private slots:
     // Shows the values the properties have now. A slot: their notify signals are only known as QMetaMethod.
     void refreshValues();

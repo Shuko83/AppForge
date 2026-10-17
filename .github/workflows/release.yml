@@ -79,6 +79,8 @@ jobs:
         # Not installed by the build: the licenses the files of the package are under, and how to use them.
         Copy-Item LICENSE, README.md -Destination $prefix
         Copy-Item CMakeUtils/LICENSE -Destination "$prefix/Core/cmake/CMakeUtils"
+        # The font of its titles is in NebulaStudio.exe: its license goes with it.
+        Copy-Item NebulaStudio/resources/fonts/OFL.txt -Destination "$prefix/NebulaStudio/SpaceGrotesk-OFL.txt"
 
     - name: Zip the package
       working-directory: dist

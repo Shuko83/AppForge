@@ -106,7 +106,9 @@ que ce dont il a besoin entier.
 - Les messages de Core (`errorString()`, journal) sont en anglais et ne sont pas traduits.
 - Journal : `qCWarning(lcComponents)` avec une catégorie `nebula.<module>`, jamais `qDebug()` laissé dans le code.
 - `qobject_cast` pour les `QObject`, `qgraphicsitem_cast` pour les items qui déclarent leur `Type`.
-- Un item ou un widget prend ses couleurs dans la palette, pas en dur.
+- Un item ou un widget prend ses couleurs dans la palette, pas en dur. Celles de NebulaStudio sont les jetons de son
+  thème, définis dans `NebulaStudio/src/Theme.cpp` pour le schéma sombre et le clair ; un jeton ajouté ou changé y
+  garde le niveau AA des WCAG avec ce qu'il côtoie : 4,5 pour un texte, 3 pour un bord.
 
 ## Commentaires
 

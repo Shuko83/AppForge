@@ -18,6 +18,7 @@
 #include "Nebula/Component/Component.h"
 #include "Nebula/Settings/SettingsFile.h"
 #include "Settings/SettingsLinkItem.h"
+#include "Theme.h"
 
 namespace
 {
@@ -108,13 +109,12 @@ void SettingsItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     painter->drawPath(outline);
     painter->drawPolyline(QPolygonF({foldStart, QPointF(foldStart.x(), foldEnd.y()), foldEnd}));
 
-    QFont font = painter->font();
-    font.setBold(true);
-    painter->setFont(font);
+    const QFont font = painter->font();
+    const QFont title = titleFont(font);
+    painter->setFont(title);
     painter->setPen(palette.color(QPalette::Text));
     painter->drawText(NameRect, Qt::AlignCenter,
-                      QFontMetricsF(font).elidedText(m_file.fileName(), Qt::ElideMiddle, NameRect.width()));
-    font.setBold(false);
+                      QFontMetricsF(title).elidedText(m_file.fileName(), Qt::ElideMiddle, NameRect.width()));
     painter->setFont(font);
     painter->setPen(palette.color(QPalette::PlaceholderText));
     painter->drawText(KindRect, Qt::AlignCenter, tr("Settings file"));

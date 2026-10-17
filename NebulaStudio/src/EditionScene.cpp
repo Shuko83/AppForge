@@ -46,8 +46,9 @@ constexpr QRectF SceneRect(0, 0, 4000, 3000);
 constexpr QRectF HintRect(GridStep, GridStep, 600, 2 * GridStep);
 // A zone as it is added: room for a few components, until it is resized.
 constexpr QSizeF ZoneSize(16 * GridStep, 10 * GridStep);
-// The colors the zones are added with, in turn, which tells them apart until theirs is chosen.
-constexpr std::array<QRgb, 6> ZoneColors = {0x4E79A7, 0xF28E2B, 0x59A14F, 0xE15759, 0xB07AA1, 0x76B7B2};
+// The colors the zones are added with, in turn, which tells them apart until theirs is chosen: those of a nebula,
+// violet, blue, pink, cyan, magenta and indigo, which their titles contrast with, in black or white, as WCAG AA asks.
+constexpr std::array<QRgb, 6> ZoneColors = {0x7C3AED, 0x3B82F6, 0xEC4899, 0x06B6D4, 0xC026D3, 0x6366F1};
 
 // Accepts a drag carrying a component, as a copy: the component stays in its list. Not while the application is not
 // editable.
