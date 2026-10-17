@@ -38,7 +38,6 @@ class CORE_EXPORT Component : public QObject, public IComponent
     [[nodiscard]] ComponentState state() const override;
 
     // Each call returns false, without calling its hook, when the current state does not allow it.
-    bool initialize() override;
     bool start() override;
     void stop() override;
 
@@ -106,8 +105,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // Does nothing, with a warning, when object is nullptr, the component itself, or already added.
     void addPropertiesForQObject(QObject* object, const QString& name = {});
 
-    // Returning false from onInitialize() or onStart() leaves the state unchanged.
-    virtual bool onInitialize();
+    // Returning false from onStart() leaves the state unchanged.
     virtual bool onStart();
     virtual void onStop();
 
@@ -155,7 +153,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     void setState(ComponentState state);
 
     QString m_componentId; // Set by ComponentFactory
-    ComponentState m_state = ComponentState::Initializing;
+    ComponentState m_state = ComponentState::Editing;
     QList<ProvidedInterface> m_providedInterfaces; // In the order they were declared
     QList<ConsumedInterface> m_consumedInterfaces; // In the order they were declared
     QList<PropertyObject> m_propertyObjects;       // In the order they were added

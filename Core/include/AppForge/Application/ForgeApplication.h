@@ -5,7 +5,10 @@
 
 #include <QDir>
 #include <QJsonObject>
+#include <QList>
+#include <QMetaProperty>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <memory>
@@ -25,6 +28,9 @@ namespace AppForge
 // An application assembled from the components of the plugins, which it runs. It owns the instances of its components,
 // each named, as its objectName, after its component and a number, e.g. Greeter1. It is read from a project file, as
 // Forge writes them, see README.md, or assembled with instantiate() and Component::bindInterface().
+// It is either edited or running, as its components are. While it runs, it is not assembled: its components are
+// neither instantiated, renamed nor removed. What changes their properties meanwhile, its settings files or its
+// components themselves, is undone once it stops: they have the values of the edition again, the ones save() writes.
 // Its settings files hold the properties its user changes while it runs, and finds again the next time: see
 // SettingsFile.
 // It needs a QCoreApplication, and a QApplication as soon as one of its components shows a widget.
@@ -65,18 +71,19 @@ class CORE_EXPORT ForgeApplication : public QObject
     // read, nothing being changed then, and when anything could not be restored.
     bool open(const QString& filePath);
     // Its components as a project: its "version", the "plugins" they are from, the "components" with their properties
-    // and their "bindings", and its "settings" files when it has some.
+    // and their "bindings", and its "settings" files when it has some. While it runs, the properties have the values
+    // they had when it started, those of the edition.
     [[nodiscard]] QJsonObject save() const;
 
-    // Creates componentId, in the Initializing state; nullptr when it is not registered. It is named name, as one read
-    // from a project is, unless name is empty or the name of another instance.
+    // Creates componentId, in the Editing state; nullptr when it is not registered, or while it runs. It is named name,
+    // as one read from a project is, unless name is empty or the name of another instance.
     Component* instantiate(const QString& componentId, const QString& name = {});
     // Names instance, one of its components, name: what component() finds it by, and a project holds it as. Returns
-    // false, changing nothing, when name is empty or the name of another instance.
+    // false, changing nothing, when name is empty or the name of another instance, and while it runs.
     bool rename(Component& instance, const QString& name);
-    // Stops instance, one of its components, and destroys it: nothing may refer to it any longer. What was bound to
-    // its interfaces is unbound from them. Does nothing when it is not one of its components.
-    void remove(Component& instance);
+    // Destroys instance, one of its components: nothing may refer to it any longer. What was bound to its interfaces
+    // is unbound from them. Returns false, doing nothing, when it is not one of its components, and while it runs.
+    bool remove(Component& instance);
     // In the order they were instantiated.
     [[nodiscard]] const std::vector<std::unique_ptr<Component>>& components() const;
     // The one named name; nullptr when none is.
@@ -99,21 +106,15 @@ class CORE_EXPORT ForgeApplication : public QObject
     // The one of its settings files named fileName, whatever its case; nullptr when none is.
     [[nodiscard]] SettingsFile* settingsFile(const QString& fileName) const;
 
-    // Gives the properties its settings files hold their values, unless it runs already, then initializes the
-    // components that are not yet, and starts those that do not run, in the order they were instantiated: called
-    // again while it runs, it starts those instantiated meanwhile. Returns false, with errorString() set, when one
-    // refuses: those this call started are stopped again, those that ran already go on; when it did not run, its
-    // settings files are stopped again too.
+    // Keeps the values the properties of its components, and of their objects, have: those of the edition. Then gives
+    // the properties its settings files hold the values of their files, and starts its components, in the order they
+    // were instantiated. Returns false, with errorString() set, when one refuses: those it started are stopped again,
+    // and it is edited again, as stop() leaves it. Returns true, doing nothing, while it runs.
     bool start();
-    // While it runs, initializes instance, one of its components, unless it is already, then starts it unless it
-    // runs: one instantiated meanwhile, say. Returns false, with errorString() set, when it does not run, nothing being
-    // started then, when instance refuses, or is not one of its components.
-    bool start(Component& instance);
-    // Stops the components that run, the last one instantiated first, then its settings files: their properties have
-    // their default values again.
+    // Stops its components, the last one instantiated first, then its settings files, which write the values of the
+    // user, and gives the properties the values of the edition again. Does nothing while it does not run.
     void stop();
-    // Whether start() was called with success, and stop() not since. A component instantiated meanwhile waits until
-    // it is started, by start() again or start(instance).
+    // Whether start() was called with success, and stop() not since.
     [[nodiscard]] bool isRunning() const;
 
     // Removes its components of the plugin pluginId, as remove() does, then unloads it, see PluginManager::unload().
@@ -121,7 +122,7 @@ class CORE_EXPORT ForgeApplication : public QObject
     // unloaded, its components being removed all the same.
     bool unloadPlugin(const QString& pluginId);
 
-    // Why open(), one of the start() or unloadPlugin() returned false.
+    // Why open(), start() or unloadPlugin() returned false.
     [[nodiscard]] QString errorString() const;
 
   signals:
@@ -132,6 +133,22 @@ class CORE_EXPORT ForgeApplication : public QObject
     void settingsFileFailed(const QString& why);
 
   private:
+    // The properties a project holds of one of its components, or of one of their objects, with the values they had
+    // when it started.
+    struct EditedValues
+    {
+        QPointer<QObject> object; // nullptr once it is destroyed
+        QList<QMetaProperty> properties;
+        QJsonObject values; // By name
+    };
+
+    // The properties a project holds of object, among properties: those of the edition while it runs.
+    [[nodiscard]] QJsonObject savedValues(const QObject& object, const QList<QMetaProperty>& properties) const;
+    // Keeps the values of the edition, see EditedValues.
+    void keepEditedValues();
+    // Once its components no longer run: stops its settings files, then gives the properties the values of the
+    // edition again, and forgets them.
+    void returnToEdition();
     // Whether an instance is named name.
     [[nodiscard]] bool contains(const QString& name) const;
     // componentName and the first number no instance is named with.
@@ -145,6 +162,7 @@ class CORE_EXPORT ForgeApplication : public QObject
     std::vector<std::unique_ptr<Component>> m_components;
     std::vector<std::unique_ptr<SettingsFile>> m_settingsFiles; // Destroyed first: their entries are of m_components
     bool m_running = false;
+    std::vector<EditedValues> m_editedValues; // While it runs, in the order of the components and of their objects
     QString m_errorString;
 };
 

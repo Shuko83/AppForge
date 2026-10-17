@@ -68,8 +68,8 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 - `ComponentFactory` (singleton `instance()`) : `components()`, `component(id)`, `create(id)` qui renvoie un
   `unique_ptr<Component>` et fixe `m_componentId`, `remove(pluginId)` qui oublie les composants d'un plugin.
   `ComponentInfo` est lu depuis le `QMetaObject` : `Q_CLASSINFO` `description` / `category`, et les propriétés à partir de `Component::staticMetaObject.propertyCount()`.
-- États : `Initializing` → `initialize()` → `Ready` → `start()` → `Running` → `stop()` → `Ready`. Crochets
-  `onInitialize()` / `onStart()` (peuvent refuser) / `onStop()`. Signal `stateChanged`.
+- Deux modes : `Editing` (à la création : propriétés réglées, interfaces liées) → `start()` → `Running` →
+  `stop()` → `Editing`. Crochets `onStart()` (peut refuser) / `onStop()`. Signal `stateChanged`.
 - Interfaces, typées par `QMetaType::fromType<T*>()`, pointeurs stockés en `void*` :
   - `provideInterface<T>(nom[, pointeur])` (protégé) : déclare, fournit, ou retire avec `nullptr`. Remplacer émet
     `interfaceUnavailable` puis `interfaceAvailable`.
@@ -90,7 +90,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   application. Possède un `PluginManager` (`plugins()`, scanne `plugins/` à la construction) et les instances
   (`unique_ptr<Component>`), nommées `Greeter1`, `Greeter2`… dans `objectName`. `rename(instance, nom)` renomme en
   gardant les noms uniques et non vides : c'est par son nom qu'un projet et `component(nom)` désignent une instance.
-  `remove(instance)` l'arrête puis la détruit ; ses liens tombent à sa destruction (`releaseInterfaces()` pour ce
+  `remove(instance)` la détruit ; ses liens tombent à sa destruction (`releaseInterfaces()` pour ce
   qu'elle consomme, signal `destroyed` pour ceux qui consomment ce qu'elle fournit).
 - Projet : `read(fichier, erreur)` statique (lecture + contrôle de version), `load(json)` qui renvoie la liste de ce
   qui n'a pas pu être restauré, `open(fichier)` = les deux, strict (`false` au moindre problème), `save()` qui écrit
@@ -104,11 +104,14 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   `PluginManager::scan()`), puis fixe la racine. Forge (par `MainWindow`, avant de remplir ses modèles) et
   `ExampleForgeApp` s'en servent, avant toute ouverture de projet.
 - Les liens ne sont pas mémorisés par l'application : `save()` les lit avec `Component::binding(nom)`.
-- Exécution : `start()` initialise tout ce qui est `Initializing`, puis démarre tout ce qui est `Ready`, dans l'ordre
-  d'instanciation ; au premier refus il arrête ce que cet appel a démarré. Rappelé pendant l'exécution, il démarre ce
-  qui a été instancié entre-temps, sans toucher à ce qui tourne. `start(instance)` initialise puis démarre une seule
-  instance, et refuse quand l'application ne tourne pas. `stop()` arrête dans l'ordre inverse. `isRunning()` / `runningChanged`.
-  `clear()` et le destructeur arrêtent d'abord. Un composant instancié en cours d'exécution attend d'être démarré.
+- Exécution : `start()` mémorise les valeurs d'édition (`keepEditedValues()` : pour chaque composant et chacun de ses
+  `propertyObjects()`, un `EditedValues {QPointer, propriétés, JSON}` de ce qu'écrit un projet), démarre les fichiers
+  de réglages, puis les composants dans l'ordre d'instanciation ; au premier refus il arrête ce qu'il a démarré et
+  revient à l'édition. Rappelé pendant l'exécution, il ne fait rien. `stop()` arrête dans l'ordre inverse, puis
+  `returnToEdition()` arrête les fichiers de réglages et réécrit toutes les valeurs d'édition (`writeProperty()`).
+  Pendant l'exécution, `save()` écrit ces valeurs-là (`savedValues()`), et `instantiate()` / `rename()` / `remove()`
+  refusent ; les liens et les fichiers de réglages ne sont verrouillés que par Forge. `isRunning()` / `runningChanged`.
+  `clear()`, `load()` et le destructeur arrêtent d'abord.
 - Déchargement : `componentsOf(pluginId)` liste les instances d'un plugin ; `unloadPlugin(pluginId)` les supprime puis
   appelle `PluginManager::unload()`, et refuse (`errorString()`) pendant l'exécution.
 - Fichiers de réglages (module `Settings` : `include/AppForge/Settings/SettingsFile.h`, `src/Settings/`) : ce que
@@ -121,7 +124,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
   et des `SettingsEntry {component, object, property}`, `object` étant le composant ou un de ses `propertyObjects()` ;
   une propriété n'est que dans un fichier (`ForgeApplication::settingsFile(entry)`), seulement celles qu'un projet
   enregistre (`canHold()`), et une entrée part à la destruction de son objet (`destroyed`). `start()` (à la transition
-  vers « en cours » seulement) lit chaque fichier avant le premier `initialize()`, l'écrit avec les valeurs du projet
+  vers « en cours » seulement) lit chaque fichier avant de démarrer le premier composant, l'écrit avec les valeurs du projet
   s'il manque ou est incomplet, met de côté en `.bak` un fichier illisible, puis suit les NOTIFY (écriture regroupée
   par `QTimer::singleShot(0)`) ; `stop()` écrit une dernière fois et remet les valeurs du projet, mémorisées au
   `start()`. Le contenu inconnu d'un fichier est conservé. Problèmes : `SettingsFile::failed` →
@@ -141,15 +144,15 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | `MainWindow` | Possède la `ForgeApplication` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `ForgeApplication::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Barre d'état : `refused` et `told` de la scène, `settingsFileFailed` de l'application. Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
 | `ComponentModel` / `ComponentViewer` | Liste des composants (Name, Category, Plugin ; la description en infobulle), glissables au format `application/x-appforge-component` (id en UTF-8), et fiche avec toutes les propriétés ; `refresh()` insère les composants enregistrés depuis et retire ceux d'un plugin déchargé. La vue la montre à travers un `QSortFilterProxyModel` créé par `MainWindow` : barre de recherche (Ctrl+F), sans casse, sur la colonne et le rôle de la liste déroulante à côté (`SearchFields` dans `MainWindow.cpp`) : Name en `DisplayRole` (nom), Name en `ToolTipRole` (description), Category en `DisplayRole` (catégorie). Un rôle d'index de la vue se lit donc à travers le proxy (`data()`), pas de `row()` à passer au modèle |
-| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, des fichiers de réglages (**Add settings file** ouvre aussitôt sa fenêtre ; sur l'un d'eux : éditer, **Write default values** sauf pendant l'exécution, supprimer) et du composant sous le curseur (démarrer par `ForgeApplication::start(instance)`, actif seulement pendant l'exécution, renommer, couleur, supprimer), double-clic sur un fichier de réglages = `SettingsDialog` (ouvert par `open()`, pas `exec()`), touche Suppr = suppression des composants et fichiers sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()` / `removeSettingsFile()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signaux `refused(why)` quand un nom est refusé ou un fichier non écrit, `told(what)` quand il l'est, affichés par `MainWindow` dans la barre d'état |
-| `ComponentItem` | `QGraphicsObject` déplaçable et sélectionnable ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien, carré = `Ready`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
+| `EditionScene` | `QGraphicsScene` 4000×3000, grille de 20 : dépôt = `ForgeApplication::instantiate()`, tracé des liens entre points d'interface (`Component::bindInterface()`), menu contextuel des zones, des fichiers de réglages (**Add settings file** ouvre aussitôt sa fenêtre ; sur l'un d'eux : éditer, **Write default values**, supprimer) et du composant sous le curseur (renommer, couleur, supprimer), double-clic sur un fichier de réglages = `SettingsDialog` (ouvert par `open()`, pas `exec()`), touche Suppr = suppression des composants et fichiers sélectionnés sauf pendant l'édition d'un nom (`remove()` détruit l'item, donc ses liens, avant `ForgeApplication::remove()` / `removeSettingsFile()`), `selectedComponent()` ; `remove(liste)` public pour le déchargement d'un plugin ; `save()` / `load()` / `reset()` pour les projets ; signaux `refused(why)` quand un nom est refusé ou un fichier non écrit, `told(what)` quand il l'est, affichés par `MainWindow` dans la barre d'état. Verrouillée pendant l'exécution (`isEditable()`, suit `runningChanged`) : `setEditable()` passe à chaque item (`ComponentItem::setEditable()`, `ItemIsMovable` d'un `SettingsItem`, `ZoneItem::setEditable()`), pas de dépôt ni de tracé de lien, double-clic sur un fichier de réglages ignoré, menu contextuel et Suppr remplacés par `refuseWhileRunning()` ; la sélection reste |
+| `ComponentItem` | `QGraphicsObject` sélectionnable, déplaçable tant qu'il est éditable (`setEditable()`) ; reconstruit ses `InterfaceItem` sur `interfacesChanged` ; marque d'état dans le coin, redessinée sur `stateChanged` (rien = `Editing`, triangle = `Running`) ; couleur optionnelle (`color()` invalide = couleurs du style), opacité comprise, peinte derrière ses noms seulement ; `editName()` édite le nom sur place (double-clic sur les noms, s'il est éditable) et émet `nameEdited`, que la scène applique par `ForgeApplication::rename()` |
 | `NameEditor` | `QGraphicsTextItem` enfant d'un item, pour éditer son nom sur place (titre d'une zone, nom d'un composant) : Entrée ou un clic ailleurs valide, Échap abandonne. `Colors.h` : `over()`, une couleur translucide vue sur un fond, et `textColorOver()`, noir ou blanc selon le fond |
 | `InterfaceItem` | Point sur le bord (consommée à gauche, fournie à droite), `Type = UserType + 1`, `canLinkTo()`, infobulle, estompage ; connaît ses `LinkItem` |
 | `LinkItem` | Courbe entre deux points, Z = -1, se supprime avec le premier `InterfaceItem` détruit ; `curve()` statique sert aussi au lien en cours de tracé |
-| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants et fichiers de réglages par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords |
+| `ZoneItem` | Zone colorée titrée, `Type = UserType + 2`, Z = -aire ; déplacement par le titre avec son contenu (composants et fichiers de réglages par leur centre, zones entières), redimensionnement par les bords, édition du titre sur place ; sa `shape()` ne couvre que titre et bords ; `setEditable(false)` lui retire boutons et survol |
 | `SettingsItem` / `SettingsLinkItem` | `QGraphicsObject` d'un `SettingsFile` : feuille au coin plié, nom du fichier, infobulle (chemin, propriétés tenues) ; refait ses `SettingsLinkItem` (traits pointillés de centre à centre, Z = -1, dans la scène et non enfants, détruits avec lui) sur `SettingsFile::changed` et à son ajout à la scène, et les suit par `xChanged` / `yChanged` des deux items |
 | `SettingsDialog` | Nom, dossier (chemin résultant affiché, ou pourquoi le nom est refusé : vide, ou celui d'un autre fichier, OK alors grisé) et arbre composant → groupe d'objet → propriétés que `SettingsFile::canHold()` accepte, à cocher ; celles d'un autre fichier sont désactivées avec son nom ; les groupes d'objets ne sont ouverts que s'ils ont une propriété tenue ; appliqué au `accepted` |
-| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages ; suit les signaux NOTIFY, `propertyObjectsChanged` et `settingsFilesChanged` |
+| `PropertyEditor` | `QTableWidget` des propriétés inscriptibles de type bool, int, uint, double, QString, QDate, QTime, QDateTime : celles du composant, puis celles de ses `propertyObjects()` (sans `objectName`), sans nom à la suite, avec nom sous une ligne de titre par nom ; nom en italique pour une propriété tenue par un fichier de réglages ; suit les signaux NOTIFY, `propertyObjectsChanged`, `settingsFilesChanged` et `runningChanged` : en lecture seule pendant l'exécution (`NoEditTriggers`) |
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
@@ -174,18 +177,20 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
   déclarées par `ForgeApplication::addCommandLineOptions()` dans `main.cpp`, appliquées par `MainWindow`).
 - Les dialogues partent de `scene/` à côté de `Forge.exe` (`defaultProjectDirectory()`, créé au premier
   **Save As...**), ou du dossier du fichier du projet quand il en a un.
-- Menu **Run** : **Start** (F5) appelle `ForgeApplication::start()` et affiche `errorString()` en cas de refus ; il
-  reste actif pendant l'exécution pour démarrer ce qui a été déposé entre-temps. **Stop** (Maj+F5) appelle `stop()` ;
-  son activation suit `runningChanged`. Comme `stop()` remet les valeurs du projet aux propriétés tenues par un
-  fichier de réglages, celles-ci ne rendent pas le projet « modifié ».
+- Menu **Run** : **Start** (F5) valide d'abord un nom en cours d'édition (`setFocusItem(nullptr)`), appelle
+  `ForgeApplication::start()` et affiche `errorString()` en cas de refus. **Stop** (Maj+F5) appelle `stop()`. Leur
+  activation suit `runningChanged`, comme celle de **New** et **Open...**, désactivés pendant l'exécution. Comme
+  `stop()` remet les valeurs d'édition et que `save()` les écrit pendant l'exécution, faire tourner l'application ne
+  rend pas le projet « modifié ».
 
 ## Pas encore fait
 
 - Pas de suppression d'un lien seul dans Forge (`unbindInterface` n'y est pas utilisé) : un lien ne part qu'avec
   l'un de ses composants, ou remplacé par un autre.
 - Pas d'annulation : un composant supprimé l'est sans confirmation, avec ses propriétés et ses liens.
-- Rien ne verrouille l'édition pendant l'exécution, et aucun composant d'exemple ne refuse de démarrer : le
-  chemin d'erreur de `start()` n'a pas été exercé.
+- Aucun composant d'exemple ne refuse de démarrer : le chemin d'erreur de `start()` n'a pas été exercé.
+- Le verrouillage pendant l'exécution n'est complet que dans Forge : Core refuse `instantiate()`, `rename()` et
+  `remove()`, mais pas `Component::bindInterface()` ni les changements de fichiers de réglages.
 - Pas de tests automatisés. Le paquet non plus n'est vérifié par rien : ni projet tiers d'exemple dans le dépôt, ni
   étape de CI qui en compile un.
 - Fichiers de réglages : pas de fenêtre « Préférences » générique où l'utilisateur final éditerait tout un fichier
@@ -209,8 +214,9 @@ l'icône de toutes les fenêtres : `QApplication::setWindowIcon()` au début de 
 - Un composant ne peut pas être `final`, a besoin d'un constructeur par défaut et de `Q_OBJECT`.
 - `Ticker` et `Window` ont besoin d'un `QApplication` (widgets) : pas utilisables dans `ExampleApp`.
 - Tout ce qu'un objet ajouté par `addPropertiesForQObject()` a d'inscriptible est enregistré : pour l'afficheur du
-  `Ticker`, `value` compris, qui change à chaque tic. Un projet qui a tourné est donc « modifié ». C'est aussi ce que
-  propose la fenêtre d'un fichier de réglages : toutes les propriétés d'un `QWidget`.
+  `Ticker`, `value` compris, qui change à chaque tic, et que `stop()` remet donc à sa valeur d'édition (`ticks`, en
+  lecture seule, n'est pas remis). C'est aussi ce que propose la fenêtre d'un fichier de réglages : toutes les
+  propriétés d'un `QWidget`.
 - Un fichier de réglages range les valeurs sous le nom des instances : renommer une instance laisse ce que
   l'utilisateur lui avait donné sous l'ancien nom, et elle repart des valeurs du projet. Lancée depuis Forge, une
   application dont le fichier n'a pas de dossier écrit dans `AppConfigLocation` de Forge, pas dans celui de

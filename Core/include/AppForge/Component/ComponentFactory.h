@@ -40,7 +40,7 @@ class CORE_EXPORT ComponentFactory
     [[nodiscard]] QList<ComponentInfo> components() const;
     [[nodiscard]] std::optional<ComponentInfo> component(const QString& componentId) const;
 
-    // Has its plugin build a component, in the Initializing state; nullptr when componentId is not registered.
+    // Has its plugin build a component, in the Editing state; nullptr when componentId is not registered.
     [[nodiscard]] std::unique_ptr<Component> create(const QString& componentId) const;
 
   private:

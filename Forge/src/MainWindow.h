@@ -24,7 +24,8 @@ class QTreeView;
 // from anywhere on the disk, and the components are searched for by a part of their name, of their description or of
 // their category (Ctrl+F). Between them, the edition zone, where a component dropped from its list is instantiated,
 // above the editor of the properties of the one selected there. Its File menu saves what is in the edition zone to a
-// project file, and opens it again; its Run menu starts the application assembled there, and stops it.
+// project file, and opens it again; its Run menu starts the application assembled there, which is not edited while it
+// runs, and stops it.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT

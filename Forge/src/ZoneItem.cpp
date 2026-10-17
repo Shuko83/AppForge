@@ -84,6 +84,20 @@ void ZoneItem::editTitle()
     m_titleEditor->edit(m_title, textColorOver(m_color), titleRect(), Qt::AlignLeft);
 }
 
+void ZoneItem::setEditable(bool editable)
+{
+    setAcceptedMouseButtons(editable ? Qt::AllButtons : Qt::NoButton);
+    setAcceptHoverEvents(editable);
+    unsetCursor(); // The one of an edge it is over, which would no longer be updated
+    if(!editable)
+    {
+        // Let go of, should it be dragged: the button still held would move it on.
+        m_moving = false;
+        m_followers.clear();
+        m_resizedEdges = {};
+    }
+}
+
 QRectF ZoneItem::boundingRect() const
 {
     return {QPointF(0, 0), m_size};

@@ -13,10 +13,10 @@
 namespace AppForge
 {
 
+// The two modes of a component.
 enum class ComponentState : std::uint8_t
 {
-    Initializing, // Created by ComponentFactory: its properties can be set
-    Ready,        // Initialized
+    Editing, // As ComponentFactory created it, and once stopped: its properties are set and its interfaces bound
     Running,
 };
 
@@ -30,11 +30,9 @@ class IComponent
     [[nodiscard]] virtual QString componentId() const = 0;
     [[nodiscard]] virtual ComponentState state() const = 0;
 
-    // Initializing -> Ready
-    virtual bool initialize() = 0;
-    // Ready -> Running
+    // Editing -> Running
     virtual bool start() = 0;
-    // Running -> Ready
+    // Running -> Editing
     virtual void stop() = 0;
 
     // The interfaces it provides, and those it consumes, each in the order it declared them.

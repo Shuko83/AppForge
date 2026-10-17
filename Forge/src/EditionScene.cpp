@@ -14,7 +14,6 @@
 #include <QKeyEvent>
 #include <QList>
 #include <QMenu>
-#include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
 #include <QPalette>
@@ -50,10 +49,11 @@ constexpr QSizeF ZoneSize(16 * GridStep, 10 * GridStep);
 // The colors the zones are added with, in turn, which tells them apart until theirs is chosen.
 constexpr std::array<QRgb, 6> ZoneColors = {0x4E79A7, 0xF28E2B, 0x59A14F, 0xE15759, 0xB07AA1, 0x76B7B2};
 
-// Accepts a drag carrying a component, as a copy: the component stays in its list.
-void acceptComponent(QGraphicsSceneDragDropEvent& event)
+// Accepts a drag carrying a component, as a copy: the component stays in its list. Not while the application is not
+// editable.
+void acceptComponent(QGraphicsSceneDragDropEvent& event, bool editable)
 {
-    if(event.mimeData()->hasFormat(ComponentModel::MimeType))
+    if(editable && event.mimeData()->hasFormat(ComponentModel::MimeType))
     {
         event.setDropAction(Qt::CopyAction);
         event.accept();
@@ -89,6 +89,8 @@ EditionScene::EditionScene(AppForge::ForgeApplication& application, const AppFor
                            QObject* parent)
     : QGraphicsScene(SceneRect, parent), m_application(application), m_factory(factory)
 {
+    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
+            [this](bool running) { setEditable(!running); });
 }
 
 AppForge::Component* EditionScene::selectedComponent() const
@@ -246,12 +248,12 @@ void EditionScene::remove(const QList<AppForge::Component*>& components)
 
 void EditionScene::dragEnterEvent(QGraphicsSceneDragDropEvent* event)
 {
-    acceptComponent(*event);
+    acceptComponent(*event, isEditable());
 }
 
 void EditionScene::dragMoveEvent(QGraphicsSceneDragDropEvent* event)
 {
-    acceptComponent(*event);
+    acceptComponent(*event, isEditable());
 }
 
 void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
@@ -276,7 +278,8 @@ void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
 
 void EditionScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
 {
-    InterfaceItem* source = event->button() == Qt::LeftButton ? interfaceAt(event->scenePos()) : nullptr;
+    InterfaceItem* source =
+        isEditable() && event->button() == Qt::LeftButton ? interfaceAt(event->scenePos()) : nullptr;
     if(source == nullptr)
     {
         QGraphicsScene::mousePressEvent(event);
@@ -325,7 +328,7 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     m_pendingLink = nullptr;
     dimLinkTargets(nullptr);
     QToolTip::hideText();
-    if(target != nullptr)
+    if(target != nullptr && isEditable()) // Not when it was started while the link was drawn
     {
         link(*source, *target);
     }
@@ -334,7 +337,8 @@ void EditionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 
 void EditionScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
 {
-    SettingsItem* settings = event->button() == Qt::LeftButton ? settingsAt(event->scenePos()) : nullptr;
+    SettingsItem* settings =
+        isEditable() && event->button() == Qt::LeftButton ? settingsAt(event->scenePos()) : nullptr;
     if(settings == nullptr)
     {
         QGraphicsScene::mouseDoubleClickEvent(event);
@@ -351,11 +355,16 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
+    if(!isEditable())
+    {
+        refuseWhileRunning(); // Everything it does edits the application
+        event->accept();
+        return;
+    }
     ComponentItem* component = componentAt(event->scenePos());
     SettingsItem* settings = component == nullptr ? settingsAt(event->scenePos()) : nullptr;
     ZoneItem* zone = zoneAt(event->scenePos());
     QMenu menu(event->widget());
-    QAction* startComponent = nullptr;
     const QAction* renameComponent = nullptr;
     const QAction* recolorComponent = nullptr;
     QAction* uncolorComponent = nullptr;
@@ -367,11 +376,6 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     const QAction* addSettingsFile = nullptr;
     if(component != nullptr)
     {
-        // Only while the application runs: one dropped meanwhile; otherwise, Start starts them all.
-        startComponent = menu.addAction(tr("Start component"));
-        startComponent->setEnabled(m_application.isRunning() &&
-                                   component->component().state() != AppForge::ComponentState::Running);
-        menu.addSeparator();
         renameComponent = menu.addAction(tr("Rename component"));
         recolorComponent = menu.addAction(tr("Change component color..."));
         uncolorComponent = menu.addAction(tr("Reset component color"));
@@ -384,7 +388,6 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
         writeDefaultValues = menu.addAction(tr("Write default values"));
         writeDefaultValues->setToolTip(
             tr("Writes the values of the project to the file, in place of those of the user"));
-        writeDefaultValues->setEnabled(!m_application.isRunning()); // The properties have the values of the user
         removeSettingsFile = menu.addAction(tr("Remove settings file"));
     }
     else
@@ -410,15 +413,7 @@ void EditionScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     {
         return;
     }
-    if(chosen == startComponent)
-    {
-        if(!m_application.start(component->component()))
-        {
-            QMessageBox::warning(event->widget(), tr("Start"),
-                                 tr("The component cannot be started:\n%1").arg(m_application.errorString()));
-        }
-    }
-    else if(chosen == renameComponent)
+    if(chosen == renameComponent)
     {
         component->editName();
     }
@@ -490,6 +485,12 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
         QGraphicsScene::keyPressEvent(event);
         return;
     }
+    if(!isEditable())
+    {
+        refuseWhileRunning();
+        event->accept();
+        return;
+    }
     QList<ComponentItem*> removed;
     QList<SettingsItem*> removedSettings;
     const QList<QGraphicsItem*> selected = selectedItems();
@@ -515,6 +516,35 @@ void EditionScene::keyPressEvent(QKeyEvent* event)
         remove(*component);
     }
     event->accept();
+}
+
+bool EditionScene::isEditable() const
+{
+    return !m_application.isRunning();
+}
+
+void EditionScene::setEditable(bool editable)
+{
+    for(QGraphicsItem* item : items())
+    {
+        if(auto* component = qobject_cast<ComponentItem*>(item->toGraphicsObject()))
+        {
+            component->setEditable(editable);
+        }
+        else if(auto* settings = qobject_cast<SettingsItem*>(item->toGraphicsObject()))
+        {
+            settings->setFlag(QGraphicsItem::ItemIsMovable, editable);
+        }
+        else if(auto* zone = qgraphicsitem_cast<ZoneItem*>(item))
+        {
+            zone->setEditable(editable);
+        }
+    }
+}
+
+void EditionScene::refuseWhileRunning()
+{
+    emit refused(tr("The application is not edited while it runs: stop it first"));
 }
 
 InterfaceItem* EditionScene::interfaceAt(const QPointF& position) const

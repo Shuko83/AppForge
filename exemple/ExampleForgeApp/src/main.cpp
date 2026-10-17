@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
 
     // The plugins of the directories of the command line are found before the project looks for its own. open() loads
     // the plugins of the project, instantiates its components, sets their properties and binds their interfaces;
-    // start() initializes and starts them. The application stops them when it is destroyed.
+    // start() starts them. The application stops them when it is destroyed.
     AppForge::ForgeApplication application;
     application.applyCommandLine(parser);
     if(!application.open(projects.constFirst()) || !application.start())
