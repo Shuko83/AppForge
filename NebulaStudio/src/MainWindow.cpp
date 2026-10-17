@@ -38,6 +38,7 @@
 #include "PluginModel.h"
 #include "PluginViewer.h"
 #include "PropertyEditor.h"
+#include "Theme.h"
 
 namespace
 {
@@ -108,6 +109,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     // saved with the values of the edition.
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
     QAction* newAction = fileMenu->addAction(tr("&New"), QKeySequence::New, this, &MainWindow::newProject);
+    newAction->setIcon(icon(GlossaryTerm::Universe)); // An empty application in its place
     QAction* openAction = fileMenu->addAction(tr("&Open..."), QKeySequence::Open, this, &MainWindow::openProject);
     fileMenu->addAction(tr("&Save"), QKeySequence::Save, this, &MainWindow::saveProject);
     fileMenu->addAction(tr("Save &As..."), QKeySequence::SaveAs, this, &MainWindow::saveProjectAs);

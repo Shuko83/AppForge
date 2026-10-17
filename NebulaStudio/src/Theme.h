@@ -5,6 +5,8 @@
 
 #include <QColor>
 #include <QFont>
+#include <QIcon>
+#include <cstdint>
 
 // The visual identity of NebulaStudio, on the theme of space: the night sky and the violets, blues and pinks of a
 // nebula, in a dark scheme and in a light one, its dawn. Its colors are tokens named by what they are for, defined once
@@ -38,3 +40,19 @@ void applyTheme();
 // font, in the family of the titles, Space Grotesk, bold: for the name of what the edition zone shows, and the one of
 // NebulaStudio. Its own family when Space Grotesk could not be loaded.
 [[nodiscard]] QFont titleFont(const QFont& font);
+
+// The terms of the glossary of Nebula (docs/glossary.md) that have an icon.
+enum class GlossaryTerm : std::uint8_t
+{
+    Universe, // The application, the edition zone shows
+    Galaxy,   // A zone
+    Astre,    // A component, and its instances
+    Comet,    // A settings file
+};
+
+// The icon of term, drawn in resources/icons/ in the colors of the zones of the theme, which read over the fields of
+// both schemes. Its SVG is read by the icon engine of Qt Svg.
+[[nodiscard]] QIcon icon(GlossaryTerm term);
+
+// The path of the logo of Nebula in the resources, an SVG: the icon of the windows, and the one on the splash screen.
+[[nodiscard]] QString logoPath();

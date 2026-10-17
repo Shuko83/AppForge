@@ -3,7 +3,11 @@
 
 <RCC version="1.0">
     <qresource prefix="/">
-        <file>nebulastudio.png</file>
+        <file>nebula.svg</file>
+        <file>icons/universe.svg</file>
+        <file>icons/galaxy.svg</file>
+        <file>icons/astre.svg</file>
+        <file>icons/comet.svg</file>
         <file>fonts/SpaceGrotesk-Bold.ttf</file>
     </qresource>
 </RCC>

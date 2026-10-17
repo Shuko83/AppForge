@@ -10,7 +10,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 | --- | --- | --- |
 | `Core/` | `Nebula::Core` (DLL) | Composants, plugins, fabrique, application. En-têtes publics dans `include/Nebula/{Application,Component,Plugin,Settings}/`, sources dans `src/` |
 | `Core/cmake/` | — | `nebula_add_plugin()` et les gabarits `plugin.h.in` / `plugin.json.in`, livrés avec `Core` dans le paquet |
-| `NebulaStudio/` | `NebulaStudio` (exe Widgets) | L'éditeur graphique ; le code est dans `NebulaStudio/src/`, sans namespace, celui des fichiers de réglages dans `NebulaStudio/src/Settings/`, son logo et la police des titres dans `NebulaStudio/resources/` |
+| `NebulaStudio/` | `NebulaStudio` (exe Widgets) | L'éditeur graphique ; le code est dans `NebulaStudio/src/`, sans namespace, celui des fichiers de réglages dans `NebulaStudio/src/Settings/`, le logo de Nebula, les icônes du glossaire et la police des titres dans `NebulaStudio/resources/` |
 | `exemple/ExamplePlugin` | `.nbdl` dans `bin/plugins` | Composant `Greeter` (fournit `greeter` : `IGreeter`) |
 | `exemple/ExternalPlugin` | `.nbdl` dans `<build>/external-plugins` | `Ticker` (fournit `display` : `QWidget`, dont il expose les propriétés dans le groupe `Display`), `ProfileSelector` (fournit `display` : la `QComboBox` de ses `profiles`, où l'utilisateur choisit `profile`) et `Window` (consomme `content` : `QWidget`) |
 | `exemple/ExampleApp` | exe console | Scanne, charge, liste et fait tourner un `Greeter` |
@@ -142,7 +142,7 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 | Classe | Rôle |
 | --- | --- |
-| `Theme` (`Theme.h`) | Fonctions libres, comme `Colors.h` : `ThemeColors`, les jetons de couleur nommés par usage (`space`, `field`, `surface`, `edge`, `text`, `mutedText`, `accent`, `onAccent`…), définis une fois par schéma dans `Theme.cpp` (`themeColors(Qt::ColorScheme)`, sombre si le système ne dit rien) ; `applyTheme()`, appelé par `main.cpp` juste après le `QApplication`, met le style Fusion (le seul qui peint tout aux couleurs de la palette), charge Space Grotesk Bold depuis les ressources et donne à l'application la palette du schéma du système, puis à chaque `QStyleHints::colorSchemeChanged` ; `titleFont(police)` : Space Grotesk gras, la famille de départ en repli, pour les noms des items, l'éditeur de nom, les titres de groupes du `PropertyEditor` et le splash. Chaque texte et son fond, et les bords de ce qui s'utilise, tiennent le niveau AA des WCAG (4,5 et 3) |
+| `Theme` (`Theme.h`) | Fonctions libres, comme `Colors.h` : `ThemeColors`, les jetons de couleur nommés par usage (`space`, `field`, `surface`, `edge`, `text`, `mutedText`, `accent`, `onAccent`…), définis une fois par schéma dans `Theme.cpp` (`themeColors(Qt::ColorScheme)`, sombre si le système ne dit rien) ; `applyTheme()`, appelé par `main.cpp` juste après le `QApplication`, met le style Fusion (le seul qui peint tout aux couleurs de la palette), charge Space Grotesk Bold depuis les ressources et donne à l'application la palette du schéma du système, puis à chaque `QStyleHints::colorSchemeChanged` ; `titleFont(police)` : Space Grotesk gras, la famille de départ en repli, pour les noms des items, l'éditeur de nom, les titres de groupes du `PropertyEditor` et le splash ; `icon(GlossaryTerm)` et `logoPath()`, voir Logo et icônes. Chaque texte et son fond, et les bords de ce qui s'utilise, tiennent le niveau AA des WCAG (4,5 et 3) |
 | `SplashScreen` | `QSplashScreen` dont l'image est peinte aux couleurs de la palette depuis `NebulaStudio_info.h` (produit, version, Qt, compilateur, date de build, copyright) et la licence ; `read()` est émis une fois, deux secondes après son premier affichage ou au premier clic. `main.cpp` le montre (`processEvents()` sans les entrées utilisateur, pour qu'un clic attende la connexion), construit `MainWindow`, puis sur `read()` montre la fenêtre, appelle `finish()` et ouvre le projet passé en argument |
 | `MainWindow` | Possède l'`Universe` (donc le `PluginManager` et les instances) ; `load()`, `unload()` (confirmation quand des instances du plugin sont dans la scène, puis `EditionScene::remove()` et `Universe::unloadPlugin()`), `openPlugin()` ; rafraîchit les modèles après un chargement ou un déchargement. Menus **File** et **Run** (voir plus bas). Barre d'état : `refused` et `told` de la scène, `settingsFileFailed` de l'application. Son destructeur détruit la scène avant l'application |
 | `PluginModel` / `PluginViewer` | Liste des plugins (Name, Version, State ; `IdRole`) et fiche avec boutons **Load** et **Unload** (signaux `loadRequested`, `unloadRequested`) ; `setUnloadAllowed(false)` désactive **Unload** pendant l'exécution |
@@ -159,12 +159,18 @@ Le [README](README.md) documente l'API publique en détail ; ce fichier résume 
 
 Les chaînes affichées passent par `tr()`, en anglais.
 
-**Logo** (`NebulaStudio/resources/`) : `nebulastudio.svg` est la source ; `nebulastudio.png` (256 px) et
-`nebulastudio.ico` (16 à 256 px, entrées PNG) en sont rendus et se refont quand il change. `nebulastudio.png`, par
-`nebulastudio.qrc` (AUTORCC, nommé dans `SOURCES`), est l'icône de toutes les fenêtres :
-`QApplication::setWindowIcon()` au début de `main.cpp`. `nebulastudio.ico`, par `nebulastudio.rc` (`IDI_ICON1`, ajouté
-sous Windows seulement, à côté de la ressource de version de CMakeUtils), est celle de `NebulaStudio.exe`. Pas de Qt
-Svg : il n'y a que des PNG à lire. Le dessin, une enclume, date du nom Forge.
+**Logo et icônes** (`NebulaStudio/resources/`) : `nebula.svg`, le logo de Nebula (une nébuleuse traversée de trois
+astres liés), et `icons/{universe,galaxy,astre,comet}.svg`, une icône par terme du glossaire, sont des SVG aux couleurs
+du thème, compilés par `nebulastudio.qrc` (AUTORCC, nommé dans `SOURCES`). Les icônes n'emploient que les couleurs de
+zones qui gardent 3 contre 1 sur les champs des deux schémas (`#6366F1`, `#C026D3`, `#3B82F6`, `#EC4899`). Qt Svg est
+lié à NebulaStudio (`find_package` dans son `CMakeLists.txt`) : `QSvgRenderer` dessine le logo sur le splash, et son
+moteur d'icônes, déployé par windeployqt (`iconengines/qsvgicon`), lit les `QIcon` des SVG : `logoPath()` pour
+`QApplication::setWindowIcon()` au début de `main.cpp`, `icon(GlossaryTerm)` de `Theme.h` pour **New** (Univers),
+**Add zone** (Galaxy), la liste des composants (Astre, `DecorationRole` de la colonne Name) et les fichiers de réglages
+(Comet : **Add settings file**, **Edit settings file...**, `SettingsDialog`). `nebula.ico` (16 à 256 px, entrées PNG),
+par `nebulastudio.rc` (`IDI_ICON1`, ajouté sous Windows seulement, à côté de la ressource de version de CMakeUtils), est
+l'icône de `NebulaStudio.exe` : rendu du logo, à refaire quand il change, par un petit programme Qt qui le dessine avec
+`QSvgRenderer` à chaque taille et assemble les PNG (pas d'outil dans le dépôt).
 
 **Police** (`NebulaStudio/resources/fonts/`) : `SpaceGrotesk-Bold.ttf`, compilée dans l'exécutable par
 `nebulastudio.qrc`, et sa licence `OFL.txt` (SIL Open Font License 1.1), que `release.yml` copie dans le paquet à côté

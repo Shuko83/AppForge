@@ -24,6 +24,7 @@
 
 #include "Nebula/Application/Universe.h"
 #include "Nebula/Component/ComponentFactory.h"
+#include "Theme.h"
 
 namespace
 {
@@ -43,6 +44,7 @@ SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::Univers
     : QDialog(parent), m_file(file), m_application(application)
 {
     setWindowTitle(tr("Settings file"));
+    setWindowIcon(icon(GlossaryTerm::Comet));
 
     m_fileName = new QLineEdit(file.fileName());
     m_directory = new QLineEdit(file.directory());

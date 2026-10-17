@@ -10,6 +10,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QStringList>
+#include <QSvgRenderer>
 #include <chrono>
 #include <string_view>
 
@@ -40,8 +41,8 @@ QString buildDateText()
     return buildDate.isValid() ? QLocale().toString(buildDate, QLocale::ShortFormat) : text;
 }
 
-// The name of the framework on a band of the highlight color, then the rest of what it says, under it, at the
-// resolution of the screens.
+// The logo and the name of the framework on a band of the highlight color, then the rest of what it says, under it,
+// at the resolution of the screens.
 QPixmap picture()
 {
     const QPalette palette = QApplication::palette();
@@ -70,29 +71,36 @@ QPixmap picture()
     pixmap.fill(palette.color(QPalette::Window));
 
     QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
     painter.fillRect(0, 0, Width, bandHeight, palette.color(QPalette::Highlight));
     painter.setPen(palette.color(QPalette::Mid));
     painter.drawRect(QRect(QPoint(), size).adjusted(0, 0, -1, -1)); // Its edges, whatever is behind it
 
-    // Draws text in the current font and pen, on the line of height whose top is y; returns the top of the next one.
-    const auto drawLine = [&painter](int y, int height, const QString& text)
+    // The logo, as high as the name and the tagline beside it.
+    const int logoSize = titleHeight + lineHeight;
+    QSvgRenderer(logoPath()).render(&painter, QRectF(Margin, Margin, logoSize, logoSize));
+
+    // Draws text in the current font and pen, on the line of height whose top is y, from left to the margin on the
+    // right; returns the top of the next one.
+    const auto drawLine = [&painter](int left, int y, int height, const QString& text)
     {
-        constexpr int TextWidth = Width - 2 * Margin;
-        painter.drawText(QRect(Margin, y, TextWidth, height), Qt::AlignLeft | Qt::AlignVCenter,
-                         painter.fontMetrics().elidedText(text, Qt::ElideRight, TextWidth));
+        const int width = Width - Margin - left;
+        painter.drawText(QRect(left, y, width, height), Qt::AlignLeft | Qt::AlignVCenter,
+                         painter.fontMetrics().elidedText(text, Qt::ElideRight, width));
         return y + height;
     };
+    const int nameLeft = Margin + logoSize + Margin / 2;
     painter.setPen(palette.color(QPalette::HighlightedText));
     painter.setFont(nameFont);
-    const int taglineTop = drawLine(Margin, titleHeight, fromInfo(NebulaStudioInfo::product));
+    const int taglineTop = drawLine(nameLeft, Margin, titleHeight, fromInfo(NebulaStudioInfo::product));
     painter.setFont(font);
-    drawLine(taglineTop, lineHeight, SplashScreen::tr("Build modular applications by assembling components"));
+    drawLine(nameLeft, taglineTop, lineHeight, SplashScreen::tr("Build modular applications by assembling components"));
 
     painter.setPen(palette.color(QPalette::WindowText));
     int top = bandHeight + Margin;
     for(const QString& line : lines)
     {
-        top = drawLine(top, lineHeight, line);
+        top = drawLine(Margin, top, lineHeight, line);
     }
     return pixmap;
 }

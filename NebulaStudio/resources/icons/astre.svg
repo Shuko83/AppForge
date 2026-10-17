@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 Fabien Di Grande -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+
+<!-- Astre, a component: a body with the interfaces NebulaStudio draws on its edges, the one it consumes, a circle on the
+     left, and the one it provides, a disc on the right. In the colors of the zones of the theme, which keep 3 to 1 with
+     the fields of its dark scheme and of its light one. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EC4899"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="6.5" fill="url(#body)"/>
+  <circle cx="3.25" cy="12" r="1.75" fill="none" stroke="#6366F1" stroke-width="1.5"/>
+  <circle cx="21" cy="12" r="2" fill="#EC4899"/>
+</svg>

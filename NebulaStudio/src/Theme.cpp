@@ -116,3 +116,24 @@ QFont titleFont(const QFont& font)
     title.setBold(true);
     return title;
 }
+
+QIcon icon(GlossaryTerm term)
+{
+    switch(term)
+    {
+    case GlossaryTerm::Universe:
+        return QIcon(QStringLiteral(":/icons/universe.svg"));
+    case GlossaryTerm::Galaxy:
+        return QIcon(QStringLiteral(":/icons/galaxy.svg"));
+    case GlossaryTerm::Astre:
+        return QIcon(QStringLiteral(":/icons/astre.svg"));
+    case GlossaryTerm::Comet:
+        return QIcon(QStringLiteral(":/icons/comet.svg"));
+    }
+    return {};
+}
+
+QString logoPath()
+{
+    return QStringLiteral(":/nebula.svg");
+}
