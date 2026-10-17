@@ -46,6 +46,9 @@ class EditionScene : public QGraphicsScene
 
     // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
     [[nodiscard]] Nebula::Component* selectedComponent() const;
+    // Selects component alone, one of the application, and returns what shows it; nullptr, selecting nothing, when it
+    // is not shown.
+    ComponentItem* select(const Nebula::Component& component);
 
     // The application as a project file holds it, see README.md: what Universe::save() writes, with where its
     // components and its settings files are in the edition zone, the color its components were given, and its zones.

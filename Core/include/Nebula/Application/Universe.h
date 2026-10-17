@@ -127,6 +127,9 @@ class CORE_EXPORT Universe : public QObject
 
   signals:
     void runningChanged(bool running);
+    // A component was instantiated, removed, or all of them were: components() no longer holds those removed, which
+    // are destroyed once this returns.
+    void componentsChanged();
     // A settings file was added or removed, or one of them changed, see SettingsFile::changed().
     void settingsFilesChanged();
     // A settings file could not be read or written, see SettingsFile::failed(); why is a sentence to show.

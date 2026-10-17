@@ -27,10 +27,16 @@ struct ThemeColors
     QColor onAccent; // What is written over the accent
     QColor link;
     QColor visitedLink;
+    // What is wrong and has to be fixed, a component that does not work: an amber, written on the surface and the
+    // fields as a text is. The palette has no role for it: it is read from currentThemeColors() when painting.
+    QColor warning;
+    QColor onWarning; // What is written over the warning
 };
 
 // The colors of scheme; the dark ones when the system does not tell its scheme.
 [[nodiscard]] const ThemeColors& themeColors(Qt::ColorScheme scheme);
+// The colors of the scheme the system has now, those applyTheme() gave the palette.
+[[nodiscard]] const ThemeColors& currentThemeColors();
 
 // Gives the application the style that paints everything in the colors of its palette, the font of the titles, and the
 // palette of the color scheme of the system, then again each time that scheme changes. Called once, after the

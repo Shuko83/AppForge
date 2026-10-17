@@ -21,9 +21,9 @@ struct InterfaceInfo;
 
 // An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
 // One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
-// consumes is on its left edge: a circle, with an asterisk after its name when the component needs it. Hovering the dot
-// tells, in its tooltip, whether the interface is provided or consumed, its type, whether it is mandatory and its
-// state; links are drawn from it, see EditionScene.
+// consumes is on its left edge: a circle, with an asterisk after its name when the component needs it, both in the
+// warning color while it is bound to nothing. Hovering the dot tells, in its tooltip, whether the interface is provided
+// or consumed, its type, whether it is mandatory and its state; links are drawn from it, see EditionScene.
 class InterfaceItem : public QGraphicsItem
 {
     Q_DECLARE_TR_FUNCTIONS(InterfaceItem)
@@ -55,7 +55,13 @@ class InterfaceItem : public QGraphicsItem
     // Whether one can be bound to the other: provided and consumed by two components, with the same type.
     [[nodiscard]] bool canLinkTo(const InterfaceItem& other) const;
 
+    // The name of the type of an interface, type being the one of its pointer: QWidget for QWidget*.
+    [[nodiscard]] static QString typeName(QMetaType type);
+
     void setAvailable(bool available);
+    // Whether the component needs it and it is bound to nothing: it is drawn in the warning color, and its tooltip
+    // tells how to bind it.
+    void setMissing(bool missing);
     // Faded, while a link that cannot end on it is being drawn.
     void setDimmed(bool dimmed);
 
@@ -76,6 +82,9 @@ class InterfaceItem : public QGraphicsItem
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
   private:
+    // Tells what it is and its state in its tooltip.
+    void refreshToolTip();
+
     ComponentItem& m_componentItem;
     Kind m_kind;
     QString m_name;
@@ -83,6 +92,7 @@ class InterfaceItem : public QGraphicsItem
     bool m_mandatory;
     qreal m_nameWidth;
     bool m_available = false;
+    bool m_missing = false;
     bool m_dimmed = false;
     QList<LinkItem*> m_links;
 };

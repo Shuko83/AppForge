@@ -8,6 +8,7 @@
 #include <QMetaType>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <functional>
 #include <type_traits>
 #include <utility>
@@ -53,6 +54,9 @@ class CORE_EXPORT Component : public QObject, public IComponent
     void unbindInterface(const QString& name);
     // What name is bound to: nothing when it is unbound, or not an interface it consumes.
     [[nodiscard]] InterfaceBinding binding(const QString& name) const;
+    // The interfaces it consumes as InterfaceRequirement::Mandatory that are bound to nothing, in the order they were
+    // declared: it does not work until each of them is bound. None when it is operational.
+    [[nodiscard]] QStringList unboundMandatoryInterfaces() const;
 
     // The objects added with addPropertiesForQObject() that still live, in the order they were added.
     [[nodiscard]] QList<PropertyObject> propertyObjects() const;
@@ -64,7 +68,8 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // The pointer retrieved from name, which it provides, must no longer be used: the component withdrew it, is about
     // to replace it, or is being destroyed.
     void interfaceUnavailable(const QString& name);
-    // It declared an interface, or one it provides or consumes became available or unavailable.
+    // It declared an interface, one it consumes was bound or unbound, or one it provides or consumes became available
+    // or unavailable.
     void interfacesChanged();
     // An object was added to propertyObjects(), or one of them was destroyed.
     void propertyObjectsChanged();
