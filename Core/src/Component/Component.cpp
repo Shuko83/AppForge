@@ -76,7 +76,10 @@ QList<InterfaceInfo> Component::consumedInterfaces() const
     interfaces.reserve(m_consumedInterfaces.size());
     for(const ConsumedInterface& consumed : m_consumedInterfaces)
     {
-        interfaces.append(InterfaceInfo{.name = consumed.name, .type = consumed.type, .available = consumed.available});
+        interfaces.append(InterfaceInfo{.name = consumed.name,
+                                        .type = consumed.type,
+                                        .available = consumed.available,
+                                        .requirement = consumed.requirement});
     }
     return interfaces;
 }
@@ -212,8 +215,9 @@ bool Component::provide(const QString& name, QMetaType type, void* pointer)
     return true;
 }
 
-bool Component::consume(const QString& name, QMetaType type, std::function<void(void*)> setMember,
-                        std::function<void()> onAvailable, std::function<void()> onUnavailable)
+bool Component::consume(const QString& name, QMetaType type, InterfaceRequirement requirement,
+                        std::function<void(void*)> setMember, std::function<void()> onAvailable,
+                        std::function<void()> onUnavailable)
 {
     if(std::ranges::find(m_consumedInterfaces, name, &ConsumedInterface::name) != m_consumedInterfaces.end())
     {
@@ -223,6 +227,7 @@ bool Component::consume(const QString& name, QMetaType type, std::function<void(
     setMember(nullptr);
     m_consumedInterfaces.append(ConsumedInterface{.name = name,
                                                   .type = type,
+                                                  .requirement = requirement,
                                                   .setMember = std::move(setMember),
                                                   .onAvailable = std::move(onAvailable),
                                                   .onUnavailable = std::move(onUnavailable)});

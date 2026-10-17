@@ -21,8 +21,9 @@ struct InterfaceInfo;
 
 // An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
 // One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
-// consumes is on its left edge: a circle. Hovering the dot tells, in its tooltip, whether the interface is provided or
-// consumed, its type and its state; links are drawn from it, see EditionScene.
+// consumes is on its left edge: a circle, with an asterisk after its name when the component needs it. Hovering the dot
+// tells, in its tooltip, whether the interface is provided or consumed, its type, whether it is mandatory and its
+// state; links are drawn from it, see EditionScene.
 class InterfaceItem : public QGraphicsItem
 {
     Q_DECLARE_TR_FUNCTIONS(InterfaceItem)
@@ -79,6 +80,7 @@ class InterfaceItem : public QGraphicsItem
     Kind m_kind;
     QString m_name;
     QMetaType m_type;
+    bool m_mandatory;
     qreal m_nameWidth;
     bool m_available = false;
     bool m_dimmed = false;
