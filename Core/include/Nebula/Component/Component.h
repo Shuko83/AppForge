@@ -93,9 +93,19 @@ class CORE_EXPORT Component : public QObject, public IComponent
     bool consumeInterface(const QString& name, T*& member, std::function<void()> onAvailable = {},
                           std::function<void()> onUnavailable = {})
     {
+        return consumeInterface<T>(name, member, InterfaceRequirement::Optional, std::move(onAvailable),
+                                   std::move(onUnavailable));
+    }
+
+    // The same, telling whether the component needs name to work: consumedInterfaces() tells it, for who assembles
+    // components, and nothing else changes.
+    template <typename T>
+    bool consumeInterface(const QString& name, T*& member, InterfaceRequirement requirement,
+                          std::function<void()> onAvailable = {}, std::function<void()> onUnavailable = {})
+    {
         return consume(
-            name, QMetaType::fromType<T*>(), [&member](void* pointer) { member = static_cast<T*>(pointer); },
-            std::move(onAvailable), std::move(onUnavailable));
+            name, QMetaType::fromType<T*>(), requirement, [&member](void* pointer)
+            { member = static_cast<T*>(pointer); }, std::move(onAvailable), std::move(onUnavailable));
     }
 
     // Has the properties of object, see PropertyObject::properties(), edited and saved with its own: NebulaStudio edits
@@ -127,6 +137,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     {
         QString name;
         QMetaType type;
+        InterfaceRequirement requirement = InterfaceRequirement::Optional;
         std::function<void(void*)> setMember; // Writes the member given to consumeInterface()
         std::function<void()> onAvailable;
         std::function<void()> onUnavailable;
@@ -140,8 +151,9 @@ class CORE_EXPORT Component : public QObject, public IComponent
     // provideInterface(), type being the one of pointer.
     bool provide(const QString& name, QMetaType type, void* pointer);
     // consumeInterface(), type being the one of the member setMember writes.
-    bool consume(const QString& name, QMetaType type, std::function<void(void*)> setMember,
-                 std::function<void()> onAvailable, std::function<void()> onUnavailable);
+    bool consume(const QString& name, QMetaType type, InterfaceRequirement requirement,
+                 std::function<void(void*)> setMember, std::function<void()> onAvailable,
+                 std::function<void()> onUnavailable);
     // Gives name, which it consumes, the pointer of what it is bound to, when there is one.
     void deliverInterface(const QString& name);
     // Takes its pointer back from name, which it consumes, when it has one.

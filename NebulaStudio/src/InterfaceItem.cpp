@@ -46,7 +46,7 @@ QPen dottedOutline(const QColor& color)
 
 InterfaceItem::InterfaceItem(Kind kind, const Nebula::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent)
     : QGraphicsItem(&parent), m_componentItem(parent), m_kind(kind), m_name(info.name), m_type(info.type),
-      m_nameWidth(nameWidth)
+      m_mandatory(info.requirement == Nebula::InterfaceRequirement::Mandatory), m_nameWidth(nameWidth)
 {
     setFlag(ItemSendsScenePositionChanges); // For its links to follow it
     setAcceptHoverEvents(true);
@@ -98,7 +98,11 @@ void InterfaceItem::setAvailable(bool available)
         typeName.chop(1);
     }
     // What it is, which tells what it can be bound to: the other kind, of the same type.
-    const QString what = (m_kind == Kind::Provided ? tr("Provides %1") : tr("Consumes %1")).arg(typeName);
+    QString what = (m_kind == Kind::Provided ? tr("Provides %1") : tr("Consumes %1")).arg(typeName);
+    if(m_mandatory)
+    {
+        what += u'\n' + tr("Mandatory: the component does not work without it");
+    }
     setToolTip(QStringLiteral("%1\n%2").arg(what, m_available ? tr("Available") : tr("Unavailable")));
     update();
 }
@@ -164,9 +168,12 @@ void InterfaceItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* /*o
 
     const qreal offset = DotRadius + Spacing;
     const QRectF nameRect(provided ? -offset - m_nameWidth : offset, -RowHeight / 2, m_nameWidth, RowHeight);
+    // A mandatory interface is marked as a required field is, by an asterisk after its name, which eliding keeps.
+    const QString mark = m_mandatory ? QStringLiteral(" *") : QString();
+    const QFontMetricsF metrics(painter->font());
+    const QString name = metrics.elidedText(m_name, Qt::ElideRight, nameRect.width() - metrics.horizontalAdvance(mark));
     painter->setPen(color);
-    painter->drawText(nameRect, (provided ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
-                      QFontMetricsF(painter->font()).elidedText(m_name, Qt::ElideRight, nameRect.width()));
+    painter->drawText(nameRect, (provided ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter, name + mark);
 }
 
 void InterfaceItem::hoverEnterEvent(QGraphicsSceneHoverEvent* event)
