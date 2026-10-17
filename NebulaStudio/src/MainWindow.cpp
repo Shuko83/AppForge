@@ -35,6 +35,7 @@
 #include "ComponentModel.h"
 #include "ComponentViewer.h"
 #include "EditionScene.h"
+#include "EditionView.h"
 #include "Nebula/Component/ComponentFactory.h"
 #include "PluginModel.h"
 #include "PluginViewer.h"
@@ -115,6 +116,13 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     QAction* openAction = fileMenu->addAction(tr("&Open..."), QKeySequence::Open, this, &MainWindow::openProject);
     fileMenu->addAction(tr("&Save"), QKeySequence::Save, this, &MainWindow::saveProject);
     fileMenu->addAction(tr("Save &As..."), QKeySequence::SaveAs, this, &MainWindow::saveProjectAs);
+
+    // The zoom of the edition zone, also changed there with + and -, or with Ctrl and the mouse wheel.
+    QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(tr("Zoom &In"), QKeySequence::ZoomIn, this, [this] { m_editionView->zoomIn(); });
+    viewMenu->addAction(tr("Zoom &Out"), QKeySequence::ZoomOut, this, [this] { m_editionView->zoomOut(); });
+    viewMenu->addAction(tr("&Actual Size"), QKeySequence(Qt::CTRL | Qt::Key_0), this,
+                        [this] { m_editionView->resetZoom(); });
 
     QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
     QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
@@ -204,7 +212,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     componentListLayout->addWidget(componentView);
 
     m_scene = new EditionScene(m_application, Nebula::ComponentFactory::instance(), this);
-    m_editionView = new QGraphicsView(m_scene);
+    m_editionView = new EditionView(m_scene);
     m_editionView->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_editionView->setRenderHint(QPainter::Antialiasing);
     m_editionView->setDragMode(QGraphicsView::RubberBandDrag);
@@ -255,6 +263,11 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
 
     statusBar()->addWidget(
         new QLabel(tr("Plugins of %1").arg(QDir::toNativeSeparators(Nebula::PluginManager::defaultDirectory()))));
+    auto* zoomLabel = new QLabel;
+    const auto showZoom = [zoomLabel](qreal zoom) { zoomLabel->setText(tr("Zoom %1%").arg(qRound(zoom * 100))); };
+    showZoom(m_editionView->zoom());
+    connect(m_editionView, &EditionView::zoomChanged, zoomLabel, showZoom);
+    statusBar()->addPermanentWidget(zoomLabel);
     m_pluginView->setCurrentIndex(m_pluginModel->index(0, 0));
     setProjectFile({});
     resize(1440, 800);
