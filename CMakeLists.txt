@@ -21,6 +21,6 @@ if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
 endif()
 
 add_subdirectory(Core)
-add_subdirectory(Forge)
+add_subdirectory(NebulaStudio)
 add_subdirectory(exemple)
 

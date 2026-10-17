@@ -18,7 +18,7 @@ namespace Nebula
 {
 class Component;
 class ComponentFactory;
-class ForgeApplication;
+class Universe;
 } // namespace Nebula
 
 // Edits the properties of a component instantiated in the application, then those of the objects it added with
@@ -34,7 +34,7 @@ class PropertyEditor : public QWidget
 
   public:
     // The components are those of application.
-    PropertyEditor(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
+    PropertyEditor(const Nebula::Universe& application, const Nebula::ComponentFactory& factory,
                    QWidget* parent = nullptr);
 
     // Shows the editable properties of component; none when it is nullptr.
@@ -60,7 +60,7 @@ class PropertyEditor : public QWidget
     // Writes the value edited in item to its property.
     void write(const QTableWidgetItem* item);
 
-    const Nebula::ForgeApplication& m_application;
+    const Nebula::Universe& m_application;
     const Nebula::ComponentFactory& m_factory;
     QPointer<Nebula::Component> m_component;
     QList<Row> m_rows; // One per row of m_table

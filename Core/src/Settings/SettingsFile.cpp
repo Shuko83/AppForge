@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "Application/ProjectJson.h"
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 #include "Nebula/Component/Component.h"
 
 namespace Nebula
@@ -177,7 +177,7 @@ bool writeSettings(const QString& filePath, const QJsonObject& content, QString&
 
 } // namespace
 
-SettingsFile::SettingsFile(ForgeApplication& application, QString fileName)
+SettingsFile::SettingsFile(Universe& application, QString fileName)
     : m_application(application), m_fileName(std::move(fileName))
 {
 }

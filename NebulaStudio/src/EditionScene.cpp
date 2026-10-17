@@ -30,7 +30,7 @@
 #include "ComponentModel.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 #include "Nebula/Component/ComponentFactory.h"
 #include "Settings/SettingsDialog.h"
 #include "Settings/SettingsItem.h"
@@ -85,12 +85,10 @@ InterfaceItem* interfaceNamed(const QList<InterfaceItem*>& interfaces, const QSt
 
 } // namespace
 
-EditionScene::EditionScene(Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
-                           QObject* parent)
+EditionScene::EditionScene(Nebula::Universe& application, const Nebula::ComponentFactory& factory, QObject* parent)
     : QGraphicsScene(SceneRect, parent), m_application(application), m_factory(factory)
 {
-    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this,
-            [this](bool running) { setEditable(!running); });
+    connect(&m_application, &Nebula::Universe::runningChanged, this, [this](bool running) { setEditable(!running); });
 }
 
 Nebula::Component* EditionScene::selectedComponent() const

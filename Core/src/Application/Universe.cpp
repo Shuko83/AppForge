@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -57,39 +57,38 @@ QJsonObject entryJson(const SettingsEntry& entry)
 
 } // namespace
 
-ForgeApplication::ForgeApplication(QObject* parent)
-    : QObject(parent), m_pluginRoot(QCoreApplication::applicationDirPath())
+Universe::Universe(QObject* parent) : QObject(parent), m_pluginRoot(QCoreApplication::applicationDirPath())
 {
     m_plugins.scan();
 }
 
-ForgeApplication::~ForgeApplication()
+Universe::~Universe()
 {
     const QSignalBlocker blocker(this); // Not told to anyone: it is going
     clear();
 }
 
-PluginManager& ForgeApplication::plugins()
+PluginManager& Universe::plugins()
 {
     return m_plugins;
 }
 
-const PluginManager& ForgeApplication::plugins() const
+const PluginManager& Universe::plugins() const
 {
     return m_plugins;
 }
 
-QString ForgeApplication::pluginRoot() const
+QString Universe::pluginRoot() const
 {
     return m_pluginRoot.absolutePath();
 }
 
-void ForgeApplication::setPluginRoot(const QString& directory)
+void Universe::setPluginRoot(const QString& directory)
 {
     m_pluginRoot.setPath(directory);
 }
 
-void ForgeApplication::addCommandLineOptions(QCommandLineParser& parser)
+void Universe::addCommandLineOptions(QCommandLineParser& parser)
 {
     parser.addOption(
         {PluginDirOption,
@@ -103,7 +102,7 @@ void ForgeApplication::addCommandLineOptions(QCommandLineParser& parser)
                       QStringLiteral("directory")});
 }
 
-void ForgeApplication::applyCommandLine(const QCommandLineParser& parser)
+void Universe::applyCommandLine(const QCommandLineParser& parser)
 {
     for(const QString& directory : parser.values(PluginDirOption))
     {
@@ -121,7 +120,7 @@ void ForgeApplication::applyCommandLine(const QCommandLineParser& parser)
     }
 }
 
-std::optional<QJsonObject> ForgeApplication::read(const QString& filePath, QString& error)
+std::optional<QJsonObject> Universe::read(const QString& filePath, QString& error)
 {
     QFile file(filePath);
     if(!file.open(QIODevice::ReadOnly))
@@ -144,7 +143,7 @@ std::optional<QJsonObject> ForgeApplication::read(const QString& filePath, QStri
     return project;
 }
 
-QStringList ForgeApplication::load(const QJsonObject& project)
+QStringList Universe::load(const QJsonObject& project)
 {
     clear();
     QStringList problems;
@@ -270,7 +269,7 @@ QStringList ForgeApplication::load(const QJsonObject& project)
     return problems;
 }
 
-bool ForgeApplication::open(const QString& filePath)
+bool Universe::open(const QString& filePath)
 {
     const std::optional<QJsonObject> project = read(filePath, m_errorString);
     if(!project)
@@ -282,7 +281,7 @@ bool ForgeApplication::open(const QString& filePath)
     return problems.isEmpty();
 }
 
-QJsonObject ForgeApplication::save() const
+QJsonObject Universe::save() const
 {
     std::map<QString, QString> pluginFiles; // By plugin id: each of them once
     QJsonArray components;
@@ -370,7 +369,7 @@ QJsonObject ForgeApplication::save() const
     return project;
 }
 
-Component* ForgeApplication::instantiate(const QString& componentId, const QString& name)
+Component* Universe::instantiate(const QString& componentId, const QString& name)
 {
     const std::optional<ComponentInfo> info = ComponentFactory::instance().component(componentId);
     if(m_running)
@@ -386,7 +385,7 @@ Component* ForgeApplication::instantiate(const QString& componentId, const QStri
     return m_components.emplace_back(std::move(instance)).get();
 }
 
-bool ForgeApplication::rename(Component& instance, const QString& name)
+bool Universe::rename(Component& instance, const QString& name)
 {
     const Component* named = component(name);
     if(m_running || name.isEmpty() || (named != nullptr && named != &instance))
@@ -397,7 +396,7 @@ bool ForgeApplication::rename(Component& instance, const QString& name)
     return true;
 }
 
-bool ForgeApplication::remove(Component& instance)
+bool Universe::remove(Component& instance)
 {
     const auto found = std::ranges::find_if(m_components, [&instance](const std::unique_ptr<Component>& owned)
                                             { return owned.get() == &instance; });
@@ -409,18 +408,18 @@ bool ForgeApplication::remove(Component& instance)
     return true;
 }
 
-const std::vector<std::unique_ptr<Component>>& ForgeApplication::components() const
+const std::vector<std::unique_ptr<Component>>& Universe::components() const
 {
     return m_components;
 }
 
-Component* ForgeApplication::component(const QString& name) const
+Component* Universe::component(const QString& name) const
 {
     const auto found = std::ranges::find(m_components, name, &Component::objectName);
     return found != m_components.end() ? found->get() : nullptr;
 }
 
-QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
+QList<Component*> Universe::componentsOf(const QString& pluginId) const
 {
     QList<Component*> found;
     for(const std::unique_ptr<Component>& instance : m_components)
@@ -434,7 +433,7 @@ QList<Component*> ForgeApplication::componentsOf(const QString& pluginId) const
     return found;
 }
 
-void ForgeApplication::clear()
+void Universe::clear()
 {
     stop();
     m_components.clear();
@@ -445,17 +444,17 @@ void ForgeApplication::clear()
     }
 }
 
-SettingsFile& ForgeApplication::addSettingsFile()
+SettingsFile& Universe::addSettingsFile()
 {
     // Not made with std::make_unique: its constructor is only for the application.
     SettingsFile& file = *m_settingsFiles.emplace_back(new SettingsFile(*this, newSettingsFileName()));
-    connect(&file, &SettingsFile::changed, this, &ForgeApplication::settingsFilesChanged);
-    connect(&file, &SettingsFile::failed, this, &ForgeApplication::settingsFileFailed);
+    connect(&file, &SettingsFile::changed, this, &Universe::settingsFilesChanged);
+    connect(&file, &SettingsFile::failed, this, &Universe::settingsFileFailed);
     emit settingsFilesChanged();
     return file;
 }
 
-void ForgeApplication::removeSettingsFile(SettingsFile& file)
+void Universe::removeSettingsFile(SettingsFile& file)
 {
     const auto found = std::ranges::find_if(m_settingsFiles, [&file](const std::unique_ptr<SettingsFile>& owned)
                                             { return owned.get() == &file; });
@@ -471,19 +470,19 @@ void ForgeApplication::removeSettingsFile(SettingsFile& file)
     emit settingsFilesChanged();
 }
 
-const std::vector<std::unique_ptr<SettingsFile>>& ForgeApplication::settingsFiles() const
+const std::vector<std::unique_ptr<SettingsFile>>& Universe::settingsFiles() const
 {
     return m_settingsFiles;
 }
 
-SettingsFile* ForgeApplication::settingsFile(const SettingsEntry& entry) const
+SettingsFile* Universe::settingsFile(const SettingsEntry& entry) const
 {
     const auto found = std::ranges::find_if(m_settingsFiles, [&entry](const std::unique_ptr<SettingsFile>& file)
                                             { return file->contains(entry); });
     return found != m_settingsFiles.end() ? found->get() : nullptr;
 }
 
-SettingsFile* ForgeApplication::settingsFile(const QString& fileName) const
+SettingsFile* Universe::settingsFile(const QString& fileName) const
 {
     // Whatever its case: two names that only differ by it are the same file where file names do not tell it apart.
     const auto found = std::ranges::find_if(m_settingsFiles, [&fileName](const std::unique_ptr<SettingsFile>& file)
@@ -491,7 +490,7 @@ SettingsFile* ForgeApplication::settingsFile(const QString& fileName) const
     return found != m_settingsFiles.end() ? found->get() : nullptr;
 }
 
-bool ForgeApplication::start()
+bool Universe::start()
 {
     if(m_running)
     {
@@ -524,7 +523,7 @@ bool ForgeApplication::start()
     return true;
 }
 
-void ForgeApplication::stop()
+void Universe::stop()
 {
     for(const std::unique_ptr<Component>& instance : m_components | std::views::reverse)
     {
@@ -537,12 +536,12 @@ void ForgeApplication::stop()
     setRunning(false);
 }
 
-bool ForgeApplication::isRunning() const
+bool Universe::isRunning() const
 {
     return m_running;
 }
 
-bool ForgeApplication::unloadPlugin(const QString& pluginId)
+bool Universe::unloadPlugin(const QString& pluginId)
 {
     if(m_running)
     {
@@ -564,19 +563,19 @@ bool ForgeApplication::unloadPlugin(const QString& pluginId)
     return true;
 }
 
-QString ForgeApplication::errorString() const
+QString Universe::errorString() const
 {
     return m_errorString;
 }
 
-QJsonObject ForgeApplication::savedValues(const QObject& object, const QList<QMetaProperty>& properties) const
+QJsonObject Universe::savedValues(const QObject& object, const QList<QMetaProperty>& properties) const
 {
     const auto edited = std::ranges::find(m_editedValues, &object,
                                           [](const EditedValues& values) -> const QObject* { return values.object; });
     return edited != m_editedValues.end() ? edited->values : writableProperties(object, properties);
 }
 
-void ForgeApplication::keepEditedValues()
+void Universe::keepEditedValues()
 {
     m_editedValues.clear();
     const auto keep = [this](QObject& object, const QList<QMetaProperty>& properties)
@@ -596,7 +595,7 @@ void ForgeApplication::keepEditedValues()
     }
 }
 
-void ForgeApplication::returnToEdition()
+void Universe::returnToEdition()
 {
     for(const std::unique_ptr<SettingsFile>& file : m_settingsFiles | std::views::reverse)
     {
@@ -617,12 +616,12 @@ void ForgeApplication::returnToEdition()
     m_editedValues.clear();
 }
 
-bool ForgeApplication::contains(const QString& name) const
+bool Universe::contains(const QString& name) const
 {
     return component(name) != nullptr;
 }
 
-QString ForgeApplication::newName(const QString& componentName) const
+QString Universe::newName(const QString& componentName) const
 {
     for(int number = 1;; ++number)
     {
@@ -634,7 +633,7 @@ QString ForgeApplication::newName(const QString& componentName) const
     }
 }
 
-QString ForgeApplication::newSettingsFileName() const
+QString Universe::newSettingsFileName() const
 {
     QString name = QStringLiteral("settings.json");
     for(int number = 2; settingsFile(name) != nullptr; ++number)
@@ -644,7 +643,7 @@ QString ForgeApplication::newSettingsFileName() const
     return name;
 }
 
-void ForgeApplication::setRunning(bool running)
+void Universe::setRunning(bool running)
 {
     if(m_running == running)
     {

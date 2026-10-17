@@ -17,7 +17,7 @@ class QTreeWidgetItem;
 namespace Nebula
 {
 class ComponentFactory;
-class ForgeApplication;
+class Universe;
 } // namespace Nebula
 
 // Edits a settings file of the application: the name of its file, its directory, and the properties it holds, checked
@@ -30,12 +30,12 @@ class SettingsDialog : public QDialog
 
   public:
     // file, one of those of application, outlives the dialog.
-    SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeApplication& application,
+    SettingsDialog(Nebula::SettingsFile& file, const Nebula::Universe& application,
                    const Nebula::ComponentFactory& factory, QWidget* parent = nullptr);
 
   private:
     // Lists the properties of the components of application.
-    void fill(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory);
+    void fill(const Nebula::Universe& application, const Nebula::ComponentFactory& factory);
     // Shows where the file is, as its name and its directory are edited; it is not accepted without a name, nor with
     // the one of another file of the application.
     void refreshPath();
@@ -45,7 +45,7 @@ class SettingsDialog : public QDialog
     void apply();
 
     Nebula::SettingsFile& m_file;
-    const Nebula::ForgeApplication& m_application;
+    const Nebula::Universe& m_application;
     QHash<const QTreeWidgetItem*, Nebula::SettingsEntry> m_entries; // The entry each property of the tree is
     QLineEdit* m_fileName = nullptr;
     QLineEdit* m_directory = nullptr;

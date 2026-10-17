@@ -11,11 +11,11 @@
 int main(int argc, char* argv[])
 {
     const QApplication app(argc, argv);
-    QApplication::setWindowIcon(QIcon(QStringLiteral(":/forge.png"))); // Of all its windows, and on the taskbar
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/nebulastudio.png"))); // Of all its windows, and on the taskbar
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    Nebula::ForgeApplication::addCommandLineOptions(parser);
+    Nebula::Universe::addCommandLineOptions(parser);
     parser.addPositionalArgument(QStringLiteral("project"),
                                  QCoreApplication::translate("main", "Project file to open."),
                                  QStringLiteral("[project]"));

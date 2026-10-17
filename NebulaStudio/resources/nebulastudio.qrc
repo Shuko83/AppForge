@@ -3,6 +3,6 @@
 
 <RCC version="1.0">
     <qresource prefix="/">
-        <file>forge.png</file>
+        <file>nebulastudio.png</file>
     </qresource>
 </RCC>

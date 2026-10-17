@@ -15,7 +15,7 @@
 #include <optional>
 #include <utility>
 
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 #include "Nebula/Component/Component.h"
 #include "Nebula/Component/ComponentFactory.h"
 
@@ -54,13 +54,13 @@ bool isEditable(const QMetaProperty& property)
 
 } // namespace
 
-PropertyEditor::PropertyEditor(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
+PropertyEditor::PropertyEditor(const Nebula::Universe& application, const Nebula::ComponentFactory& factory,
                                QWidget* parent)
     : QWidget(parent), m_application(application), m_factory(factory)
 {
     // Which properties are in italics, and whether they are edited.
-    connect(&m_application, &Nebula::ForgeApplication::settingsFilesChanged, this, &PropertyEditor::rebuild);
-    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this, &PropertyEditor::rebuild);
+    connect(&m_application, &Nebula::Universe::settingsFilesChanged, this, &PropertyEditor::rebuild);
+    connect(&m_application, &Nebula::Universe::runningChanged, this, &PropertyEditor::rebuild);
 
     m_placeholder = new QLabel;
     m_placeholder->setAlignment(Qt::AlignCenter);

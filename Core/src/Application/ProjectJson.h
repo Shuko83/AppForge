@@ -19,7 +19,7 @@ class Component;
 } // namespace Nebula
 
 // How a project, and a settings file, hold the properties of the components and of their objects: shared by
-// ForgeApplication and SettingsFile.
+// Universe and SettingsFile.
 namespace Nebula::ProjectJson
 {
 

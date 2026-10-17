@@ -25,10 +25,10 @@ Elle est celle de `.clang-format` : formater un fichier avant de le commiter suf
   porte le préfixe `I` : `IComponent.h`.
 - Les en-têtes publics de Core sont dans `Core/include/Nebula/<Module>/` et s'incluent par ce chemin :
   `#include "Nebula/Component/Component.h"`. Ses sources sont dans `Core/src/<Module>/`.
-- Forge et les exemples gardent en-têtes et sources côte à côte dans `src/`. Les classes d'une même fonctionnalité
-  peuvent y avoir leur sous-dossier, nommé comme un module de Core : `Forge/src/Settings/`. Elles s'incluent alors par
-  ce chemin depuis `src/` : `#include "Settings/SettingsItem.h"` ; une source inclut son propre en-tête par son seul
-  nom.
+- NebulaStudio et les exemples gardent en-têtes et sources côte à côte dans `src/`. Les classes d'une même
+  fonctionnalité peuvent y avoir leur sous-dossier, nommé comme un module de Core : `NebulaStudio/src/Settings/`. Elles
+  s'incluent alors par ce chemin depuis `src/` : `#include "Settings/SettingsItem.h"` ; une source inclut son propre
+  en-tête par son seul nom.
 - Chaque source, en-tête, gabarit et fichier CMake commence par l'en-tête de licence, suivi d'une ligne vide, avec
   `#` à la place de `//` dans un fichier CMake :
 
@@ -72,7 +72,7 @@ que ce dont il a besoin entier.
 - Un accesseur porte le nom de ce qu'il renvoie, sans `get` : `color()`, `setColor()`. Un booléen se lit comme une
   question : `isRunning()`, `canLinkTo()`.
 - Les noms sont en anglais et écrits en entier : `component`, pas `comp`.
-- Core est dans l'espace de noms `Nebula`. Forge et les exemples n'en ont pas.
+- Core est dans l'espace de noms `Nebula`. NebulaStudio et les exemples n'en ont pas.
 - Ce qui ne sert qu'à une source est dans un espace de noms anonyme, en tête de cette source, fermé par
   `} // namespace`.
 
@@ -127,7 +127,7 @@ que ce dont il a besoin entier.
 
 ## Commits, branches et PR
 
-- Commits en français, préfixés : `feat(Forge): …`, `fix(Forge): …`, `refactor: …`, `docs: …`, `build: …`,
+- Commits en français, préfixés : `feat(NebulaStudio): …`, `fix(NebulaStudio): …`, `refactor: …`, `docs: …`, `build: …`,
   `test: …`. Le titre commence par une majuscule et dit ce qui change ; le corps dit pourquoi et cite l'issue.
 - Une branche par issue, `feat/<n°>-<nom-court>` et de même pour `fix`, `docs`, `refactor` ; une PR vers `main`,
   fusionnée en rebase. Rien ne va directement sur `main`.

@@ -22,7 +22,7 @@
 #include <memory>
 #include <optional>
 
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 #include "Nebula/Component/ComponentFactory.h"
 
 namespace
@@ -38,7 +38,7 @@ enum Column : std::uint8_t
 
 } // namespace
 
-SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeApplication& application,
+SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::Universe& application,
                                const Nebula::ComponentFactory& factory, QWidget* parent)
     : QDialog(parent), m_file(file), m_application(application)
 {
@@ -57,7 +57,7 @@ SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeAp
     m_path = new QLabel;
     m_path->setWordWrap(true);
     m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_path->setToolTip(tr("Where the application writes it when it runs here, in Forge"));
+    m_path->setToolTip(tr("Where the application writes it when it runs here, in NebulaStudio"));
 
     auto* form = new QFormLayout;
     form->addRow(tr("File name:"), m_fileName);
@@ -93,7 +93,7 @@ SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeAp
     resize(560, 520);
 }
 
-void SettingsDialog::fill(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory)
+void SettingsDialog::fill(const Nebula::Universe& application, const Nebula::ComponentFactory& factory)
 {
     for(const std::unique_ptr<Nebula::Component>& component : application.components())
     {

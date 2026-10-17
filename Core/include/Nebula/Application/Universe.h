@@ -27,22 +27,22 @@ namespace Nebula
 
 // An application assembled from the components of the plugins, which it runs. It owns the instances of its components,
 // each named, as its objectName, after its component and a number, e.g. Greeter1. It is read from a project file, as
-// Forge writes them, see README.md, or assembled with instantiate() and Component::bindInterface().
+// NebulaStudio writes them, see README.md, or assembled with instantiate() and Component::bindInterface().
 // It is either edited or running, as its components are. While it runs, it is not assembled: its components are
 // neither instantiated, renamed nor removed. What changes their properties meanwhile, its settings files or its
 // components themselves, is undone once it stops: they have the values of the edition again, the ones save() writes.
 // Its settings files hold the properties its user changes while it runs, and finds again the next time: see
 // SettingsFile.
 // It needs a QCoreApplication, and a QApplication as soon as one of its components shows a widget.
-class CORE_EXPORT ForgeApplication : public QObject
+class CORE_EXPORT Universe : public QObject
 {
     Q_OBJECT
 
   public:
     // Finds the plugins of PluginManager::defaultDirectory().
-    explicit ForgeApplication(QObject* parent = nullptr);
+    explicit Universe(QObject* parent = nullptr);
     // Stops it.
-    ~ForgeApplication() override;
+    ~Universe() override;
 
     // The plugins its components are from: those it found, and those the projects it loaded name.
     [[nodiscard]] PluginManager& plugins();

@@ -20,7 +20,7 @@ namespace Nebula
 {
 class Component;
 class ComponentFactory;
-class ForgeApplication;
+class Universe;
 class SettingsFile;
 } // namespace Nebula
 
@@ -35,23 +35,22 @@ class SettingsFile;
 // removes the selected ones.
 // The menu adds a settings file of the application as well, see SettingsItem, whose properties are chosen at once, and
 // again when it is double-clicked or from its own menu, which writes its default values or removes it.
-// None of this is done while the application runs, see ForgeApplication: its components can still be selected, but
+// None of this is done while the application runs, see Universe: its components can still be selected, but
 // nothing is dropped, moved, linked, renamed, recolored, added or removed until it is stopped.
 class EditionScene : public QGraphicsScene
 {
     Q_OBJECT
 
   public:
-    EditionScene(Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
-                 QObject* parent = nullptr);
+    EditionScene(Nebula::Universe& application, const Nebula::ComponentFactory& factory, QObject* parent = nullptr);
 
     // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
     [[nodiscard]] Nebula::Component* selectedComponent() const;
 
-    // The application as a project file holds it, see README.md: what ForgeApplication::save() writes, with where its
+    // The application as a project file holds it, see README.md: what Universe::save() writes, with where its
     // components and its settings files are in the edition zone, the color its components were given, and its zones.
     [[nodiscard]] QJsonObject save() const;
-    // Replaces the application with the one project holds, as save() wrote it, see ForgeApplication::load(), and shows
+    // Replaces the application with the one project holds, as save() wrote it, see Universe::load(), and shows
     // it as it was. Returns what could not be restored, a sentence each: none when everything was.
     QStringList load(const QJsonObject& project);
     // Empties the edition zone, and the application of its components.
@@ -123,7 +122,7 @@ class EditionScene : public QGraphicsScene
     // Removes item, with its links, and its file from the application.
     void remove(SettingsItem& item);
 
-    Nebula::ForgeApplication& m_application;
+    Nebula::Universe& m_application;
     const Nebula::ComponentFactory& m_factory;
     InterfaceItem* m_linkSource = nullptr;      // Where the link being drawn starts; nullptr when none is
     QGraphicsPathItem* m_pendingLink = nullptr; // The link being drawn

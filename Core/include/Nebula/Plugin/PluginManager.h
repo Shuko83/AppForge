@@ -50,7 +50,7 @@ class CORE_EXPORT PluginManager
     bool load(const QString& pluginId);
     // Unloads a plugin it loaded: its components are no longer registered in ComponentFactory::instance(), and its
     // plugin class is destroyed. None of its components may still be instantiated: see
-    // ForgeApplication::unloadPlugin(), which removes them first. It can be loaded again. Returns true when it was not
+    // Universe::unloadPlugin(), which removes them first. It can be loaded again. Returns true when it was not
     // loaded; false, with errorString() set, when it is unknown, and when another manager loaded it, alone or as
     // well: it stays loaded then, for that one.
     bool unload(const QString& pluginId);

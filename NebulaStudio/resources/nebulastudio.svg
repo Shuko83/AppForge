@@ -2,9 +2,9 @@
 <!-- Copyright (C) 2026 Fabien Di Grande -->
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 
-<!-- The logo of Forge: a component forged on an anvil, glowing, with the interfaces Forge draws on its edges: the
-     one it consumes, a circle on the left, and the one it provides, a disc on the right. forge.png and forge.ico are
-     rendered from it. -->
+<!-- The logo of NebulaStudio: a component forged on an anvil, glowing, with the interfaces NebulaStudio draws on its
+     edges: the one it consumes, a circle on the left, and the one it provides, a disc on the right. nebulastudio.png
+     and nebulastudio.ico are rendered from it. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">

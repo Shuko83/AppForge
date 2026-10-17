@@ -16,7 +16,7 @@ namespace Nebula
 {
 
 class Component;
-class ForgeApplication;
+class Universe;
 
 // A property a settings file holds: one of a component of the application, or of one of the objects the component
 // added with Component::addPropertiesForQObject().
@@ -29,7 +29,7 @@ struct SettingsEntry
     [[nodiscard]] bool operator==(const SettingsEntry& other) const = default;
 };
 
-// A file of settings of an application, see ForgeApplication::addSettingsFile(): the values of properties of its
+// A file of settings of an application, see Universe::addSettingsFile(): the values of properties of its
 // components, its entries, which the user of the application changes while it runs and finds again the next time it
 // starts. The value a project gives such a property is its default value.
 // When the application starts, the file gives its values to the properties it holds, once their default values are
@@ -81,7 +81,7 @@ class CORE_EXPORT SettingsFile : public QObject
     [[nodiscard]] QString errorString() const;
 
     // Whether a settings file can hold property of object, component itself or one of its objects: as a project, see
-    // ForgeApplication::save(), the property can be written and JSON holds its value.
+    // Universe::save(), the property can be written and JSON holds its value.
     [[nodiscard]] static bool canHold(const Component& component, const QObject* object, const QString& property);
 
   signals:
@@ -92,7 +92,7 @@ class CORE_EXPORT SettingsFile : public QObject
     void failed(const QString& why);
 
   private:
-    friend class ForgeApplication; // Creates it, starts and stops it
+    friend class Universe; // Creates it, starts and stops it
 
     // An entry, as it was when the application started.
     struct StartedEntry
@@ -102,7 +102,7 @@ class CORE_EXPORT SettingsFile : public QObject
     };
 
     // fileName is one no other file of application has.
-    SettingsFile(ForgeApplication& application, QString fileName);
+    SettingsFile(Universe& application, QString fileName);
 
     // Gives the properties it holds the values of its file, writes their default values to it first when it does not
     // exist or misses some, and follows their changes.
@@ -122,7 +122,7 @@ class CORE_EXPORT SettingsFile : public QObject
     void forget(QObject* object);
 
   private:
-    ForgeApplication& m_application;
+    Universe& m_application;
     QString m_fileName;
     QString m_directory;
     QList<SettingsEntry> m_entries;

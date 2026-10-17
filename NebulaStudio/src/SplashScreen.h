@@ -9,9 +9,9 @@
 class QMouseEvent;
 class QShowEvent;
 
-// Shown while Forge starts: the name and version of Nebula, the Qt and compiler Forge was built with and when, its
-// copyright and its license, in the colors of the palette. It tells when it has been read, a while after it was
-// shown or as soon as it is clicked, and leaves it to the main window to replace it then, with finish().
+// Shown while NebulaStudio starts: the name and version of Nebula, the Qt and compiler NebulaStudio was built with and
+// when, its copyright and its license, in the colors of the palette. It tells when it has been read, a while after it
+// was shown or as soon as it is clicked, and leaves it to the main window to replace it then, with finish().
 class SplashScreen : public QSplashScreen
 {
     Q_OBJECT

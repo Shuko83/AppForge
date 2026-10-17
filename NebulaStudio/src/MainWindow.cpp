@@ -60,7 +60,7 @@ constexpr std::array SearchFields{
     SearchField{QT_TRANSLATE_NOOP("MainWindow", "Category"), ComponentModel::Category, Qt::DisplayRole},
 };
 
-// Where the project files are saved and looked for unless told otherwise: scene/ next to Forge.
+// Where the project files are saved and looked for unless told otherwise: scene/ next to NebulaStudio.
 QString defaultProjectDirectory()
 {
     return QCoreApplication::applicationDirPath() + QStringLiteral("/scene");
@@ -114,10 +114,10 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
 
     QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
     QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
-    QAction* stopAction = runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application,
-                                             &Nebula::ForgeApplication::stop);
+    QAction* stopAction =
+        runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application, &Nebula::Universe::stop);
     stopAction->setEnabled(false);
-    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this,
+    connect(&m_application, &Nebula::Universe::runningChanged, this,
             [this, newAction, openAction, startAction, stopAction](bool running)
             {
                 newAction->setEnabled(!running);
@@ -212,7 +212,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     connect(m_scene, &EditionScene::refused, this, tell);
     connect(m_scene, &EditionScene::told, this, tell);
     // Nor in the middle of a run, which goes on without the file.
-    connect(&m_application, &Nebula::ForgeApplication::settingsFileFailed, this, tell);
+    connect(&m_application, &Nebula::Universe::settingsFileFailed, this, tell);
 
     // The properties of the component selected in the edition zone, under it; the zone takes the room.
     auto* editionSplitter = new QSplitter(Qt::Vertical);
@@ -253,7 +253,7 @@ MainWindow::~MainWindow()
 bool MainWindow::openProjectFile(const QString& filePath)
 {
     QString error;
-    const std::optional<QJsonObject> project = Nebula::ForgeApplication::read(filePath, error);
+    const std::optional<QJsonObject> project = Nebula::Universe::read(filePath, error);
     if(!project)
     {
         // Told before anything is changed.
@@ -372,7 +372,8 @@ void MainWindow::setProjectFile(const QString& filePath)
 {
     m_projectFile = filePath;
     m_savedProject = m_scene->save();
-    setWindowTitle(filePath.isEmpty() ? tr("Forge") : tr("%1 - Forge").arg(QFileInfo(filePath).fileName()));
+    setWindowTitle(filePath.isEmpty() ? tr("NebulaStudio")
+                                      : tr("%1 - NebulaStudio").arg(QFileInfo(filePath).fileName()));
 }
 
 bool MainWindow::saveChanges()
@@ -381,9 +382,9 @@ bool MainWindow::saveChanges()
     {
         return true;
     }
-    const QMessageBox::StandardButton answer =
-        QMessageBox::warning(this, tr("Forge"), tr("The application has been modified.\nDo you want to save it?"),
-                             QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    const QMessageBox::StandardButton answer = QMessageBox::warning(
+        this, tr("NebulaStudio"), tr("The application has been modified.\nDo you want to save it?"),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
     return answer == QMessageBox::Save ? saveProject() : answer == QMessageBox::Discard;
 }
 

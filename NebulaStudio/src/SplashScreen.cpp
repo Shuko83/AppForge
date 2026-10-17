@@ -13,7 +13,7 @@
 #include <chrono>
 #include <string_view>
 
-#include "Forge_info.h"
+#include "NebulaStudio_info.h"
 
 namespace
 {
@@ -31,10 +31,10 @@ QString fromInfo(std::string_view text)
     return QString::fromUtf8(text.data(), static_cast<qsizetype>(text.size()));
 }
 
-// When Forge was built, in the format of the locale; as the compiler wrote it when it cannot be read.
+// When NebulaStudio was built, in the format of the locale; as the compiler wrote it when it cannot be read.
 QString buildDateText()
 {
-    const QString text = fromInfo(ForgeInfo::buildDate).simplified();
+    const QString text = fromInfo(NebulaStudioInfo::buildDate).simplified();
     const QDateTime buildDate = QLocale::c().toDateTime(text, QStringLiteral("MMM d yyyy HH:mm:ss"));
     return buildDate.isValid() ? QLocale().toString(buildDate, QLocale::ShortFormat) : text;
 }
@@ -53,11 +53,12 @@ QPixmap picture()
 
     // Under the band, one per line; an empty one leaves a line's space.
     const QStringList lines = {
-        SplashScreen::tr("Version %1").arg(fromInfo(ForgeInfo::version)),
-        SplashScreen::tr("Built with Qt %1 and %2").arg(fromInfo(ForgeInfo::qtVersion), fromInfo(ForgeInfo::compiler)),
+        SplashScreen::tr("Version %1").arg(fromInfo(NebulaStudioInfo::version)),
+        SplashScreen::tr("Built with Qt %1 and %2")
+            .arg(fromInfo(NebulaStudioInfo::qtVersion), fromInfo(NebulaStudioInfo::compiler)),
         SplashScreen::tr("Built on %1").arg(buildDateText()),
         QString(),
-        fromInfo(ForgeInfo::copyright),
+        fromInfo(NebulaStudioInfo::copyright),
         SplashScreen::tr("Licensed under the Mozilla Public License 2.0"),
     };
 
@@ -83,7 +84,7 @@ QPixmap picture()
     };
     painter.setPen(palette.color(QPalette::HighlightedText));
     painter.setFont(titleFont);
-    const int taglineTop = drawLine(Margin, titleHeight, fromInfo(ForgeInfo::product));
+    const int taglineTop = drawLine(Margin, titleHeight, fromInfo(NebulaStudioInfo::product));
     painter.setFont(font);
     drawLine(taglineTop, lineHeight, SplashScreen::tr("Build modular applications by assembling components"));
 

@@ -98,11 +98,11 @@ class CORE_EXPORT Component : public QObject, public IComponent
             std::move(onAvailable), std::move(onUnavailable));
     }
 
-    // Has the properties of object, see PropertyObject::properties(), edited and saved with its own: Forge edits them
-    // under those of the component, and a project holds their values. Under name when it is not empty, as a group of
-    // their own; the objects added with the same name share a group. For as long as object lives: it need not outlive
-    // the component. A component adds its objects when it is built, so that a project finds them when it is opened.
-    // Does nothing, with a warning, when object is nullptr, the component itself, or already added.
+    // Has the properties of object, see PropertyObject::properties(), edited and saved with its own: NebulaStudio edits
+    // them under those of the component, and a project holds their values. Under name when it is not empty, as a group
+    // of their own; the objects added with the same name share a group. For as long as object lives: it need not
+    // outlive the component. A component adds its objects when it is built, so that a project finds them when it is
+    // opened. Does nothing, with a warning, when object is nullptr, the component itself, or already added.
     void addPropertiesForQObject(QObject* object, const QString& name = {});
 
     // Returning false from onStart() leaves the state unchanged.

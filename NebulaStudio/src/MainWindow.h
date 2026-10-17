@@ -7,7 +7,7 @@
 #include <QMainWindow>
 #include <QString>
 
-#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Application/Universe.h"
 
 class ComponentModel;
 class ComponentViewer;
@@ -31,8 +31,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    // commandLine, when there is one, is the command line of Forge, processed by a parser it was given to
-    // ForgeApplication::addCommandLineOptions(): the plugins of its directories are listed with those of plugins/,
+    // commandLine, when there is one, is the command line of NebulaStudio, processed by a parser it was given to
+    // Universe::addCommandLineOptions(): the plugins of its directories are listed with those of plugins/,
     // and its plugin root is the one of the project files.
     explicit MainWindow(const QCommandLineParser* commandLine = nullptr, QWidget* parent = nullptr);
     ~MainWindow() override;
@@ -73,10 +73,10 @@ class MainWindow : public QMainWindow
     // Starts the application; tells why when it cannot be.
     void start();
 
-    Nebula::ForgeApplication m_application; // What is assembled in the edition zone, with the plugins it is made from
-    QString m_openDirectory;    // Where openPlugin() starts browsing: the directory of the last plugin opened
-    QString m_projectFile;      // Empty until the application is saved to a file, or opened from one
-    QJsonObject m_savedProject; // What m_scene saved when m_projectFile was set
+    Nebula::Universe m_application; // What is assembled in the edition zone, with the plugins it is made from
+    QString m_openDirectory;        // Where openPlugin() starts browsing: the directory of the last plugin opened
+    QString m_projectFile;          // Empty until the application is saved to a file, or opened from one
+    QJsonObject m_savedProject;     // What m_scene saved when m_projectFile was set
     PluginModel* m_pluginModel = nullptr;
     QTreeView* m_pluginView = nullptr;
     EditionScene* m_scene = nullptr;        // Of m_application
