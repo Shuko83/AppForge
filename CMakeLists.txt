@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.19)
 
-project(AppForge VERSION 0.3.0)
+project(Nebula VERSION 0.3.0)
 
 # Before CMakeUtils is included, which writes them in the info files of each target. The copyright is the one of the
 # license, not the one CMakeUtils would build from the organization.
@@ -15,7 +15,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/CMakeUtils/CMakeUtils.cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 # Executables and DLLs side by side, so that Core.dll is found when an application starts;
-# appforge_add_plugin puts the plugins in plugins/ next to them.
+# nebula_add_plugin puts the plugins in plugins/ next to them.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()

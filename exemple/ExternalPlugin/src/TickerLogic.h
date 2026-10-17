@@ -7,7 +7,7 @@
 #include <QObject>
 #include <QTimer>
 
-#include "AppForge/Component/IComponent.h"
+#include "Nebula/Component/IComponent.h"
 
 class Ticker;
 
@@ -22,7 +22,7 @@ class TickerLogic : public QObject
     explicit TickerLogic(Ticker& ticker);
 
   private:
-    void onStateChanged(AppForge::ComponentState state);
+    void onStateChanged(Nebula::ComponentState state);
 
     Ticker& m_ticker;
     QTimer m_timer;

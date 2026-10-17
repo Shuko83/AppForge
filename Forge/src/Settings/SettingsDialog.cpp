@@ -22,8 +22,8 @@
 #include <memory>
 #include <optional>
 
-#include "AppForge/Application/ForgeApplication.h"
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Component/ComponentFactory.h"
 
 namespace
 {
@@ -38,8 +38,8 @@ enum Column : std::uint8_t
 
 } // namespace
 
-SettingsDialog::SettingsDialog(AppForge::SettingsFile& file, const AppForge::ForgeApplication& application,
-                               const AppForge::ComponentFactory& factory, QWidget* parent)
+SettingsDialog::SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeApplication& application,
+                               const Nebula::ComponentFactory& factory, QWidget* parent)
     : QDialog(parent), m_file(file), m_application(application)
 {
     setWindowTitle(tr("Settings file"));
@@ -93,9 +93,9 @@ SettingsDialog::SettingsDialog(AppForge::SettingsFile& file, const AppForge::For
     resize(560, 520);
 }
 
-void SettingsDialog::fill(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory)
+void SettingsDialog::fill(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory)
 {
-    for(const std::unique_ptr<AppForge::Component>& component : application.components())
+    for(const std::unique_ptr<Nebula::Component>& component : application.components())
     {
         auto* componentRow = new QTreeWidgetItem({component->objectName()});
         componentRow->setFlags(Qt::ItemIsEnabled);
@@ -108,14 +108,14 @@ void SettingsDialog::fill(const AppForge::ForgeApplication& application, const A
             for(const QMetaProperty& property : properties)
             {
                 const QString name = QString::fromLatin1(property.name());
-                if(!AppForge::SettingsFile::canHold(*component, object, name))
+                if(!Nebula::SettingsFile::canHold(*component, object, name))
                 {
                     continue;
                 }
-                const AppForge::SettingsEntry entry{.component = component.get(), .object = object, .property = name};
+                const Nebula::SettingsEntry entry{.component = component.get(), .object = object, .property = name};
                 auto* row = new QTreeWidgetItem(parent, {name, property.read(object).toString()});
                 row->setToolTip(PropertyColumn, QString::fromLatin1(property.typeName()));
-                const AppForge::SettingsFile* holder = application.settingsFile(entry);
+                const Nebula::SettingsFile* holder = application.settingsFile(entry);
                 if(holder != nullptr && holder != &m_file)
                 {
                     row->setFlags(Qt::NoItemFlags); // Only one file holds a property
@@ -128,15 +128,15 @@ void SettingsDialog::fill(const AppForge::ForgeApplication& application, const A
             }
         };
 
-        if(const std::optional<AppForge::ComponentInfo> info = factory.component(component->componentId()))
+        if(const std::optional<Nebula::ComponentInfo> info = factory.component(component->componentId()))
         {
             list(componentRow, component.get(), info->properties);
         }
         // Then those of its objects, as the property editor shows them: with its own when they have no name, under a
         // row of their name otherwise.
-        const QList<AppForge::PropertyObject> objects = component->propertyObjects();
+        const QList<Nebula::PropertyObject> objects = component->propertyObjects();
         QStringList names{QString()};
-        for(const AppForge::PropertyObject& added : objects)
+        for(const Nebula::PropertyObject& added : objects)
         {
             if(!names.contains(added.name))
             {
@@ -147,7 +147,7 @@ void SettingsDialog::fill(const AppForge::ForgeApplication& application, const A
         {
             auto* group = name.isEmpty() ? componentRow : new QTreeWidgetItem({name});
             group->setFlags(Qt::ItemIsEnabled);
-            for(const AppForge::PropertyObject& added : objects)
+            for(const Nebula::PropertyObject& added : objects)
             {
                 if(added.name == name)
                 {
@@ -191,7 +191,7 @@ void SettingsDialog::fill(const AppForge::ForgeApplication& application, const A
 void SettingsDialog::refreshPath()
 {
     const QString fileName = m_fileName->text().trimmed();
-    const AppForge::SettingsFile* named = m_application.settingsFile(fileName);
+    const Nebula::SettingsFile* named = m_application.settingsFile(fileName);
     const bool taken = named != nullptr && named != &m_file; // Its own name, whatever its case, is its own
     if(fileName.isEmpty())
     {
@@ -204,7 +204,7 @@ void SettingsDialog::refreshPath()
     else
     {
         m_path->setText(
-            QDir::toNativeSeparators(AppForge::SettingsFile::filePath(fileName, m_directory->text().trimmed())));
+            QDir::toNativeSeparators(Nebula::SettingsFile::filePath(fileName, m_directory->text().trimmed())));
     }
     m_buttons->button(QDialogButtonBox::Ok)->setEnabled(!fileName.isEmpty() && !taken);
 }
@@ -213,8 +213,8 @@ void SettingsDialog::browse()
 {
     // From where the file is now.
     const QString fileName = m_fileName->text().trimmed();
-    const QString current = AppForge::SettingsFile::filePath(fileName.isEmpty() ? m_file.fileName() : fileName,
-                                                             m_directory->text().trimmed());
+    const QString current = Nebula::SettingsFile::filePath(fileName.isEmpty() ? m_file.fileName() : fileName,
+                                                           m_directory->text().trimmed());
     const QString directory = QFileDialog::getExistingDirectory(this, tr("Directory of the settings file"),
                                                                 QFileInfo(current).absolutePath());
     if(!directory.isEmpty())

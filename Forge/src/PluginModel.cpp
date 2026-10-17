@@ -5,9 +5,9 @@
 
 #include <algorithm>
 
-#include "AppForge/Plugin/PluginManager.h"
+#include "Nebula/Plugin/PluginManager.h"
 
-PluginModel::PluginModel(const AppForge::PluginManager& plugins, QObject* parent)
+PluginModel::PluginModel(const Nebula::PluginManager& plugins, QObject* parent)
     : QAbstractTableModel(parent), m_plugins(plugins)
 {
 }
@@ -28,7 +28,7 @@ QVariant PluginModel::data(const QModelIndex& index, int role) const
     {
         return {};
     }
-    const AppForge::PluginInfo& info = m_infos.at(index.row());
+    const Nebula::PluginInfo& info = m_infos.at(index.row());
     if(role == IdRole || role == Qt::ToolTipRole)
     {
         return info.id;
@@ -71,14 +71,14 @@ QVariant PluginModel::headerData(int section, Qt::Orientation orientation, int r
 
 QModelIndex PluginModel::indexOf(const QString& pluginId) const
 {
-    const auto info = std::ranges::find(m_infos, pluginId, &AppForge::PluginInfo::id);
+    const auto info = std::ranges::find(m_infos, pluginId, &Nebula::PluginInfo::id);
     return info == m_infos.end() ? QModelIndex() : index(static_cast<int>(info - m_infos.begin()), 0);
 }
 
 void PluginModel::refresh()
 {
     // PluginManager only adds plugins, and lists them by id: the new ones are inserted where they belong.
-    const QList<AppForge::PluginInfo> plugins = m_plugins.plugins();
+    const QList<Nebula::PluginInfo> plugins = m_plugins.plugins();
     for(qsizetype row = 0; row < plugins.size(); ++row)
     {
         if(row < m_infos.size() && m_infos.at(row).id == plugins.at(row).id)

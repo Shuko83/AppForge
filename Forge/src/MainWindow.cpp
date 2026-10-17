@@ -31,10 +31,10 @@
 #include <cstddef>
 #include <optional>
 
-#include "AppForge/Component/ComponentFactory.h"
 #include "ComponentModel.h"
 #include "ComponentViewer.h"
 #include "EditionScene.h"
+#include "Nebula/Component/ComponentFactory.h"
 #include "PluginModel.h"
 #include "PluginViewer.h"
 #include "PropertyEditor.h"
@@ -100,9 +100,9 @@ QWidget* createPanel(const QString& title, QWidget* view, QWidget* viewer)
 MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     : QMainWindow(parent), m_pluginModel(new PluginModel(m_application.plugins(), this)),
       m_pluginViewer(new PluginViewer(m_application.plugins())),
-      m_componentModel(new ComponentModel(AppForge::ComponentFactory::instance(), this)),
-      m_componentViewer(new ComponentViewer(AppForge::ComponentFactory::instance())),
-      m_propertyEditor(new PropertyEditor(m_application, AppForge::ComponentFactory::instance()))
+      m_componentModel(new ComponentModel(Nebula::ComponentFactory::instance(), this)),
+      m_componentViewer(new ComponentViewer(Nebula::ComponentFactory::instance())),
+      m_propertyEditor(new PropertyEditor(m_application, Nebula::ComponentFactory::instance()))
 {
     // While the application runs, what would replace it is disabled, as is what edits it: see EditionScene. It is
     // saved with the values of the edition.
@@ -115,9 +115,9 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     QMenu* runMenu = menuBar()->addMenu(tr("&Run"));
     QAction* startAction = runMenu->addAction(tr("&Start"), QKeySequence(Qt::Key_F5), this, &MainWindow::start);
     QAction* stopAction = runMenu->addAction(tr("S&top"), QKeySequence(Qt::SHIFT | Qt::Key_F5), &m_application,
-                                             &AppForge::ForgeApplication::stop);
+                                             &Nebula::ForgeApplication::stop);
     stopAction->setEnabled(false);
-    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
+    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this,
             [this, newAction, openAction, startAction, stopAction](bool running)
             {
                 newAction->setEnabled(!running);
@@ -131,7 +131,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     {
         m_application.applyCommandLine(*commandLine);
     }
-    m_openDirectory = AppForge::PluginManager::defaultDirectory();
+    m_openDirectory = Nebula::PluginManager::defaultDirectory();
     m_pluginModel->refresh();
     m_componentModel->refresh();
 
@@ -199,7 +199,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     componentListLayout->addLayout(searchBar);
     componentListLayout->addWidget(componentView);
 
-    m_scene = new EditionScene(m_application, AppForge::ComponentFactory::instance(), this);
+    m_scene = new EditionScene(m_application, Nebula::ComponentFactory::instance(), this);
     m_editionView = new QGraphicsView(m_scene);
     m_editionView->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_editionView->setRenderHint(QPainter::Antialiasing);
@@ -212,7 +212,7 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     connect(m_scene, &EditionScene::refused, this, tell);
     connect(m_scene, &EditionScene::told, this, tell);
     // Nor in the middle of a run, which goes on without the file.
-    connect(&m_application, &AppForge::ForgeApplication::settingsFileFailed, this, tell);
+    connect(&m_application, &Nebula::ForgeApplication::settingsFileFailed, this, tell);
 
     // The properties of the component selected in the edition zone, under it; the zone takes the room.
     auto* editionSplitter = new QSplitter(Qt::Vertical);
@@ -232,8 +232,8 @@ MainWindow::MainWindow(const QCommandLineParser* commandLine, QWidget* parent)
     splitter->setSizes({320, 760, 360});
     setCentralWidget(splitter);
 
-    statusBar()->addWidget(new QLabel(
-        tr("Plugins of %1").arg(QDir::toNativeSeparators(AppForge::PluginManager::defaultDirectory()))));
+    statusBar()->addWidget(
+        new QLabel(tr("Plugins of %1").arg(QDir::toNativeSeparators(Nebula::PluginManager::defaultDirectory()))));
     m_pluginView->setCurrentIndex(m_pluginModel->index(0, 0));
     setProjectFile({});
     resize(1440, 800);
@@ -253,7 +253,7 @@ MainWindow::~MainWindow()
 bool MainWindow::openProjectFile(const QString& filePath)
 {
     QString error;
-    const std::optional<QJsonObject> project = AppForge::ForgeApplication::read(filePath, error);
+    const std::optional<QJsonObject> project = Nebula::ForgeApplication::read(filePath, error);
     if(!project)
     {
         // Told before anything is changed.
@@ -312,11 +312,11 @@ void MainWindow::load(const QString& pluginId)
 
 void MainWindow::unload(const QString& pluginId)
 {
-    const QList<AppForge::Component*> used = m_application.componentsOf(pluginId);
+    const QList<Nebula::Component*> used = m_application.componentsOf(pluginId);
     if(!used.isEmpty())
     {
         QStringList names;
-        for(const AppForge::Component* component : used)
+        for(const Nebula::Component* component : used)
         {
             names.append(component->objectName());
         }
@@ -345,14 +345,14 @@ void MainWindow::unload(const QString& pluginId)
 void MainWindow::openPlugin()
 {
     const QString filePath = QFileDialog::getOpenFileName(this, tr("Open plugin"), m_openDirectory,
-                                                          tr("AppForge plugins (*.afdl);;All files (*)"));
+                                                          tr("Nebula plugins (*.nbdl);;All files (*)"));
     if(filePath.isEmpty())
     {
         return;
     }
     m_openDirectory = QFileInfo(filePath).absolutePath();
 
-    const std::optional<AppForge::PluginInfo> info = m_application.plugins().addFile(filePath);
+    const std::optional<Nebula::PluginInfo> info = m_application.plugins().addFile(filePath);
     if(!info)
     {
         QMessageBox::warning(this, tr("Open plugin"),
@@ -403,10 +403,9 @@ void MainWindow::openProject()
         return;
     }
     // From the directory of its file, when it has one; from the default one otherwise.
-    const QString filePath =
-        QFileDialog::getOpenFileName(this, tr("Open project"),
-                                     m_projectFile.isEmpty() ? defaultProjectDirectory() : m_projectFile,
-                                     tr("AppForge projects (*.afp);;All files (*)"));
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, tr("Open project"), m_projectFile.isEmpty() ? defaultProjectDirectory() : m_projectFile,
+        tr("Nebula projects (*.nbp);;All files (*)"));
     if(!filePath.isEmpty())
     {
         openProjectFile(filePath);
@@ -427,7 +426,7 @@ bool MainWindow::saveProjectAs()
         QDir().mkpath(proposed); // There the first time a project is saved: the dialog would start elsewhere
     }
     const QString filePath =
-        QFileDialog::getSaveFileName(this, tr("Save project"), proposed, tr("AppForge projects (*.afp)"));
+        QFileDialog::getSaveFileName(this, tr("Save project"), proposed, tr("Nebula projects (*.nbp)"));
     return !filePath.isEmpty() && saveProjectFile(filePath);
 }
 

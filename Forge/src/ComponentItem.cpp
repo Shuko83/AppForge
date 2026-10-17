@@ -12,10 +12,10 @@
 #include <QStyleOptionGraphicsItem>
 #include <utility>
 
-#include "AppForge/Component/Component.h"
 #include "Colors.h"
 #include "InterfaceItem.h"
 #include "NameEditor.h"
+#include "Nebula/Component/Component.h"
 
 namespace
 {
@@ -49,19 +49,19 @@ QColor nameColor(const QColor& color, const QPalette& palette)
 
 } // namespace
 
-ComponentItem::ComponentItem(AppForge::Component& component, QString componentName)
+ComponentItem::ComponentItem(Nebula::Component& component, QString componentName)
     : m_component(component), m_componentName(std::move(componentName))
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
     setToolTip(m_component.componentId());
 
-    connect(&m_component, &AppForge::Component::interfacesChanged, this, &ComponentItem::refreshInterfaces);
-    connect(&m_component, &AppForge::Component::stateChanged, this, [this] { update(); }); // Its mark
-    connect(&m_component, &QObject::objectNameChanged, this, [this] { update(); });        // Its name
+    connect(&m_component, &Nebula::Component::interfacesChanged, this, &ComponentItem::refreshInterfaces);
+    connect(&m_component, &Nebula::Component::stateChanged, this, [this] { update(); }); // Its mark
+    connect(&m_component, &QObject::objectNameChanged, this, [this] { update(); });      // Its name
     refreshInterfaces();
 }
 
-AppForge::Component& ComponentItem::component() const
+Nebula::Component& ComponentItem::component() const
 {
     return m_component;
 }
@@ -145,7 +145,7 @@ void ComponentItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
                       StateMark);
     painter->setPen(Qt::NoPen);
     painter->setBrush(nameInk);
-    if(m_component.state() == AppForge::ComponentState::Running)
+    if(m_component.state() == Nebula::ComponentState::Running)
     {
         painter->drawPolygon(QPolygonF({mark.topLeft(), mark.bottomLeft(), QPointF(mark.right(), mark.center().y())}));
     }
@@ -197,7 +197,7 @@ void ComponentItem::refreshInterfaces()
     // The rows start in the padding under the names and leave as much under the last one.
     qreal row = Header.bottom() - Padding / 2 + InterfaceItem::RowHeight / 2;
     // items shows interfaces, of kind, down from row, each on the edge at x.
-    const auto refresh = [&](QList<InterfaceItem*>& items, const QList<AppForge::InterfaceInfo>& interfaces,
+    const auto refresh = [&](QList<InterfaceItem*>& items, const QList<Nebula::InterfaceInfo>& interfaces,
                              InterfaceItem::Kind kind, qreal x)
     {
         for(qsizetype index = 0; index < interfaces.size(); ++index, row += InterfaceItem::RowHeight)

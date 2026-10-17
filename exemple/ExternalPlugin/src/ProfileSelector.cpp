@@ -7,7 +7,7 @@
 
 #include "ExternalPlugin.h"
 
-APPFORGE_REGISTER_COMPONENT(ExternalPlugin, ProfileSelector);
+NEBULA_REGISTER_COMPONENT(ExternalPlugin, ProfileSelector);
 
 QString ProfileSelector::profiles() const
 {

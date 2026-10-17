@@ -10,7 +10,7 @@ class QLabel;
 class QPushButton;
 class QStackedWidget;
 
-namespace AppForge
+namespace Nebula
 {
 class PluginManager;
 }
@@ -21,7 +21,7 @@ class PluginViewer : public QWidget
     Q_OBJECT
 
   public:
-    explicit PluginViewer(const AppForge::PluginManager& plugins, QWidget* parent = nullptr);
+    explicit PluginViewer(const Nebula::PluginManager& plugins, QWidget* parent = nullptr);
 
     // Shows pluginId; nothing when it is empty or unknown.
     void setPluginId(const QString& pluginId);
@@ -38,7 +38,7 @@ class PluginViewer : public QWidget
     void unloadRequested(const QString& pluginId);
 
   private:
-    const AppForge::PluginManager& m_plugins;
+    const Nebula::PluginManager& m_plugins;
     QString m_pluginId;
     bool m_unloadAllowed = true;
 

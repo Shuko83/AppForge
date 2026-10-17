@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    AppForge::ForgeApplication::addCommandLineOptions(parser);
+    Nebula::ForgeApplication::addCommandLineOptions(parser);
     parser.addPositionalArgument(QStringLiteral("project"),
                                  QCoreApplication::translate("main", "Project file to open."),
                                  QStringLiteral("[project]"));

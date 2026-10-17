@@ -7,10 +7,10 @@
 #include <QString>
 #include <QVersionNumber>
 
-namespace AppForge
+namespace Nebula
 {
 
-// Metadata appforge_add_plugin embeds in a plugin, read without loading it, except the build date.
+// Metadata nebula_add_plugin embeds in a plugin, read without loading it, except the build date.
 struct PluginInfo
 {
     QString id;          // <organization>.<project>.<target>
@@ -22,4 +22,4 @@ struct PluginInfo
     QString filePath;
 };
 
-} // namespace AppForge
+} // namespace Nebula

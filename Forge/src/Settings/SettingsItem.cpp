@@ -14,9 +14,9 @@
 #include <QStyleOptionGraphicsItem>
 #include <algorithm>
 
-#include "AppForge/Component/Component.h"
-#include "AppForge/Settings/SettingsFile.h"
 #include "ComponentItem.h"
+#include "Nebula/Component/Component.h"
+#include "Nebula/Settings/SettingsFile.h"
 #include "Settings/SettingsLinkItem.h"
 
 namespace
@@ -34,11 +34,11 @@ constexpr QRectF KindRect(Names.left(), NameRect.bottom(), Names.width(), Names.
 
 // The property of entry as its tooltip lists it: <component>.<property>, with the name of its object between them
 // when it is of a named one.
-QString entryName(const AppForge::SettingsEntry& entry)
+QString entryName(const Nebula::SettingsEntry& entry)
 {
     QString name = entry.component->objectName() + u'.';
-    const QList<AppForge::PropertyObject> objects = entry.component->propertyObjects();
-    const auto object = std::ranges::find(objects, entry.object, &AppForge::PropertyObject::object);
+    const QList<Nebula::PropertyObject> objects = entry.component->propertyObjects();
+    const auto object = std::ranges::find(objects, entry.object, &Nebula::PropertyObject::object);
     if(object != objects.end() && !object->name.isEmpty())
     {
         name += object->name + u'.';
@@ -48,10 +48,10 @@ QString entryName(const AppForge::SettingsEntry& entry)
 
 } // namespace
 
-SettingsItem::SettingsItem(AppForge::SettingsFile& file) : m_file(file)
+SettingsItem::SettingsItem(Nebula::SettingsFile& file) : m_file(file)
 {
     setFlags(ItemIsMovable | ItemIsSelectable);
-    connect(&m_file, &AppForge::SettingsFile::changed, this,
+    connect(&m_file, &Nebula::SettingsFile::changed, this,
             [this]
             {
                 refreshLinks();
@@ -71,7 +71,7 @@ SettingsItem::~SettingsItem()
     }
 }
 
-AppForge::SettingsFile& SettingsItem::file() const
+Nebula::SettingsFile& SettingsItem::file() const
 {
     return m_file;
 }
@@ -139,8 +139,8 @@ void SettingsItem::refreshLinks()
     {
         return;
     }
-    QList<const AppForge::Component*> held; // The components it holds properties of
-    for(const AppForge::SettingsEntry& entry : m_file.entries())
+    QList<const Nebula::Component*> held; // The components it holds properties of
+    for(const Nebula::SettingsEntry& entry : m_file.entries())
     {
         held.append(entry.component);
     }
@@ -172,7 +172,7 @@ void SettingsItem::followLinks()
 void SettingsItem::refreshToolTip()
 {
     QStringList lines{QDir::toNativeSeparators(m_file.filePath())};
-    for(const AppForge::SettingsEntry& entry : m_file.entries())
+    for(const Nebula::SettingsEntry& entry : m_file.entries())
     {
         lines.append(entryName(entry));
     }

@@ -7,7 +7,7 @@
 
 #include "ExternalPlugin.h"
 
-APPFORGE_REGISTER_COMPONENT(ExternalPlugin, Ticker);
+NEBULA_REGISTER_COMPONENT(ExternalPlugin, Ticker);
 
 int Ticker::interval() const
 {

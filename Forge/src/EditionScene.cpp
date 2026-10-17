@@ -26,12 +26,12 @@
 #include <optional>
 #include <vector>
 
-#include "AppForge/Application/ForgeApplication.h"
-#include "AppForge/Component/ComponentFactory.h"
 #include "ComponentItem.h"
 #include "ComponentModel.h"
 #include "InterfaceItem.h"
 #include "LinkItem.h"
+#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Component/ComponentFactory.h"
 #include "Settings/SettingsDialog.h"
 #include "Settings/SettingsItem.h"
 #include "ZoneItem.h"
@@ -85,15 +85,15 @@ InterfaceItem* interfaceNamed(const QList<InterfaceItem*>& interfaces, const QSt
 
 } // namespace
 
-EditionScene::EditionScene(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+EditionScene::EditionScene(Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
                            QObject* parent)
     : QGraphicsScene(SceneRect, parent), m_application(application), m_factory(factory)
 {
-    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this,
+    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this,
             [this](bool running) { setEditable(!running); });
 }
 
-AppForge::Component* EditionScene::selectedComponent() const
+Nebula::Component* EditionScene::selectedComponent() const
 {
     // Only the components can be selected.
     const QList<QGraphicsItem*> selected = selectedItems();
@@ -105,7 +105,7 @@ AppForge::Component* EditionScene::selectedComponent() const
 QJsonObject EditionScene::save() const
 {
     QHash<QString, const ComponentItem*> shown; // The components, by name
-    QHash<const AppForge::SettingsFile*, const SettingsItem*> shownSettings;
+    QHash<const Nebula::SettingsFile*, const SettingsItem*> shownSettings;
     QJsonArray zones;
     // From the first one added: load() adds them in this order, which is then the same again.
     const QList<QGraphicsItem*> added = items(Qt::AscendingOrder);
@@ -150,7 +150,7 @@ QJsonObject EditionScene::save() const
 
     // In the order of the files of the application, as it wrote them.
     QJsonArray settings = project.value(u"settings").toArray();
-    const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
+    const std::vector<std::unique_ptr<Nebula::SettingsFile>>& files = m_application.settingsFiles();
     for(qsizetype index = 0; index < settings.size(); ++index)
     {
         QJsonObject json = settings.at(index).toObject();
@@ -180,8 +180,8 @@ QStringList EditionScene::load(const QJsonObject& project)
         const QJsonObject json = value.toObject();
         saved.insert(json.value(u"name").toString(), json);
     }
-    QHash<const AppForge::Component*, ComponentItem*> shown;
-    for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
+    QHash<const Nebula::Component*, ComponentItem*> shown;
+    for(const std::unique_ptr<Nebula::Component>& component : m_application.components())
     {
         const QJsonObject json = saved.value(component->objectName());
         ComponentItem* item = showComponent(*component, readPosition(json));
@@ -189,11 +189,11 @@ QStringList EditionScene::load(const QJsonObject& project)
         shown.insert(component.get(), item);
     }
     // The links of what the application bound, once every component is shown.
-    for(const std::unique_ptr<AppForge::Component>& component : m_application.components())
+    for(const std::unique_ptr<Nebula::Component>& component : m_application.components())
     {
         for(InterfaceItem* consumed : shown.value(component.get())->consumedInterfaces())
         {
-            const AppForge::InterfaceBinding bound = component->binding(consumed->name());
+            const Nebula::InterfaceBinding bound = component->binding(consumed->name());
             const ComponentItem* provider = shown.value(bound.provider);
             InterfaceItem* provided =
                 provider != nullptr ? interfaceNamed(provider->providedInterfaces(), bound.providedName) : nullptr;
@@ -205,7 +205,7 @@ QStringList EditionScene::load(const QJsonObject& project)
     }
     // Once the components they are joined to are shown: one per file of the project, in its order.
     const QJsonArray settings = project.value(u"settings").toArray();
-    const std::vector<std::unique_ptr<AppForge::SettingsFile>>& files = m_application.settingsFiles();
+    const std::vector<std::unique_ptr<Nebula::SettingsFile>>& files = m_application.settingsFiles();
     for(std::size_t index = 0; index < files.size(); ++index)
     {
         showSettings(*files.at(index), readPosition(settings.at(static_cast<qsizetype>(index)).toObject()));
@@ -227,7 +227,7 @@ void EditionScene::reset()
     m_application.clear();
 }
 
-void EditionScene::remove(const QList<AppForge::Component*>& components)
+void EditionScene::remove(const QList<Nebula::Component*>& components)
 {
     // Found before any goes: its interfaces and their links, which are items too, go with it.
     QList<ComponentItem*> removed;
@@ -259,7 +259,7 @@ void EditionScene::dragMoveEvent(QGraphicsSceneDragDropEvent* event)
 void EditionScene::dropEvent(QGraphicsSceneDragDropEvent* event)
 {
     const QString componentId = QString::fromUtf8(event->mimeData()->data(ComponentModel::MimeType));
-    AppForge::Component* component = m_application.instantiate(componentId);
+    Nebula::Component* component = m_application.instantiate(componentId);
     if(component == nullptr)
     {
         event->ignore();
@@ -577,9 +577,9 @@ void EditionScene::dimLinkTargets(const InterfaceItem* source)
     }
 }
 
-ComponentItem* EditionScene::showComponent(AppForge::Component& component, const QPointF& position)
+ComponentItem* EditionScene::showComponent(Nebula::Component& component, const QPointF& position)
 {
-    const std::optional<AppForge::ComponentInfo> info = m_factory.component(component.componentId());
+    const std::optional<Nebula::ComponentInfo> info = m_factory.component(component.componentId());
     auto* item = new ComponentItem(component, info ? info->name : QString());
     item->setPos(position);
     addItem(item);
@@ -602,7 +602,7 @@ ComponentItem* EditionScene::componentAt(const QPointF& position) const
     return nullptr;
 }
 
-void EditionScene::rename(AppForge::Component& component, const QString& name)
+void EditionScene::rename(Nebula::Component& component, const QString& name)
 {
     // No name is one given up rather than refused.
     if(!name.isEmpty() && !m_application.rename(component, name))
@@ -613,7 +613,7 @@ void EditionScene::rename(AppForge::Component& component, const QString& name)
 
 void EditionScene::remove(ComponentItem& item)
 {
-    AppForge::Component& component = item.component();
+    Nebula::Component& component = item.component();
     item.setSelected(false); // Who listens lets go of the component before it goes
     delete &item;            // With its interfaces, and their links
     m_application.remove(component);
@@ -671,7 +671,7 @@ ZoneItem* EditionScene::addZone(const QPointF& position, const QSizeF& size, con
     return zone;
 }
 
-SettingsItem* EditionScene::showSettings(AppForge::SettingsFile& file, const QPointF& position)
+SettingsItem* EditionScene::showSettings(Nebula::SettingsFile& file, const QPointF& position)
 {
     auto* item = new SettingsItem(file);
     item->setPos(position);
@@ -696,7 +696,7 @@ void EditionScene::editSettings(const SettingsItem& item, QWidget* parent)
 
 void EditionScene::writeDefaults(const SettingsItem& item)
 {
-    AppForge::SettingsFile& file = item.file();
+    Nebula::SettingsFile& file = item.file();
     if(file.writeDefaults())
     {
         emit told(tr("The default values are written to %1").arg(QDir::toNativeSeparators(file.filePath())));
@@ -709,7 +709,7 @@ void EditionScene::writeDefaults(const SettingsItem& item)
 
 void EditionScene::remove(SettingsItem& item)
 {
-    AppForge::SettingsFile& file = item.file();
+    Nebula::SettingsFile& file = item.file();
     item.setSelected(false);
     delete &item; // With its links
     m_application.removeSettingsFile(file);

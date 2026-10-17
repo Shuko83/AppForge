@@ -11,7 +11,7 @@
 class InterfaceItem;
 class NameEditor;
 
-namespace AppForge
+namespace Nebula
 {
 class Component;
 }
@@ -26,9 +26,9 @@ class ComponentItem : public QGraphicsObject
 
   public:
     // component, owned by the application, outlives the item.
-    ComponentItem(AppForge::Component& component, QString componentName);
+    ComponentItem(Nebula::Component& component, QString componentName);
 
-    [[nodiscard]] AppForge::Component& component() const;
+    [[nodiscard]] Nebula::Component& component() const;
     // Its interfaces, in the order of Component::consumedInterfaces() and Component::providedInterfaces().
     [[nodiscard]] const QList<InterfaceItem*>& consumedInterfaces() const;
     [[nodiscard]] const QList<InterfaceItem*>& providedInterfaces() const;
@@ -60,7 +60,7 @@ class ComponentItem : public QGraphicsObject
     // Shows the interfaces of the component as they are now: it only ever declares more of them.
     void refreshInterfaces();
 
-    AppForge::Component& m_component;
+    Nebula::Component& m_component;
     QString m_componentName;
     QColor m_color;
     bool m_editable = true;

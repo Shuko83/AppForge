@@ -7,7 +7,7 @@
 #include <QMetaProperty>
 #include <QString>
 
-namespace AppForge
+namespace Nebula
 {
 
 // What ComponentFactory knows about a registered component, read from its QMetaObject without instantiating it.
@@ -21,4 +21,4 @@ struct ComponentInfo
     QList<QMetaProperty> properties; // Its Q_PROPERTY, not those of QObject and Component
 };
 
-} // namespace AppForge
+} // namespace Nebula

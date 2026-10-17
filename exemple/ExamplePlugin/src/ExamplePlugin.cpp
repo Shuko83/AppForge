@@ -6,7 +6,7 @@
 #include "Greeter.h"
 #include "GreeterLogic.h"
 
-APPFORGE_PLUGIN(ExamplePlugin);
+NEBULA_PLUGIN(ExamplePlugin);
 
 void ExamplePlugin::build(Greeter& greeter)
 {

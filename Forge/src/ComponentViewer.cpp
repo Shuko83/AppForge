@@ -11,7 +11,7 @@
 #include <QVBoxLayout>
 #include <optional>
 
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Component/ComponentFactory.h"
 
 namespace
 {
@@ -28,7 +28,7 @@ QLabel* addField(QFormLayout& form, const QString& name)
 
 } // namespace
 
-ComponentViewer::ComponentViewer(const AppForge::ComponentFactory& factory, QWidget* parent)
+ComponentViewer::ComponentViewer(const Nebula::ComponentFactory& factory, QWidget* parent)
     : QWidget(parent), m_factory(factory)
 {
     auto* placeholder = new QLabel(tr("Select a component"));
@@ -60,7 +60,7 @@ ComponentViewer::ComponentViewer(const AppForge::ComponentFactory& factory, QWid
 
 void ComponentViewer::setComponentId(const QString& componentId)
 {
-    const std::optional<AppForge::ComponentInfo> component = m_factory.component(componentId);
+    const std::optional<Nebula::ComponentInfo> component = m_factory.component(componentId);
     if(!component)
     {
         m_stack->setCurrentWidget(m_placeholder);

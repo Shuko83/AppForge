@@ -13,10 +13,10 @@
 #include <QWidget>
 #include <numbers>
 
-#include "AppForge/Component/InterfaceInfo.h"
 #include "Colors.h"
 #include "ComponentItem.h"
 #include "LinkItem.h"
+#include "Nebula/Component/InterfaceInfo.h"
 
 namespace
 {
@@ -44,7 +44,7 @@ QPen dottedOutline(const QColor& color)
 
 } // namespace
 
-InterfaceItem::InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent)
+InterfaceItem::InterfaceItem(Kind kind, const Nebula::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent)
     : QGraphicsItem(&parent), m_componentItem(parent), m_kind(kind), m_name(info.name), m_type(info.type),
       m_nameWidth(nameWidth)
 {
@@ -78,7 +78,7 @@ const QString& InterfaceItem::name() const
     return m_name;
 }
 
-AppForge::Component& InterfaceItem::component() const
+Nebula::Component& InterfaceItem::component() const
 {
     return m_componentItem.component();
 }

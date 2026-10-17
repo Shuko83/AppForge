@@ -9,15 +9,15 @@
 #include <memory>
 #include <optional>
 
-#include "AppForge/Plugin/PluginInfo.h"
 #include "Core_export.h"
+#include "Nebula/Plugin/PluginInfo.h"
 
 class QPluginLoader;
 
-namespace AppForge
+namespace Nebula
 {
 
-// Finds the plugins built with appforge_add_plugin, loads them on demand and unloads them. It unloads those it loaded
+// Finds the plugins built with nebula_add_plugin, loads them on demand and unloads them. It unloads those it loaded
 // when it is destroyed: it has to outlive the components of its plugins.
 // The library of a plugin stays in memory once loaded, until the application exits, even unloaded: Qt keeps what it
 // learnt from it, the types of its interfaces and of its properties. Unloaded, its file can therefore not be replaced
@@ -31,14 +31,14 @@ class CORE_EXPORT PluginManager
     PluginManager(const PluginManager&) = delete;
     PluginManager& operator=(const PluginManager&) = delete;
 
-    // <application directory>/plugins, where appforge_add_plugin writes the plugins; needs a QCoreApplication.
+    // <application directory>/plugins, where nebula_add_plugin writes the plugins; needs a QCoreApplication.
     [[nodiscard]] static QString defaultDirectory();
 
     // Reads the metadata of the plugins in directory without loading them, and returns the new ones.
-    // Skips, with a warning, a file that is not a compatible AppForge plugin or whose id is already known.
+    // Skips, with a warning, a file that is not a compatible Nebula plugin or whose id is already known.
     QList<PluginInfo> scan(const QString& directory = defaultDirectory());
     // Reads the metadata of the plugin filePath, anywhere on the disk, without loading it, and returns it; returns it
-    // as well when it is already known. nullopt, with errorString() set, when it is not a compatible AppForge plugin
+    // as well when it is already known. nullopt, with errorString() set, when it is not a compatible Nebula plugin
     // or its id is provided by another file.
     std::optional<PluginInfo> addFile(const QString& filePath);
 
@@ -75,4 +75,4 @@ class CORE_EXPORT PluginManager
     QString m_errorString;
 };
 
-} // namespace AppForge
+} // namespace Nebula

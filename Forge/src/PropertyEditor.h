@@ -14,12 +14,12 @@ class QStackedWidget;
 class QTableWidget;
 class QTableWidgetItem;
 
-namespace AppForge
+namespace Nebula
 {
 class Component;
 class ComponentFactory;
 class ForgeApplication;
-} // namespace AppForge
+} // namespace Nebula
 
 // Edits the properties of a component instantiated in the application, then those of the objects it added with
 // Component::addPropertiesForQObject(): with its own when they were added without a name, under the name they were
@@ -34,11 +34,11 @@ class PropertyEditor : public QWidget
 
   public:
     // The components are those of application.
-    PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+    PropertyEditor(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
                    QWidget* parent = nullptr);
 
     // Shows the editable properties of component; none when it is nullptr.
-    void setComponent(AppForge::Component* component);
+    void setComponent(Nebula::Component* component);
 
   private slots:
     // Shows the values the properties have now. A slot: their notify signals are only known as QMetaMethod.
@@ -60,9 +60,9 @@ class PropertyEditor : public QWidget
     // Writes the value edited in item to its property.
     void write(const QTableWidgetItem* item);
 
-    const AppForge::ForgeApplication& m_application;
-    const AppForge::ComponentFactory& m_factory;
-    QPointer<AppForge::Component> m_component;
+    const Nebula::ForgeApplication& m_application;
+    const Nebula::ComponentFactory& m_factory;
+    QPointer<Nebula::Component> m_component;
     QList<Row> m_rows; // One per row of m_table
 
     QStackedWidget* m_stack = nullptr;

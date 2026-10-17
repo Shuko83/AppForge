@@ -16,13 +16,13 @@ class QGraphicsPathItem;
 class SettingsItem;
 class ZoneItem;
 
-namespace AppForge
+namespace Nebula
 {
 class Component;
 class ComponentFactory;
 class ForgeApplication;
 class SettingsFile;
-} // namespace AppForge
+} // namespace Nebula
 
 // The zone where the application is assembled: a component dragged from a ComponentModel and dropped here is
 // instantiated in the application, and shown where it was dropped. Dragging from the dot of an interface to the dot of
@@ -42,11 +42,11 @@ class EditionScene : public QGraphicsScene
     Q_OBJECT
 
   public:
-    EditionScene(AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+    EditionScene(Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
                  QObject* parent = nullptr);
 
     // The component selected, when a single one is; nullptr otherwise. See selectionChanged().
-    [[nodiscard]] AppForge::Component* selectedComponent() const;
+    [[nodiscard]] Nebula::Component* selectedComponent() const;
 
     // The application as a project file holds it, see README.md: what ForgeApplication::save() writes, with where its
     // components and its settings files are in the edition zone, the color its components were given, and its zones.
@@ -57,7 +57,7 @@ class EditionScene : public QGraphicsScene
     // Empties the edition zone, and the application of its components.
     void reset();
     // Removes components, some of the application, from it and from the edition zone, with their links.
-    void remove(const QList<AppForge::Component*>& components);
+    void remove(const QList<Nebula::Component*>& components);
 
   signals:
     // What was just asked of it is not done; why is a sentence to show.
@@ -96,11 +96,11 @@ class EditionScene : public QGraphicsScene
     // Dims the interfaces a link drawn from source cannot be bound to; none when source is nullptr.
     void dimLinkTargets(const InterfaceItem* source);
     // Shows component, one of the application, at position.
-    ComponentItem* showComponent(AppForge::Component& component, const QPointF& position);
+    ComponentItem* showComponent(Nebula::Component& component, const QPointF& position);
     // The component shown at position, or whose interface is; nullptr when there is none.
     [[nodiscard]] ComponentItem* componentAt(const QPointF& position) const;
     // Names component name, as typed in place of its name; tells why through refused() when it cannot be.
-    void rename(AppForge::Component& component, const QString& name);
+    void rename(Nebula::Component& component, const QString& name);
     // Removes item, with the links of its interfaces, and its component from the application.
     void remove(ComponentItem& item);
     // Empties the edition zone, while the components it shows still exist.
@@ -113,7 +113,7 @@ class EditionScene : public QGraphicsScene
     // Adds a zone, its top left corner at position; of the next color when color is not valid.
     ZoneItem* addZone(const QPointF& position, const QSizeF& size, const QString& title, const QColor& color = {});
     // Shows file, one of the application, at position.
-    SettingsItem* showSettings(AppForge::SettingsFile& file, const QPointF& position);
+    SettingsItem* showSettings(Nebula::SettingsFile& file, const QPointF& position);
     // The settings file at position, unless something is shown over it there; nullptr when there is none.
     [[nodiscard]] SettingsItem* settingsAt(const QPointF& position) const;
     // Edits the file of item in a dialog of parent, see SettingsDialog, which is left open once this returns.
@@ -123,8 +123,8 @@ class EditionScene : public QGraphicsScene
     // Removes item, with its links, and its file from the application.
     void remove(SettingsItem& item);
 
-    AppForge::ForgeApplication& m_application;
-    const AppForge::ComponentFactory& m_factory;
+    Nebula::ForgeApplication& m_application;
+    const Nebula::ComponentFactory& m_factory;
     InterfaceItem* m_linkSource = nullptr;      // Where the link being drawn starts; nullptr when none is
     QGraphicsPathItem* m_pendingLink = nullptr; // The link being drawn
     std::size_t m_zoneCount = 0;                // The zones added so far: each takes the next color

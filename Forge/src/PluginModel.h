@@ -7,9 +7,9 @@
 #include <QList>
 #include <cstdint>
 
-#include "AppForge/Plugin/PluginInfo.h"
+#include "Nebula/Plugin/PluginInfo.h"
 
-namespace AppForge
+namespace Nebula
 {
 class PluginManager;
 }
@@ -31,7 +31,7 @@ class PluginModel : public QAbstractTableModel
     // The plugin id, in every column.
     static constexpr int IdRole = Qt::UserRole;
 
-    explicit PluginModel(const AppForge::PluginManager& plugins, QObject* parent = nullptr);
+    explicit PluginModel(const Nebula::PluginManager& plugins, QObject* parent = nullptr);
 
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
     [[nodiscard]] int columnCount(const QModelIndex& parent = {}) const override;
@@ -46,6 +46,6 @@ class PluginModel : public QAbstractTableModel
     void refresh();
 
   private:
-    const AppForge::PluginManager& m_plugins;
-    QList<AppForge::PluginInfo> m_infos; // Sorted by id, as PluginManager::plugins()
+    const Nebula::PluginManager& m_plugins;
+    QList<Nebula::PluginInfo> m_infos; // Sorted by id, as PluginManager::plugins()
 };

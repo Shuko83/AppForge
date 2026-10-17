@@ -5,13 +5,13 @@
 
 #include <QString>
 
-#include "AppForge/Component/Component.h"
+#include "Nebula/Component/Component.h"
 
 class IGreeter;
 
 // Exposes a greeting for its recipient, written when it starts by GreeterLogic, which ExamplePlugin builds it with.
 // While it runs, it provides the interface "greeter", an IGreeter.
-class Greeter : public AppForge::Component
+class Greeter : public Nebula::Component
 {
     Q_OBJECT
     Q_CLASSINFO("description", "Greets its recipient when it starts")

@@ -12,11 +12,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "AppForge/Component/IComponent.h"
-#include "AppForge/Component/PropertyObject.h"
 #include "Core_export.h"
+#include "Nebula/Component/IComponent.h"
+#include "Nebula/Component/PropertyObject.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 class ComponentFactory;
@@ -24,7 +24,7 @@ class Plugin;
 
 // Base of every component: declare its properties with Q_PROPERTY, the interfaces it provides and consumes with
 // provideInterface() and consumeInterface(), and override the on*() hooks.
-// Only its plugin builds a component, when ComponentFactory creates it (see APPFORGE_REGISTER_COMPONENT): elsewhere, a
+// Only its plugin builds a component, when ComponentFactory creates it (see NEBULA_REGISTER_COMPONENT): elsewhere, a
 // class deriving from Component is abstract.
 class CORE_EXPORT Component : public QObject, public IComponent
 {
@@ -58,7 +58,7 @@ class CORE_EXPORT Component : public QObject, public IComponent
     [[nodiscard]] QList<PropertyObject> propertyObjects() const;
 
   signals:
-    void stateChanged(AppForge::ComponentState state);
+    void stateChanged(Nebula::ComponentState state);
     // The pointer of name, which it provides, can be retrieved with providedInterface().
     void interfaceAvailable(const QString& name);
     // The pointer retrieved from name, which it provides, must no longer be used: the component withdrew it, is about
@@ -159,4 +159,4 @@ class CORE_EXPORT Component : public QObject, public IComponent
     QList<PropertyObject> m_propertyObjects;       // In the order they were added
 };
 
-} // namespace AppForge
+} // namespace Nebula

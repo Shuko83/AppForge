@@ -6,7 +6,7 @@
 #include <QDialog>
 #include <QHash>
 
-#include "AppForge/Settings/SettingsFile.h"
+#include "Nebula/Settings/SettingsFile.h"
 
 class QDialogButtonBox;
 class QLabel;
@@ -14,11 +14,11 @@ class QLineEdit;
 class QTreeWidget;
 class QTreeWidgetItem;
 
-namespace AppForge
+namespace Nebula
 {
 class ComponentFactory;
 class ForgeApplication;
-} // namespace AppForge
+} // namespace Nebula
 
 // Edits a settings file of the application: the name of its file, its directory, and the properties it holds, checked
 // among those of the components of the application, then of their objects, that a settings file can hold. A property
@@ -30,12 +30,12 @@ class SettingsDialog : public QDialog
 
   public:
     // file, one of those of application, outlives the dialog.
-    SettingsDialog(AppForge::SettingsFile& file, const AppForge::ForgeApplication& application,
-                   const AppForge::ComponentFactory& factory, QWidget* parent = nullptr);
+    SettingsDialog(Nebula::SettingsFile& file, const Nebula::ForgeApplication& application,
+                   const Nebula::ComponentFactory& factory, QWidget* parent = nullptr);
 
   private:
     // Lists the properties of the components of application.
-    void fill(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory);
+    void fill(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory);
     // Shows where the file is, as its name and its directory are edited; it is not accepted without a name, nor with
     // the one of another file of the application.
     void refreshPath();
@@ -44,9 +44,9 @@ class SettingsDialog : public QDialog
     // Gives the file what was edited.
     void apply();
 
-    AppForge::SettingsFile& m_file;
-    const AppForge::ForgeApplication& m_application;
-    QHash<const QTreeWidgetItem*, AppForge::SettingsEntry> m_entries; // The entry each property of the tree is
+    Nebula::SettingsFile& m_file;
+    const Nebula::ForgeApplication& m_application;
+    QHash<const QTreeWidgetItem*, Nebula::SettingsEntry> m_entries; // The entry each property of the tree is
     QLineEdit* m_fileName = nullptr;
     QLineEdit* m_directory = nullptr;
     QLabel* m_path = nullptr;

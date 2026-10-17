@@ -10,7 +10,7 @@ class QLabel;
 class QStackedWidget;
 class QTreeWidget;
 
-namespace AppForge
+namespace Nebula
 {
 class ComponentFactory;
 }
@@ -21,13 +21,13 @@ class ComponentViewer : public QWidget
     Q_OBJECT
 
   public:
-    explicit ComponentViewer(const AppForge::ComponentFactory& factory, QWidget* parent = nullptr);
+    explicit ComponentViewer(const Nebula::ComponentFactory& factory, QWidget* parent = nullptr);
 
     // Shows componentId; nothing when it is empty or unknown.
     void setComponentId(const QString& componentId);
 
   private:
-    const AppForge::ComponentFactory& m_factory;
+    const Nebula::ComponentFactory& m_factory;
 
     QStackedWidget* m_stack = nullptr;
     QWidget* m_placeholder = nullptr; // Shown when there is no component

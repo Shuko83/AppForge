@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "AppForge/Component/PropertyObject.h"
+#include "Nebula/Component/PropertyObject.h"
 
 #include <QObject>
 
-namespace AppForge
+namespace Nebula
 {
 
 QList<QMetaProperty> PropertyObject::properties() const
@@ -27,4 +27,4 @@ QList<QMetaProperty> PropertyObject::properties() const
     return properties;
 }
 
-} // namespace AppForge
+} // namespace Nebula

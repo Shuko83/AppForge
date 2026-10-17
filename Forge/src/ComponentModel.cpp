@@ -6,9 +6,9 @@
 #include <QMimeData>
 #include <algorithm>
 
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Component/ComponentFactory.h"
 
-ComponentModel::ComponentModel(const AppForge::ComponentFactory& factory, QObject* parent)
+ComponentModel::ComponentModel(const Nebula::ComponentFactory& factory, QObject* parent)
     : QAbstractTableModel(parent), m_factory(factory)
 {
 }
@@ -29,7 +29,7 @@ QVariant ComponentModel::data(const QModelIndex& index, int role) const
     {
         return {};
     }
-    const AppForge::ComponentInfo& component = m_components.at(index.row());
+    const Nebula::ComponentInfo& component = m_components.at(index.row());
     if(role == IdRole)
     {
         return component.id;
@@ -99,11 +99,11 @@ QMimeData* ComponentModel::mimeData(const QModelIndexList& indexes) const
 
 void ComponentModel::refresh()
 {
-    const QList<AppForge::ComponentInfo> components = m_factory.components();
+    const QList<Nebula::ComponentInfo> components = m_factory.components();
     // Those of a plugin unloaded since, the last one first: the rows above it keep their number.
     for(qsizetype row = m_components.size() - 1; row >= 0; --row)
     {
-        if(std::ranges::find(components, m_components.at(row).id, &AppForge::ComponentInfo::id) == components.end())
+        if(std::ranges::find(components, m_components.at(row).id, &Nebula::ComponentInfo::id) == components.end())
         {
             beginRemoveRows({}, static_cast<int>(row), static_cast<int>(row));
             m_components.removeAt(row);

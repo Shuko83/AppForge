@@ -8,9 +8,9 @@
 #include <QString>
 #include <cstdint>
 
-#include "AppForge/Component/InterfaceInfo.h"
+#include "Nebula/Component/InterfaceInfo.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 // The two modes of a component.
@@ -51,4 +51,4 @@ class IComponent
     [[nodiscard]] virtual void* providedPointer(const QString& name, QMetaType type) const = 0;
 };
 
-} // namespace AppForge
+} // namespace Nebula

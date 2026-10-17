@@ -7,7 +7,7 @@
 #include <QMainWindow>
 #include <QString>
 
-#include "AppForge/Application/ForgeApplication.h"
+#include "Nebula/Application/ForgeApplication.h"
 
 class ComponentModel;
 class ComponentViewer;
@@ -73,7 +73,7 @@ class MainWindow : public QMainWindow
     // Starts the application; tells why when it cannot be.
     void start();
 
-    AppForge::ForgeApplication m_application; // What is assembled in the edition zone, with the plugins it is made from
+    Nebula::ForgeApplication m_application; // What is assembled in the edition zone, with the plugins it is made from
     QString m_openDirectory;    // Where openPlugin() starts browsing: the directory of the last plugin opened
     QString m_projectFile;      // Empty until the application is saved to a file, or opened from one
     QJsonObject m_savedProject; // What m_scene saved when m_projectFile was set

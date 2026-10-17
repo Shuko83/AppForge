@@ -7,10 +7,10 @@
 #include <QObject>
 #include <algorithm>
 
-#include "AppForge/Component/Component.h"
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Component/Component.h"
+#include "Nebula/Component/ComponentFactory.h"
 
-namespace AppForge::ProjectJson
+namespace Nebula::ProjectJson
 {
 
 std::optional<QJsonValue> toJson(const QVariant& value)
@@ -100,4 +100,4 @@ QList<QMetaProperty> savedProperties(const Component& component, const QObject* 
     return properties;
 }
 
-} // namespace AppForge::ProjectJson
+} // namespace Nebula::ProjectJson

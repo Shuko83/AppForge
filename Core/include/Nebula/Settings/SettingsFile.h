@@ -12,7 +12,7 @@
 
 #include "Core_export.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 class Component;
@@ -138,4 +138,4 @@ class CORE_EXPORT SettingsFile : public QObject
     bool m_writePending = false;               // Whether values were taken since it last wrote them
 };
 
-} // namespace AppForge
+} // namespace Nebula

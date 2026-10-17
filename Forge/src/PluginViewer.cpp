@@ -13,7 +13,7 @@
 #include <QVBoxLayout>
 #include <optional>
 
-#include "AppForge/Plugin/PluginManager.h"
+#include "Nebula/Plugin/PluginManager.h"
 
 namespace
 {
@@ -28,7 +28,7 @@ QLabel* addField(QFormLayout& form, const QString& name)
     return value;
 }
 
-QString buildDateText(const AppForge::PluginInfo& info, bool loaded)
+QString buildDateText(const Nebula::PluginInfo& info, bool loaded)
 {
     if(!loaded)
     {
@@ -43,8 +43,7 @@ QString buildDateText(const AppForge::PluginInfo& info, bool loaded)
 
 } // namespace
 
-PluginViewer::PluginViewer(const AppForge::PluginManager& plugins, QWidget* parent)
-    : QWidget(parent), m_plugins(plugins)
+PluginViewer::PluginViewer(const Nebula::PluginManager& plugins, QWidget* parent) : QWidget(parent), m_plugins(plugins)
 {
     auto* placeholder = new QLabel(tr("Select a plugin"));
     placeholder->setAlignment(Qt::AlignCenter);
@@ -92,7 +91,7 @@ void PluginViewer::setPluginId(const QString& pluginId)
 
 void PluginViewer::refresh()
 {
-    const std::optional<AppForge::PluginInfo> info = m_plugins.plugin(m_pluginId);
+    const std::optional<Nebula::PluginInfo> info = m_plugins.plugin(m_pluginId);
     if(!info)
     {
         m_stack->setCurrentWidget(m_placeholder);

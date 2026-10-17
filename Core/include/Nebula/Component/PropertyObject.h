@@ -11,7 +11,7 @@
 
 class QObject;
 
-namespace AppForge
+namespace Nebula
 {
 
 // An object whose properties are edited and saved with those of its component: see
@@ -27,4 +27,4 @@ struct CORE_EXPORT PropertyObject
     [[nodiscard]] QList<QMetaProperty> properties() const;
 };
 
-} // namespace AppForge
+} // namespace Nebula

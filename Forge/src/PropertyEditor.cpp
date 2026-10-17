@@ -15,9 +15,9 @@
 #include <optional>
 #include <utility>
 
-#include "AppForge/Application/ForgeApplication.h"
-#include "AppForge/Component/Component.h"
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Application/ForgeApplication.h"
+#include "Nebula/Component/Component.h"
+#include "Nebula/Component/ComponentFactory.h"
 
 namespace
 {
@@ -54,13 +54,13 @@ bool isEditable(const QMetaProperty& property)
 
 } // namespace
 
-PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, const AppForge::ComponentFactory& factory,
+PropertyEditor::PropertyEditor(const Nebula::ForgeApplication& application, const Nebula::ComponentFactory& factory,
                                QWidget* parent)
     : QWidget(parent), m_application(application), m_factory(factory)
 {
     // Which properties are in italics, and whether they are edited.
-    connect(&m_application, &AppForge::ForgeApplication::settingsFilesChanged, this, &PropertyEditor::rebuild);
-    connect(&m_application, &AppForge::ForgeApplication::runningChanged, this, &PropertyEditor::rebuild);
+    connect(&m_application, &Nebula::ForgeApplication::settingsFilesChanged, this, &PropertyEditor::rebuild);
+    connect(&m_application, &Nebula::ForgeApplication::runningChanged, this, &PropertyEditor::rebuild);
 
     m_placeholder = new QLabel;
     m_placeholder->setAlignment(Qt::AlignCenter);
@@ -84,7 +84,7 @@ PropertyEditor::PropertyEditor(const AppForge::ForgeApplication& application, co
     setComponent(nullptr);
 }
 
-void PropertyEditor::setComponent(AppForge::Component* component)
+void PropertyEditor::setComponent(Nebula::Component* component)
 {
     if(m_component != nullptr)
     {
@@ -94,7 +94,7 @@ void PropertyEditor::setComponent(AppForge::Component* component)
     if(component != nullptr)
     {
         connect(component, &QObject::objectNameChanged, this, &PropertyEditor::refreshPlaceholder);
-        connect(component, &AppForge::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
+        connect(component, &Nebula::Component::propertyObjectsChanged, this, &PropertyEditor::rebuild);
     }
     rebuild();
 }
@@ -139,14 +139,14 @@ void PropertyEditor::rebuild()
     };
     if(m_component != nullptr)
     {
-        if(const std::optional<AppForge::ComponentInfo> info = m_factory.component(m_component->componentId()))
+        if(const std::optional<Nebula::ComponentInfo> info = m_factory.component(m_component->componentId()))
         {
             append(m_component, info->properties);
         }
-        const QList<AppForge::PropertyObject> objects = m_component->propertyObjects();
+        const QList<Nebula::PropertyObject> objects = m_component->propertyObjects();
         // No name first, which follows the properties of the component, then each name once, where it first came.
         QStringList names{QString()};
-        for(const AppForge::PropertyObject& added : objects)
+        for(const Nebula::PropertyObject& added : objects)
         {
             if(!names.contains(added.name))
             {
@@ -156,7 +156,7 @@ void PropertyEditor::rebuild()
         for(const QString& name : std::as_const(names))
         {
             const qsizetype title = m_rows.size();
-            for(const AppForge::PropertyObject& added : objects)
+            for(const Nebula::PropertyObject& added : objects)
             {
                 if(added.name == name)
                 {
@@ -198,8 +198,8 @@ void PropertyEditor::rebuild()
         auto* name = new QTableWidgetItem(QString::fromLatin1(shown.property.name()));
         name->setFlags(Qt::ItemIsEnabled);
         name->setToolTip(QString::fromLatin1(shown.property.typeName()));
-        const AppForge::SettingsEntry entry{.component = m_component, .object = shown.object, .property = name->text()};
-        if(const AppForge::SettingsFile* file = m_application.settingsFile(entry))
+        const Nebula::SettingsEntry entry{.component = m_component, .object = shown.object, .property = name->text()};
+        if(const Nebula::SettingsFile* file = m_application.settingsFile(entry))
         {
             QFont font = name->font();
             font.setItalic(true);

@@ -9,12 +9,12 @@
 #include <memory>
 #include <optional>
 
-#include "AppForge/Component/Component.h"
-#include "AppForge/Component/ComponentInfo.h"
-#include "AppForge/Plugin/Plugin.h"
 #include "Core_export.h"
+#include "Nebula/Component/Component.h"
+#include "Nebula/Component/ComponentInfo.h"
+#include "Nebula/Plugin/Plugin.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 // Knows the components of the loaded plugins and is the only way to instantiate them.
@@ -54,4 +54,4 @@ class CORE_EXPORT ComponentFactory
     std::map<QString, Type> m_types; // By id
 };
 
-} // namespace AppForge
+} // namespace Nebula

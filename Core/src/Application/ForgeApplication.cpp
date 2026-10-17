@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Fabien Di Grande
 // SPDX-License-Identifier: MPL-2.0
 
-#include "AppForge/Application/ForgeApplication.h"
+#include "Nebula/Application/ForgeApplication.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -16,10 +16,10 @@
 #include <map>
 #include <ranges>
 
-#include "AppForge/Component/ComponentFactory.h"
+#include "Nebula/Component/ComponentFactory.h"
 #include "ProjectJson.h"
 
-namespace AppForge
+namespace Nebula
 {
 
 namespace
@@ -28,7 +28,7 @@ namespace
 using ProjectJson::writableProperties;
 using ProjectJson::writeProperty;
 
-Q_LOGGING_CATEGORY(lcPlugins, "appforge.plugins")
+Q_LOGGING_CATEGORY(lcPlugins, "nebula.plugins")
 
 // The version of the projects written, the only one read.
 constexpr int ProjectVersion = 1;
@@ -138,7 +138,7 @@ std::optional<QJsonObject> ForgeApplication::read(const QString& filePath, QStri
     }
     if(project.value(u"version").toInt() != ProjectVersion)
     {
-        error = QStringLiteral("It is not an AppForge project of version %1").arg(ProjectVersion);
+        error = QStringLiteral("It is not a Nebula project of version %1").arg(ProjectVersion);
         return std::nullopt;
     }
     return project;
@@ -654,4 +654,4 @@ void ForgeApplication::setRunning(bool running)
     emit runningChanged(running);
 }
 
-} // namespace AppForge
+} // namespace Nebula

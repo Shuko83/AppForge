@@ -13,11 +13,11 @@
 class ComponentItem;
 class LinkItem;
 
-namespace AppForge
+namespace Nebula
 {
 class Component;
 struct InterfaceInfo;
-} // namespace AppForge
+} // namespace Nebula
 
 // An interface of a component, on an edge of its ComponentItem: a dot, with its name next to it, inside the component.
 // One the component provides is on its right edge: a disc while it is available, a dotted circle otherwise. One it
@@ -43,14 +43,14 @@ class InterfaceItem : public QGraphicsItem
     static constexpr qreal RowHeight = 20;
 
     // Its position is the center of its dot, on the edge of parent; its name fits in nameWidth, inside parent.
-    InterfaceItem(Kind kind, const AppForge::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent);
+    InterfaceItem(Kind kind, const Nebula::InterfaceInfo& info, qreal nameWidth, ComponentItem& parent);
     ~InterfaceItem() override;
 
     [[nodiscard]] int type() const override;
     [[nodiscard]] Kind kind() const;
     [[nodiscard]] const QString& name() const;
     // The component it is an interface of.
-    [[nodiscard]] AppForge::Component& component() const;
+    [[nodiscard]] Nebula::Component& component() const;
     // Whether one can be bound to the other: provided and consumed by two components, with the same type.
     [[nodiscard]] bool canLinkTo(const InterfaceItem& other) const;
 

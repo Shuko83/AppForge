@@ -8,7 +8,7 @@
 
 class SettingsLinkItem;
 
-namespace AppForge
+namespace Nebula
 {
 class SettingsFile;
 }
@@ -23,11 +23,11 @@ class SettingsItem : public QGraphicsObject
 
   public:
     // file, owned by the application, outlives the item.
-    explicit SettingsItem(AppForge::SettingsFile& file);
+    explicit SettingsItem(Nebula::SettingsFile& file);
     // With its links.
     ~SettingsItem() override;
 
-    [[nodiscard]] AppForge::SettingsFile& file() const;
+    [[nodiscard]] Nebula::SettingsFile& file() const;
     // Called by link as it is deleted.
     void removeLink(SettingsLinkItem& link);
 
@@ -46,6 +46,6 @@ class SettingsItem : public QGraphicsObject
     // Tells where its file is and which properties it holds.
     void refreshToolTip();
 
-    AppForge::SettingsFile& m_file;
+    Nebula::SettingsFile& m_file;
     QList<SettingsLinkItem*> m_links; // In its scene rather than its children: under the components
 };

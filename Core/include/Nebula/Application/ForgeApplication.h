@@ -15,14 +15,14 @@
 #include <optional>
 #include <vector>
 
-#include "AppForge/Component/Component.h"
-#include "AppForge/Plugin/PluginManager.h"
-#include "AppForge/Settings/SettingsFile.h"
 #include "Core_export.h"
+#include "Nebula/Component/Component.h"
+#include "Nebula/Plugin/PluginManager.h"
+#include "Nebula/Settings/SettingsFile.h"
 
 class QCommandLineParser;
 
-namespace AppForge
+namespace Nebula
 {
 
 // An application assembled from the components of the plugins, which it runs. It owns the instances of its components,
@@ -166,4 +166,4 @@ class CORE_EXPORT ForgeApplication : public QObject
     QString m_errorString;
 };
 
-} // namespace AppForge
+} // namespace Nebula

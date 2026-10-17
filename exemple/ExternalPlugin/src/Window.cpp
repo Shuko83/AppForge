@@ -7,7 +7,7 @@
 
 #include "ExternalPlugin.h"
 
-APPFORGE_REGISTER_COMPONENT(ExternalPlugin, Window);
+NEBULA_REGISTER_COMPONENT(ExternalPlugin, Window);
 
 Window::Window()
 {

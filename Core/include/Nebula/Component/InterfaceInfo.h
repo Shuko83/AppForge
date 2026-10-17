@@ -6,7 +6,7 @@
 #include <QMetaType>
 #include <QString>
 
-namespace AppForge
+namespace Nebula
 {
 
 // An interface of a component: a pointer it provides under a name, see Component::provideInterface(), or one it
@@ -27,4 +27,4 @@ struct InterfaceBinding
     QString providedName;          // What provider provides it as
 };
 
-} // namespace AppForge
+} // namespace Nebula
